@@ -8,6 +8,7 @@ import { OnboardingScreen } from '../screens/auth/OnboardingScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { RegisterScreen } from '../screens/auth/RegisterScreen';
 import { TabNavigator } from './TabNavigator';
+import { BudgetScreen } from '../screens/budget/BudgetScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -29,7 +30,10 @@ export function RootNavigator() {
                     <Stack.Screen name="Register" component={RegisterScreen} />
                 </>
             ) : (
-                <Stack.Screen name="Main" component={TabNavigator} />
+                <>
+                    <Stack.Screen name="Main" component={TabNavigator} />
+                    <Stack.Screen name="Budget" component={BudgetScreen} />
+                </>
             )}
         </Stack.Navigator>
     );

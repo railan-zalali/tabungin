@@ -10,6 +10,12 @@ import {
     fetchSavingLogs,
     insertSavingLog,
 } from '../database/savingQueries';
+import {
+    scheduleGoalReminder,
+    cancelGoalReminder,
+    rescheduleAllReminders,
+    sendGoalCompletedNotification,
+} from '../utils/notificationService';
 
 interface SavingState {
     goals: SavingGoal[];
@@ -49,6 +55,8 @@ export const useSavingStore = create<SavingState>((set, get) => ({
                 activeGoals: all.filter((g) => !g.is_completed),
                 completedGoals: all.filter((g) => g.is_completed),
             });
+            // Re-schedule semua reminder untuk goals aktif
+            await rescheduleAllReminders(all);
         } finally {
             set({ isLoading: false });
         }
@@ -66,12 +74,24 @@ export const useSavingStore = create<SavingState>((set, get) => ({
 
     addGoal: async (data) => {
         const goal = await insertSavingGoal(data);
+        if (goal.reminder_enabled) {
+            await scheduleGoalReminder(goal);
+        }
         await get().loadGoals();
         return goal;
     },
 
     editGoal: async (id, data) => {
         await updateSavingGoal(id, data);
+        // Re-schedule / cancel reminder berdasarkan setting terbaru
+        const updated = await fetchSavingGoalById(id);
+        if (updated) {
+            if (updated.reminder_enabled) {
+                await scheduleGoalReminder(updated);
+            } else {
+                await cancelGoalReminder(id);
+            }
+        }
         await get().loadGoals();
         if (get().currentGoal?.id === id) {
             await get().loadGoalById(id);
@@ -79,6 +99,7 @@ export const useSavingStore = create<SavingState>((set, get) => ({
     },
 
     removeGoal: async (id) => {
+        await cancelGoalReminder(id);
         await deleteSavingGoal(id);
         set((state) => ({
             goals: state.goals.filter((g) => g.id !== id),
@@ -96,6 +117,9 @@ export const useSavingStore = create<SavingState>((set, get) => ({
             const wasAlreadyCompleted = get().goals.find((g) => g.id === data.goal_id)?.is_completed;
             if (!wasAlreadyCompleted) {
                 set({ justCompletedGoalId: data.goal_id });
+                // Kirim notifikasi goal tercapai dan cancel reminder-nya
+                await sendGoalCompletedNotification(updatedGoal);
+                await cancelGoalReminder(data.goal_id);
             }
         }
 

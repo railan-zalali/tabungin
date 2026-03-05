@@ -76,7 +76,14 @@ export async function insertSavingGoal(
 
 /**
  * Update saving goal
+ * Hanya kolom pada whitelist yang boleh diupdate (mencegah SQL injection via field names)
  */
+const GOAL_UPDATABLE_FIELDS: ReadonlySet<string> = new Set([
+    'name', 'target_amount', 'current_amount', 'emoji', 'photo_uri',
+    'saving_per_period', 'period_type', 'color', 'start_date', 'estimated_date',
+    'is_completed', 'reminder_enabled', 'reminder_time',
+]);
+
 export async function updateSavingGoal(
     id: string,
     data: Partial<Omit<SavingGoal, 'id' | 'created_at'>>
@@ -85,6 +92,7 @@ export async function updateSavingGoal(
     const mapped: Record<string, string | number | null> = {};
 
     for (const [key, value] of Object.entries(data)) {
+        if (!GOAL_UPDATABLE_FIELDS.has(key)) continue; // skip kolom tidak dikenal
         if (key === 'is_completed' || key === 'reminder_enabled') {
             mapped[key] = value ? 1 : 0;
         } else {
@@ -92,6 +100,7 @@ export async function updateSavingGoal(
         }
     }
 
+    if (Object.keys(mapped).length === 0) return;
     const fields = Object.keys(mapped).map((k) => `${k} = ?`).join(', ');
     const values = [...Object.values(mapped), id];
     await db.runAsync(`UPDATE saving_goals SET ${fields} WHERE id = ?`, values);
@@ -117,7 +126,8 @@ export async function fetchSavingLogs(goalId: string): Promise<SavingLog[]> {
 }
 
 /**
- * Tambah log tabungan dan update current_amount pada goal
+ * Tambah log tabungan dan update current_amount pada goal.
+ * Seluruh operasi dijalankan dalam satu SQLite transaction (atomic).
  */
 export async function insertSavingLog(
     data: Omit<SavingLog, 'id' | 'created_at'>
@@ -126,25 +136,23 @@ export async function insertSavingLog(
     const id = uuidv4();
     const created_at = Date.now();
 
-    await db.runAsync(
-        'INSERT INTO saving_logs (id, goal_id, amount, note, date, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-        [id, data.goal_id, data.amount, data.note || null, data.date, created_at]
-    );
-
-    // Update current_amount pada goal
-    await db.runAsync(
-        'UPDATE saving_goals SET current_amount = current_amount + ? WHERE id = ?',
-        [data.amount, data.goal_id]
-    );
-
-    // Cek apakah goal sudah tercapai
-    const goal = await fetchSavingGoalById(data.goal_id);
-    if (goal && goal.current_amount >= goal.target_amount) {
+    // Lakukan INSERT + UPDATE dalam satu transaction agar atomic
+    await db.withTransactionAsync(async () => {
         await db.runAsync(
-            'UPDATE saving_goals SET is_completed = 1 WHERE id = ?',
+            'INSERT INTO saving_logs (id, goal_id, amount, note, date, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+            [id, data.goal_id, data.amount, data.note || null, data.date, created_at]
+        );
+        await db.runAsync(
+            'UPDATE saving_goals SET current_amount = current_amount + ? WHERE id = ?',
+            [data.amount, data.goal_id]
+        );
+        // Tandai goal selesai jika current_amount >= target_amount
+        await db.runAsync(
+            `UPDATE saving_goals SET is_completed = 1
+             WHERE id = ? AND is_completed = 0 AND current_amount >= target_amount`,
             [data.goal_id]
         );
-    }
+    });
 
     return { id, created_at, ...data };
 }

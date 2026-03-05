@@ -89,14 +89,21 @@ export async function deleteTransaction(id: string): Promise<void> {
 
 /**
  * Update transaksi
+ * Hanya kolom yang ada di whitelist yang boleh diupdate (mencegah SQL injection)
  */
+const TRANSACTION_UPDATABLE_FIELDS: ReadonlySet<string> = new Set([
+    'type', 'amount', 'category', 'note', 'date',
+]);
+
 export async function updateTransaction(
     id: string,
     data: Partial<Omit<Transaction, 'id' | 'created_at'>>
 ): Promise<void> {
     const db = await getDatabase();
-    const fields = Object.keys(data).map((k) => `${k} = ?`).join(', ');
-    const values = [...Object.values(data), id];
+    const safeEntries = Object.entries(data).filter(([key]) => TRANSACTION_UPDATABLE_FIELDS.has(key));
+    if (safeEntries.length === 0) return;
+    const fields = safeEntries.map(([key]) => `${key} = ?`).join(', ');
+    const values = [...safeEntries.map(([, val]) => val), id];
     await db.runAsync(`UPDATE transactions SET ${fields} WHERE id = ?`, values as (string | number | null)[]);
 }
 

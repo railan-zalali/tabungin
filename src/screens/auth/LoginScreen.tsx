@@ -24,9 +24,9 @@ import type { RootStackParamList } from '../../types/navigation';
 
 export function LoginScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-    const { login, loginOffline } = useAuthStore();
-    const [email, setEmail] = useState('budi@email.com');
-    const [password, setPassword] = useState('password123');
+    const { login, loginOffline, authError, clearError } = useAuthStore();
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
     const [isLoading, setIsLoading] = useState(false);
 
@@ -47,13 +47,15 @@ export function LoginScreen() {
         }
         setIsLoading(true);
         try {
-            await login(email, 'Budi Santoso');
+            const ok = await login(email.trim(), password);
+            if (!ok) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         } finally {
             setIsLoading(false);
         }
     };
 
     const handleOffline = async () => {
+        clearError();
         setIsLoading(true);
         try {
             await loginOffline();
@@ -109,6 +111,13 @@ export function LoginScreen() {
                                 required
                             />
                         </View>
+
+                        {/* Error dari store */}
+                        {authError && (
+                            <View style={styles.errorBanner} accessible={true} accessibilityRole="alert">
+                                <Text style={styles.errorBannerText} allowFontScaling={true}>{authError}</Text>
+                            </View>
+                        )}
 
                         <Button
                             label="Masuk"
@@ -178,6 +187,14 @@ const styles = StyleSheet.create({
     heading: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: Colors.textPrimary },
     subHeading: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: Colors.textSecondary, marginBottom: 8 },
     fields: { gap: 14 },
+    errorBanner: {
+        backgroundColor: '#FEF2F2',
+        borderRadius: 10,
+        borderLeftWidth: 3,
+        borderLeftColor: Colors.danger,
+        padding: 12,
+    },
+    errorBannerText: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: Colors.danger },
     divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 4 },
     dividerLine: { flex: 1, height: 1, backgroundColor: Colors.border },
     dividerText: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: Colors.textSecondary },

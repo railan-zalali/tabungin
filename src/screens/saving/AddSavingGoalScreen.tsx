@@ -15,6 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { GOAL_COLORS } from '../../constants/categories';
@@ -41,6 +42,7 @@ export function AddSavingGoalScreen() {
     const [emoji, setEmoji] = useState('🎯');
     const [color, setColor] = useState(Colors.primary);
     const [reminderEnabled, setReminderEnabled] = useState(false);
+    const [photoUri, setPhotoUri] = useState<string | null>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     const targetAmount = parseRupiah(targetInput);
@@ -54,6 +56,25 @@ export function AddSavingGoalScreen() {
         }
         return null;
     }, [targetAmount, currentAmount, savingPerPeriod, periodType]);
+
+    const handlePickImage = async () => {
+        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permissionResult.granted) {
+            alert('Izin akses galeri dibutuhkan untuk menambahkan foto');
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.5,
+        });
+
+        if (!result.canceled) {
+            setPhotoUri(result.assets[0].uri);
+        }
+    };
 
     const handleSave = async () => {
         const errs: Record<string, string> = {};
@@ -75,7 +96,7 @@ export function AddSavingGoalScreen() {
             target_amount: targetAmount,
             current_amount: currentAmount,
             emoji,
-            photo_uri: null,
+            photo_uri: photoUri,
             saving_per_period: savingPerPeriod,
             period_type: periodType,
             color,
@@ -127,6 +148,24 @@ export function AddSavingGoalScreen() {
                                 ))}
                             </View>
                         </ScrollView>
+                    </View>
+
+                    <View style={styles.fieldSection}>
+                        <Text style={styles.fieldLabel} allowFontScaling={true}>Foto Impian (Opsional)</Text>
+                        <TouchableOpacity style={styles.photoUploadBtn} onPress={handlePickImage}>
+                            {photoUri ? (
+                                <View style={styles.photoContainer}>
+                                    <View style={styles.photoPreview} />
+                                    <Text style={styles.photoText}>Foto Dipilih (Ketuk untuk ganti)</Text>
+                                    <MaterialCommunityIcons name="check-circle" size={20} color={Colors.success} style={styles.checkIcon} />
+                                </View>
+                            ) : (
+                                <View style={styles.photoContainerPlaceholder}>
+                                    <MaterialCommunityIcons name="camera-plus" size={28} color={Colors.textDisabled} />
+                                    <Text style={styles.photoTextPlaceholder}>Tambahkan Foto Barang Impian</Text>
+                                </View>
+                            )}
+                        </TouchableOpacity>
                     </View>
 
                     <Input
@@ -245,6 +284,13 @@ const styles = StyleSheet.create({
     emojiBtn: { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceElevated, borderWidth: 1.5, borderColor: 'transparent' },
     emojiBtnSelected: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
     emojiText: { fontSize: 24 },
+    photoUploadBtn: { backgroundColor: Colors.surfaceElevated, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, borderStyle: 'dashed', overflow: 'hidden' },
+    photoContainerPlaceholder: { padding: 24, alignItems: 'center', justifyContent: 'center', gap: 8 },
+    photoTextPlaceholder: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: Colors.textSecondary },
+    photoContainer: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: Colors.successLight, gap: 12 },
+    photoPreview: { width: 40, height: 40, borderRadius: 8, backgroundColor: Colors.success },
+    photoText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.caption, color: Colors.textPrimary, flex: 1 },
+    checkIcon: { marginLeft: 'auto' },
     rupiahInput: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surfaceElevated, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1.5, borderColor: Colors.border, gap: 8, minHeight: 52 },
     inputError: { borderColor: Colors.danger },
     prefix: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.body, color: Colors.textSecondary },

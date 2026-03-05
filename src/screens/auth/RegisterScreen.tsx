@@ -23,7 +23,7 @@ import type { RootStackParamList } from '../../types/navigation';
 
 export function RegisterScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-    const { register } = useAuthStore();
+    const { register, authError, clearError } = useAuthStore();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -52,13 +52,14 @@ export function RegisterScreen() {
         }
         setIsLoading(true);
         try {
-            await register(name.trim(), email.trim());
+            const ok = await register(name.trim(), email.trim(), password);
+            if (!ok) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         } finally {
             setIsLoading(false);
         }
     };
 
-    const clearError = (field: string) => setErrors((e) => { const n = { ...e }; delete n[field]; return n; });
+    const clearFieldError = (field: string) => setErrors((e) => { const n = { ...e }; delete n[field]; return n; });
 
     return (
         <SafeAreaView style={styles.safe}>
@@ -86,7 +87,7 @@ export function RegisterScreen() {
                         <Input
                             label="Nama Lengkap"
                             value={name}
-                            onChangeText={(v) => { setName(v); clearError('name'); }}
+                        onChangeText={(v) => { setName(v); clearFieldError('name'); }}
                             autoCapitalize="words"
                             leftIcon="account"
                             error={errors.name}
@@ -96,7 +97,7 @@ export function RegisterScreen() {
                         <Input
                             label="Email"
                             value={email}
-                            onChangeText={(v) => { setEmail(v); clearError('email'); }}
+                        onChangeText={(v) => { setEmail(v); clearFieldError('email'); }}
                             keyboardType="email-address"
                             autoCapitalize="none"
                             autoComplete="email"
@@ -108,7 +109,7 @@ export function RegisterScreen() {
                         <Input
                             label="Password"
                             value={password}
-                            onChangeText={(v) => { setPassword(v); clearError('password'); }}
+                        onChangeText={(v) => { setPassword(v); clearFieldError('password'); }}
                             secureTextEntry
                             leftIcon="lock"
                             error={errors.password}
@@ -119,7 +120,7 @@ export function RegisterScreen() {
                         <Input
                             label="Konfirmasi Password"
                             value={confirm}
-                            onChangeText={(v) => { setConfirm(v); clearError('confirm'); }}
+                        onChangeText={(v) => { setConfirm(v); clearFieldError('confirm'); }}
                             secureTextEntry
                             leftIcon="lock-check"
                             error={errors.confirm}
@@ -127,6 +128,12 @@ export function RegisterScreen() {
                             required
                         />
                     </View>
+
+                    {authError && (
+                        <View style={styles.errorBanner} accessible={true} accessibilityRole="alert">
+                            <Text style={styles.errorBannerText} allowFontScaling={true}>{authError}</Text>
+                        </View>
+                    )}
 
                     <Button
                         label="Buat Akun"
@@ -166,6 +173,14 @@ const styles = StyleSheet.create({
     heading: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: Colors.textPrimary },
     subHeading: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: Colors.textSecondary },
     fields: { gap: 14 },
+    errorBanner: {
+        backgroundColor: '#FEF2F2',
+        borderRadius: 10,
+        borderLeftWidth: 3,
+        borderLeftColor: '#DC2626',
+        padding: 12,
+    },
+    errorBannerText: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: '#DC2626' },
     footer: { flexDirection: 'row', justifyContent: 'center', paddingVertical: 16 },
     footerText: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: Colors.textSecondary },
     footerLink: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.body, color: Colors.primary },

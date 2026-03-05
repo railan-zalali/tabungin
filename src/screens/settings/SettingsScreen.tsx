@@ -17,6 +17,9 @@ import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { Shadow } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useTransactionStore } from '../../store/useTransactionStore';
+import { useSavingStore } from '../../store/useSavingStore';
+import { exportBackupJSON } from '../../utils/exportUtils';
 
 interface SettingRowProps {
     icon: string;
@@ -57,6 +60,9 @@ function SettingRow({ icon, iconColor, title, subtitle, onPress, rightElement, a
 export function SettingsScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<any>>();
     const { user, isDarkMode, textSize, hapticEnabled, setDarkMode, setTextSize, setHapticEnabled, logout } = useAuthStore();
+    const { transactions } = useTransactionStore();
+    const { goals } = useSavingStore();
+    const [isExporting, setIsExporting] = React.useState(false);
 
     const handleLogout = () => {
         Alert.alert(
@@ -67,6 +73,27 @@ export function SettingsScreen() {
                 { text: 'Keluar', style: 'destructive', onPress: logout },
             ]
         );
+    };
+
+    const handleBackup = async () => {
+        try {
+            setIsExporting(true);
+            await exportBackupJSON({
+                version: 1,
+                exportedAt: Date.now(),
+                transactions,
+                goals
+            });
+            Alert.alert('Sukses', 'Data berhasil diekspor.');
+        } catch (error) {
+            Alert.alert('Error', 'Terjadi kesalahan saat membackup data.');
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    const handleRestore = () => {
+        Alert.alert('Restore Data', 'Fitur restore dari file JSON akan segera hadir di update mendatang!');
     };
 
     const userInitial = user?.name?.charAt(0)?.toUpperCase() ?? '?';
@@ -178,6 +205,20 @@ export function SettingsScreen() {
                     </View>
                 </View>
 
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle} allowFontScaling={true}>Keuangan</Text>
+                    <View style={[styles.card, Shadow.sm]}>
+                        <SettingRow
+                            icon="wallet"
+                            iconColor={Colors.success}
+                            title="Budget Bulanan"
+                            subtitle="Atur batas pengeluaran kategori"
+                            onPress={() => navigation.navigate('Budget')}
+                            accessibilityHint="Navigasi ke halaman pengaturan budget"
+                        />
+                    </View>
+                </View>
+
                 {/* Data */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle} allowFontScaling={true}>Data</Text>
@@ -186,8 +227,8 @@ export function SettingsScreen() {
                             icon="database-export"
                             iconColor={Colors.info}
                             title="Backup Data"
-                            subtitle="Ekspor data ke file"
-                            onPress={() => Alert.alert('Backup', 'Fitur backup akan segera hadir!')}
+                            subtitle={isExporting ? "Mengekspor..." : "Ekspor data ke file JSON"}
+                            onPress={handleBackup}
                             accessibilityHint="Ketuk dua kali untuk membackup data keuangan"
                         />
                         <View style={styles.divider} />
@@ -196,7 +237,7 @@ export function SettingsScreen() {
                             iconColor={Colors.warning}
                             title="Restore Data"
                             subtitle="Impor data dari file backup"
-                            onPress={() => Alert.alert('Restore', 'Fitur restore akan segera hadir!')}
+                            onPress={handleRestore}
                             accessibilityHint="Ketuk dua kali untuk restore data dari backup"
                         />
                     </View>
