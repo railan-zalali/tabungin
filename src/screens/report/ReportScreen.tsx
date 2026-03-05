@@ -165,7 +165,7 @@ export function ReportScreen() {
                         {/* Bar Chart Manual — 6 bulan terakhir */}
                         <View style={[styles.chartCard, Shadow.sm]}>
                             <Text style={styles.chartTitle} allowFontScaling={true} accessibilityRole="header">Pemasukan vs Pengeluaran</Text>
-                            <View style={styles.barChart} accessibilityRole="figure" accessibilityLabel="Grafik perbandingan pemasukan dan pengeluaran 6 bulan terakhir">
+                            <View style={styles.barChart} accessibilityRole="image" accessibilityLabel="Grafik perbandingan pemasukan dan pengeluaran 6 bulan terakhir">
                                 {monthlyData.map((m, idx) => (
                                     <View key={idx} style={styles.barGroup}>
                                         <View style={styles.barsRow}>

@@ -9,6 +9,8 @@ Notifications.setNotificationHandler({
         shouldShowAlert: true,
         shouldPlaySound: true,
         shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
     }),
 });
 
@@ -96,7 +98,7 @@ export function useNotification() {
                 body: 'Catat pengeluaran hari ini sebelum tidur untuk menjaga keuangan tetap terkontrol',
                 sound: true,
             },
-            trigger: { hour, minute, repeats: true },
+            trigger: { hour, minute, repeats: true } as any,
         });
 
         return id;

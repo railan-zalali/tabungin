@@ -189,7 +189,7 @@ export function AddSavingGoalScreen() {
                         <Text style={styles.fieldLabel} allowFontScaling={true}>Warna Tema</Text>
                         <View style={styles.colorRow}>
                             {GOAL_COLORS.map((c) => (
-                                <TouchableOpacity key={c} style={[styles.colorBtn, { backgroundColor: c }, color === c && styles.colorBtnSelected]} onPress={() => setColor(c)} accessible={true} accessibilityRole="radio" accessibilityLabel={`Pilih warna ${c}`} accessibilityState={{ selected: color === c }}>
+                                <TouchableOpacity key={c} style={[styles.colorBtn, { backgroundColor: c }, color === c && styles.colorBtnSelected]} onPress={() => setColor(c as any)} accessible={true} accessibilityRole="radio" accessibilityLabel={`Pilih warna ${c}`} accessibilityState={{ selected: color === c }}>
                                     {color === c && <MaterialCommunityIcons name="check" size={16} color={Colors.textInverse} />}
                                 </TouchableOpacity>
                             ))}

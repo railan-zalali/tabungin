@@ -73,6 +73,7 @@ export function TabNavigator() {
                 tabBarButton: (props) => (
                     <Pressable
                         {...props}
+                        ref={props.ref as any}
                         accessible={true}
                         accessibilityRole="tab"
                         style={({ pressed }) => [props.style as any, pressed && { opacity: 0.8 }]}
