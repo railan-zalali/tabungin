@@ -4,12 +4,15 @@
  * Format angka menjadi format Rupiah Indonesia
  * Contoh: 1500000 → "Rp 1.500.000"
  */
-export function formatRupiah(amount: number, withSymbol = true): string {
+export function formatCurrency(amount: number, withSymbol = true): string {
     const isNegative = amount < 0;
     const formatted = Math.abs(Math.round(amount)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
     const prefixed = withSymbol ? `Rp ${formatted}` : formatted;
     return isNegative ? `-${prefixed}` : prefixed;
 }
+
+// Alias untuk kompatibilitas
+export const formatRupiah = formatCurrency;
 
 /**
  * Format angka Rupiah singkat untuk tampilan yang lebih compact
@@ -25,7 +28,7 @@ export function formatRupiahShort(amount: number): string {
     if (amount >= 1_000) {
         return `Rp ${(amount / 1_000).toFixed(0)} Rb`;
     }
-    return formatRupiah(amount);
+    return formatCurrency(amount);
 }
 
 /**

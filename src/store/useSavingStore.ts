@@ -16,6 +16,7 @@ import {
     rescheduleAllReminders,
     sendGoalCompletedNotification,
 } from '../utils/notificationService';
+import { useProfileStore } from './useProfileStore';
 
 interface SavingState {
     goals: SavingGoal[];
@@ -49,7 +50,8 @@ export const useSavingStore = create<SavingState>((set, get) => ({
     loadGoals: async () => {
         set({ isLoading: true });
         try {
-            const all = await fetchSavingGoals('all');
+            const profileId = useProfileStore.getState().activeProfileId;
+            const all = await fetchSavingGoals('all', profileId || undefined);
             set({
                 goals: all,
                 activeGoals: all.filter((g) => !g.is_completed),
@@ -73,7 +75,8 @@ export const useSavingStore = create<SavingState>((set, get) => ({
     },
 
     addGoal: async (data) => {
-        const goal = await insertSavingGoal(data);
+        const profileId = useProfileStore.getState().activeProfileId;
+        const goal = await insertSavingGoal({ ...data, profile_id: profileId || undefined });
         if (goal.reminder_enabled) {
             await scheduleGoalReminder(goal);
         }

@@ -18,10 +18,15 @@ function mapGoalRow(r: RawGoalRow): SavingGoal {
  * Ambil semua saving goals
  * Filter out pending_delete
  */
-export async function fetchSavingGoals(filter?: 'active' | 'completed' | 'all'): Promise<SavingGoal[]> {
+export async function fetchSavingGoals(filter?: 'active' | 'completed' | 'all', profileId?: string): Promise<SavingGoal[]> {
     const db = await getDatabase();
     let query = "SELECT * FROM saving_goals WHERE sync_status != 'pending_delete'";
     const params: (string | number)[] = [];
+
+    if (profileId) {
+        query += " AND profile_id = ?";
+        params.push(profileId);
+    }
 
     if (filter === 'active') {
         query += ' AND is_completed = 0';
@@ -63,14 +68,15 @@ export async function insertSavingGoal(
     await db.runAsync(
         `INSERT INTO saving_goals
      (id, name, target_amount, current_amount, emoji, photo_uri, saving_per_period, period_type,
-      color, start_date, estimated_date, is_completed, reminder_enabled, reminder_time, created_at, updated_at, sync_status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      color, start_date, estimated_date, is_completed, reminder_enabled, reminder_time, created_at, updated_at, sync_status, wallet_id, profile_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             id, data.name, data.target_amount, data.current_amount, data.emoji,
             data.photo_uri || null, data.saving_per_period, data.period_type,
             data.color, data.start_date, data.estimated_date,
             data.is_completed ? 1 : 0, data.reminder_enabled ? 1 : 0,
-            data.reminder_time || null, created_at, updated_at, sync_status
+            data.reminder_time || null, created_at, updated_at, sync_status,
+            data.wallet_id || null, data.profile_id || null
         ]
     );
 

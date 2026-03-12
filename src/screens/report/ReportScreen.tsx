@@ -1,23 +1,23 @@
-// Report Screen — charts dan laporan keuangan
 import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
     StyleSheet,
-    SafeAreaView,
     ScrollView,
     TouchableOpacity,
     ActivityIndicator,
+    StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Colors } from '../../constants/colors';
-import { FontFamily, FontSize } from '../../constants/typography';
+import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { Shadow } from '../../constants/theme';
 import { useTransactionStore } from '../../store/useTransactionStore';
 import type { CategorySummary, MonthlySummary } from '../../types/transaction';
-import { formatRupiah, formatRupiahShort } from '../../utils/currency';
+import { formatRupiah, formatRupiahShort, formatCurrency } from '../../utils/currency';
 import { getCategoryById } from '../../constants/categories';
 
 type PeriodFilter = 'month' | '3months' | '6months' | 'year';
@@ -42,6 +42,7 @@ function getPeriodDates(period: PeriodFilter): { start: number; end: number } {
 }
 
 export function ReportScreen() {
+    const insets = useSafeAreaInsets();
     const { getCategorySummary, getMonthlyData } = useTransactionStore();
     const [period, setPeriod] = useState<PeriodFilter>('month');
     const [expenseCategories, setExpenseCategories] = useState<CategorySummary[]>([]);
@@ -90,30 +91,28 @@ export function ReportScreen() {
     const maxMonthly = Math.max(...monthlyData.map((d) => Math.max(d.totalIncome, d.totalExpense)), 1);
 
     return (
-        <SafeAreaView style={styles.safe}>
+        <View style={[styles.container, { paddingTop: insets.top }]}>
+            <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+            
             <View style={styles.header}>
-                <Text style={styles.title} allowFontScaling={true} accessibilityRole="header">Laporan</Text>
+                <Text style={styles.headerTitle}>Laporan</Text>
                 <TouchableOpacity
                     style={styles.exportBtn}
                     onPress={handleExportPDF}
                     disabled={isExporting}
-                    accessible={true}
-                    accessibilityRole="button"
-                    accessibilityLabel="Ekspor laporan ke PDF"
-                    accessibilityState={{ busy: isExporting }}
                 >
                     {isExporting ? (
                         <ActivityIndicator size="small" color={Colors.primary} />
                     ) : (
                         <>
-                            <MaterialCommunityIcons name="file-pdf-box" size={20} color={Colors.primary} accessibilityElementsHidden={true} />
-                            <Text style={styles.exportText} allowFontScaling={true}>PDF</Text>
+                            <MaterialCommunityIcons name="file-pdf-box" size={20} color={Colors.primary} />
+                            <Text style={styles.exportText}>PDF</Text>
                         </>
                     )}
                 </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 {/* Period Filter */}
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.periodRow}>
                     {PERIOD_OPTIONS.map((p) => (
@@ -121,77 +120,71 @@ export function ReportScreen() {
                             key={p.id}
                             style={[styles.periodChip, period === p.id && styles.periodChipActive]}
                             onPress={() => setPeriod(p.id)}
-                            accessible={true}
-                            accessibilityRole="button"
-                            accessibilityLabel={p.label}
-                            accessibilityState={{ selected: period === p.id }}
                         >
-                            <Text style={[styles.periodChipText, period === p.id && styles.periodChipTextActive]} allowFontScaling={true}>{p.label}</Text>
+                            <Text style={[styles.periodChipText, period === p.id && styles.periodChipTextActive]}>
+                                {p.label}
+                            </Text>
                         </TouchableOpacity>
                     ))}
                 </ScrollView>
 
                 {isLoading ? (
-                    <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 60 }} accessibilityLabel="Memuat laporan" />
+                    <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 60 }} />
                 ) : (
                     <>
                         {/* Summary Card */}
-                        <View style={[styles.summaryCard, Shadow.md]}>
+                        <View style={[styles.summaryCard, Shadow.sm]}>
                             <View style={styles.summaryRow}>
                                 <View style={styles.summaryItem}>
-                                    <View style={styles.summaryIconRow} accessibilityElementsHidden={true}>
+                                    <View style={styles.summaryIconRow}>
                                         <MaterialCommunityIcons name="arrow-up-circle" size={20} color={Colors.success} />
-                                        <Text style={[styles.summaryLabel, { color: Colors.success }]} allowFontScaling={true}>Pemasukan</Text>
+                                        <Text style={[styles.summaryLabel, { color: Colors.success }]}>Pemasukan</Text>
                                     </View>
-                                    <Text style={styles.summaryAmount} allowFontScaling={true}>{formatRupiah(totalIncome)}</Text>
+                                    <Text style={styles.summaryAmount}>{formatCurrency(totalIncome)}</Text>
                                 </View>
                                 <View style={styles.summaryDivider} />
                                 <View style={styles.summaryItem}>
-                                    <View style={styles.summaryIconRow} accessibilityElementsHidden={true}>
+                                    <View style={styles.summaryIconRow}>
                                         <MaterialCommunityIcons name="arrow-down-circle" size={20} color={Colors.danger} />
-                                        <Text style={[styles.summaryLabel, { color: Colors.danger }]} allowFontScaling={true}>Pengeluaran</Text>
+                                        <Text style={[styles.summaryLabel, { color: Colors.danger }]}>Pengeluaran</Text>
                                     </View>
-                                    <Text style={[styles.summaryAmount, { color: Colors.danger }]} allowFontScaling={true}>{formatRupiah(totalExpense)}</Text>
+                                    <Text style={[styles.summaryAmount, { color: Colors.danger }]}>{formatCurrency(totalExpense)}</Text>
                                 </View>
                             </View>
-                            <View style={styles.summaryBalance} accessible={true} accessibilityLabel={`Selisih ${totalIncome - totalExpense >= 0 ? 'surplus' : 'defisit'} ${formatRupiah(Math.abs(totalIncome - totalExpense))}`}>
-                                <Text style={styles.balanceLabel} allowFontScaling={true}>Selisih</Text>
-                                <Text style={[styles.balanceAmount, { color: totalIncome - totalExpense >= 0 ? Colors.success : Colors.danger }]} allowFontScaling={true}>
-                                    {totalIncome - totalExpense >= 0 ? '+' : '-'} {formatRupiah(Math.abs(totalIncome - totalExpense))}
+                            <View style={styles.summaryBalance}>
+                                <Text style={styles.balanceLabel}>Selisih</Text>
+                                <Text style={[styles.balanceAmount, { color: totalIncome - totalExpense >= 0 ? Colors.success : Colors.danger }]}>
+                                    {totalIncome - totalExpense >= 0 ? '+' : '-'} {formatCurrency(Math.abs(totalIncome - totalExpense))}
                                 </Text>
                             </View>
                         </View>
 
                         {/* Bar Chart Manual — 6 bulan terakhir */}
                         <View style={[styles.chartCard, Shadow.sm]}>
-                            <Text style={styles.chartTitle} allowFontScaling={true} accessibilityRole="header">Pemasukan vs Pengeluaran</Text>
-                            <View style={styles.barChart} accessibilityRole="image" accessibilityLabel="Grafik perbandingan pemasukan dan pengeluaran 6 bulan terakhir">
+                            <Text style={styles.chartTitle}>Pemasukan vs Pengeluaran</Text>
+                            <View style={styles.barChart}>
                                 {monthlyData.map((m, idx) => (
                                     <View key={idx} style={styles.barGroup}>
                                         <View style={styles.barsRow}>
                                             <View
                                                 style={[styles.bar, { height: Math.max((m.totalIncome / maxMonthly) * 100, 4), backgroundColor: Colors.success }]}
-                                                accessible={true}
-                                                accessibilityLabel={`Pemasukan ${MONTH_NAMES[m.month - 1]} ${formatRupiahShort(m.totalIncome)}`}
                                             />
                                             <View
                                                 style={[styles.bar, { height: Math.max((m.totalExpense / maxMonthly) * 100, 4), backgroundColor: Colors.danger }]}
-                                                accessible={true}
-                                                accessibilityLabel={`Pengeluaran ${MONTH_NAMES[m.month - 1]} ${formatRupiahShort(m.totalExpense)}`}
                                             />
                                         </View>
-                                        <Text style={styles.barLabel} allowFontScaling={false}>{MONTH_NAMES[m.month - 1]}</Text>
+                                        <Text style={styles.barLabel}>{MONTH_NAMES[m.month - 1]}</Text>
                                     </View>
                                 ))}
                             </View>
                             <View style={styles.legend}>
-                                <View style={styles.legendItem} accessible={true} accessibilityLabel="Hijau: pemasukan">
-                                    <View style={[styles.legendDot, { backgroundColor: Colors.success }]} accessibilityElementsHidden={true} />
-                                    <Text style={styles.legendText} allowFontScaling={true}>Pemasukan</Text>
+                                <View style={styles.legendItem}>
+                                    <View style={[styles.legendDot, { backgroundColor: Colors.success }]} />
+                                    <Text style={styles.legendText}>Pemasukan</Text>
                                 </View>
-                                <View style={styles.legendItem} accessible={true} accessibilityLabel="Merah: pengeluaran">
-                                    <View style={[styles.legendDot, { backgroundColor: Colors.danger }]} accessibilityElementsHidden={true} />
-                                    <Text style={styles.legendText} allowFontScaling={true}>Pengeluaran</Text>
+                                <View style={styles.legendItem}>
+                                    <View style={[styles.legendDot, { backgroundColor: Colors.danger }]} />
+                                    <Text style={styles.legendText}>Pengeluaran</Text>
                                 </View>
                             </View>
                         </View>
@@ -199,25 +192,31 @@ export function ReportScreen() {
                         {/* Tabel Kategori Pengeluaran */}
                         {expenseCategories.length > 0 && (
                             <View style={[styles.tableCard, Shadow.sm]}>
-                                <Text style={styles.chartTitle} allowFontScaling={true} accessibilityRole="header">Breakdown Pengeluaran</Text>
-                                {expenseCategories.map((cat) => {
+                                <Text style={styles.chartTitle}>Breakdown Pengeluaran</Text>
+                                {expenseCategories.map((cat, index) => {
                                     const categoryInfo = getCategoryById(cat.category);
                                     return (
-                                        <View
-                                            key={cat.category}
-                                            style={styles.tableRow}
-                                            accessible={true}
-                                            accessibilityLabel={`${categoryInfo?.name ?? cat.category}: ${formatRupiah(cat.total)}, ${cat.percentage.toFixed(0)} persen dari total pengeluaran`}
-                                        >
-                                            <View style={styles.catInfo}>
-                                                <MaterialCommunityIcons name={(categoryInfo?.icon ?? 'tag') as any} size={18} color={categoryInfo?.color ?? Colors.textSecondary} accessibilityElementsHidden={true} />
-                                                <Text style={styles.catName} allowFontScaling={true} numberOfLines={1}>{categoryInfo?.name ?? cat.category}</Text>
+                                        <View key={cat.category}>
+                                            <View style={styles.tableRow}>
+                                                <View style={styles.catInfo}>
+                                                    <View style={[styles.catIconBox, { backgroundColor: `${categoryInfo?.color || Colors.textSecondary}20` }]}>
+                                                        <MaterialCommunityIcons name={(categoryInfo?.icon ?? 'tag') as any} size={16} color={categoryInfo?.color ?? Colors.textSecondary} />
+                                                    </View>
+                                                    <Text style={styles.catName} numberOfLines={1}>{categoryInfo?.name ?? cat.category}</Text>
+                                                </View>
+                                                
+                                                <View style={styles.catRight}>
+                                                    <Text style={styles.catAmount}>{formatCurrency(cat.total)}</Text>
+                                                    <Text style={styles.catPercent}>{cat.percentage.toFixed(0)}%</Text>
+                                                </View>
                                             </View>
-                                            <View style={styles.catBar}>
+                                            
+                                            {/* Progress Bar */}
+                                            <View style={styles.catBarBg}>
                                                 <View style={[styles.catBarFill, { width: `${cat.percentage}%`, backgroundColor: categoryInfo?.color ?? Colors.primary }]} />
                                             </View>
-                                            <Text style={styles.catAmount} allowFontScaling={true}>{formatRupiahShort(cat.total)}</Text>
-                                            <Text style={styles.catPercent} allowFontScaling={true}>{cat.percentage.toFixed(0)}%</Text>
+                                            
+                                            {index < expenseCategories.length - 1 && <View style={styles.rowDivider} />}
                                         </View>
                                     );
                                 })}
@@ -226,7 +225,7 @@ export function ReportScreen() {
                     </>
                 )}
             </ScrollView>
-        </SafeAreaView>
+        </View>
     );
 }
 
@@ -244,10 +243,10 @@ function generateHTMLReport(
     <head><meta charset="UTF-8"><title>Laporan Tabungin</title>
     <style>
       body { font-family: sans-serif; padding: 32px; color: #1A1A2E; }
-      h1 { color: #1DB954; } h2 { color: #333; margin-top: 24px; }
+      h1 { color: #16A34A; } h2 { color: #333; margin-top: 24px; }
       .summary { display: flex; gap: 32px; margin: 16px 0; }
       .item { flex: 1; }
-      .income { color: #10B981; } .expense { color: #EF4444; }
+      .income { color: #16A34A; } .expense { color: #DC2626; }
       table { width: 100%; border-collapse: collapse; margin-top: 12px; }
       th, td { border: 1px solid #E5E7EB; padding: 8px 12px; text-align: left; }
       th { background: #F7F9FC; }
@@ -276,44 +275,128 @@ const PERIOD_OPTIONS_MAP = {
 };
 
 const styles = StyleSheet.create({
-    safe: { flex: 1, backgroundColor: Colors.background },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 },
-    title: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: Colors.textPrimary },
-    exportBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1.5, borderColor: Colors.primary, minHeight: 44 },
-    exportText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.caption, color: Colors.primary },
-    content: { padding: 16, gap: 16, paddingBottom: 100 },
+    container: { flex: 1, backgroundColor: Colors.background },
+    
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        backgroundColor: Colors.background,
+    },
+    headerTitle: { ...Typography.h2, color: Colors.textPrimary },
+    exportBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+        backgroundColor: Colors.primaryBg,
+    },
+    exportText: {
+        fontFamily: FontFamily.bodyBold,
+        fontSize: FontSize.caption,
+        color: Colors.primary,
+    },
+
+    content: { padding: 20, gap: 20, paddingBottom: 100 },
+    
     periodRow: { flexDirection: 'row', gap: 8, paddingBottom: 4 },
-    periodChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, minHeight: 40, justifyContent: 'center' },
-    periodChipActive: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
-    periodChipText: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: Colors.textSecondary },
-    periodChipTextActive: { color: Colors.primaryDark, fontFamily: FontFamily.bodyMedium },
-    summaryCard: { backgroundColor: Colors.surface, borderRadius: 16, padding: 20, gap: 16 },
+    periodChip: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: Colors.surface,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    periodChipActive: {
+        backgroundColor: Colors.primaryLight,
+        borderColor: Colors.primaryLight,
+    },
+    periodChipText: {
+        fontFamily: FontFamily.body,
+        fontSize: FontSize.caption,
+        color: Colors.textSecondary,
+    },
+    periodChipTextActive: {
+        color: Colors.primaryDark,
+        fontFamily: FontFamily.bodyBold,
+    },
+
+    summaryCard: {
+        backgroundColor: Colors.surface,
+        borderRadius: 20,
+        padding: 20,
+        gap: 16,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
     summaryRow: { flexDirection: 'row', gap: 12 },
     summaryItem: { flex: 1, gap: 8 },
     summaryIconRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     summaryLabel: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.caption },
-    summaryAmount: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.h4, color: Colors.textPrimary },
-    summaryDivider: { width: 1, backgroundColor: Colors.border },
-    summaryBalance: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.divider },
+    summaryAmount: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: Colors.textPrimary },
+    summaryDivider: { width: 1, backgroundColor: Colors.divider },
+    summaryBalance: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: Colors.divider,
+    },
     balanceLabel: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: Colors.textSecondary },
-    balanceAmount: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.h4 },
-    chartCard: { backgroundColor: Colors.surface, borderRadius: 16, padding: 20, gap: 16 },
-    chartTitle: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: Colors.textPrimary },
-    barChart: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 120, paddingTop: 16 },
-    barGroup: { flex: 1, alignItems: 'center', gap: 6 },
-    barsRow: { flexDirection: 'row', gap: 3, alignItems: 'flex-end', height: 100 },
-    bar: { width: 10, borderRadius: 4 },
+    balanceAmount: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4 },
+
+    chartCard: {
+        backgroundColor: Colors.surface,
+        borderRadius: 20,
+        padding: 20,
+        gap: 16,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    chartTitle: { ...Typography.h4, color: Colors.textPrimary },
+    barChart: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 140, paddingTop: 16 },
+    barGroup: { flex: 1, alignItems: 'center', gap: 8 },
+    barsRow: { flexDirection: 'row', gap: 4, alignItems: 'flex-end', height: 110 },
+    bar: { width: 12, borderRadius: 6 },
     barLabel: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.textSecondary },
     legend: { flexDirection: 'row', gap: 20, justifyContent: 'center' },
     legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    legendDot: { width: 10, height: 10, borderRadius: 5 },
+    legendDot: { width: 8, height: 8, borderRadius: 4 },
     legendText: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: Colors.textSecondary },
-    tableCard: { backgroundColor: Colors.surface, borderRadius: 16, padding: 16, gap: 14 },
-    tableRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    catInfo: { flexDirection: 'row', alignItems: 'center', gap: 8, width: 110 },
-    catName: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.textPrimary, flex: 1 },
-    catBar: { flex: 1, height: 6, backgroundColor: Colors.surfaceElevated, borderRadius: 3, overflow: 'hidden' },
+
+    tableCard: {
+        backgroundColor: Colors.surface,
+        borderRadius: 20,
+        padding: 20,
+        gap: 16,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    tableRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    catInfo: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+    catIconBox: {
+        width: 32,
+        height: 32,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    catName: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.body, color: Colors.textPrimary, flex: 1 },
+    catRight: { alignItems: 'flex-end' },
+    catAmount: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.caption, color: Colors.textPrimary },
+    catPercent: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.textSecondary },
+    catBarBg: { height: 6, backgroundColor: Colors.surfaceAlt, borderRadius: 3, overflow: 'hidden' },
     catBarFill: { height: 6, borderRadius: 3 },
-    catAmount: { fontFamily: FontFamily.bodyMedium, fontSize: 11, color: Colors.textPrimary, width: 64, textAlign: 'right' },
-    catPercent: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.textSecondary, width: 32, textAlign: 'right' },
+    rowDivider: { height: 1, backgroundColor: Colors.divider, marginVertical: 12 },
 });

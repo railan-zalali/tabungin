@@ -15,7 +15,7 @@ import { v4 as uuidv4 } from "uuid";
  * Tambah transaksi baru
  */
 export async function insertTransaction(
-  data: Omit<Transaction, "id" | "created_at"> & { wallet_id?: string },
+  data: Omit<Transaction, "id" | "created_at"> & { wallet_id?: string; profile_id?: string },
 ): Promise<Transaction> {
   const db = await getDatabase();
   const id = uuidv4();
@@ -25,7 +25,7 @@ export async function insertTransaction(
 
   await db.withTransactionAsync(async () => {
     await db.runAsync(
-      "INSERT INTO transactions (id, type, amount, category, note, date, created_at, updated_at, sync_status, wallet_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO transactions (id, type, amount, category, note, date, created_at, updated_at, sync_status, wallet_id, profile_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [
         id,
         data.type,
@@ -37,6 +37,7 @@ export async function insertTransaction(
         updated_at,
         sync_status,
         data.wallet_id || null,
+        data.profile_id || null,
       ],
     );
 
@@ -93,6 +94,11 @@ export async function fetchTransactions(filter?: TransactionFilter): Promise<Tra
     params.push(s, s);
   }
 
+  if (filter?.profile_id) {
+    query += " AND profile_id = ?";
+    params.push(filter.profile_id);
+  }
+
   query += " ORDER BY date DESC, created_at DESC";
 
   return await db.getAllAsync<Transaction>(query, params);
@@ -101,12 +107,23 @@ export async function fetchTransactions(filter?: TransactionFilter): Promise<Tra
 /**
  * Ambil 5 transaksi terbaru
  */
-export async function fetchRecentTransactions(limit = 5): Promise<Transaction[]> {
+export async function fetchRecentTransactions(
+  limit = 5,
+  profileId?: string,
+): Promise<Transaction[]> {
   const db = await getDatabase();
-  return await db.getAllAsync<Transaction>(
-    "SELECT * FROM transactions ORDER BY date DESC, created_at DESC LIMIT ?",
-    [limit],
-  );
+  let query = "SELECT * FROM transactions WHERE sync_status != 'pending_delete'";
+  const params: any[] = [];
+
+  if (profileId) {
+    query += " AND profile_id = ?";
+    params.push(profileId);
+  }
+
+  query += " ORDER BY date DESC, created_at DESC LIMIT ?";
+  params.push(limit);
+
+  return await db.getAllAsync<Transaction>(query, params);
 }
 
 /**
@@ -191,20 +208,27 @@ export async function updateTransaction(
 /**
  * Hitung ringkasan bulan ini
  */
-export async function fetchMonthlySummary(): Promise<{
+export async function fetchMonthlySummary(profileId?: string): Promise<{
   totalIncome: number;
   totalExpense: number;
 }> {
   const db = await getDatabase();
   const start = startOfMonth().getTime();
+  const params = [start];
+
+  let profileQuery = "";
+  if (profileId) {
+    profileQuery = " AND profile_id = ?";
+    params.push(profileId);
+  }
 
   const income = await db.getFirstAsync<{ total: number }>(
-    "SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'income' AND date >= ?",
-    [start],
+    `SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'income' AND date >= ?${profileQuery}`,
+    params,
   );
   const expense = await db.getFirstAsync<{ total: number }>(
-    "SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'expense' AND date >= ?",
-    [start],
+    `SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'expense' AND date >= ?${profileQuery}`,
+    params,
   );
 
   return {
@@ -220,16 +244,24 @@ export async function fetchCategorySummary(
   type: "expense" | "income",
   startDate: number,
   endDate: number,
+  profileId?: string,
 ): Promise<CategorySummary[]> {
   const db = await getDatabase();
+  let query = `SELECT category, SUM(amount) as total, COUNT(*) as count
+     FROM transactions
+     WHERE type = ? AND date >= ? AND date <= ?`;
+  const params: any[] = [type, startDate, endDate];
+
+  if (profileId) {
+    query += " AND profile_id = ?";
+    params.push(profileId);
+  }
+
+  query += ` GROUP BY category ORDER BY total DESC`;
 
   const rows = await db.getAllAsync<{ category: string; total: number; count: number }>(
-    `SELECT category, SUM(amount) as total, COUNT(*) as count
-     FROM transactions
-     WHERE type = ? AND date >= ? AND date <= ?
-     GROUP BY category
-     ORDER BY total DESC`,
-    [type, startDate, endDate],
+    query,
+    params,
   );
 
   const grandTotal = rows.reduce((sum, r) => sum + r.total, 0);
@@ -245,7 +277,7 @@ export async function fetchCategorySummary(
 /**
  * Ambil data per bulan untuk 6 bulan terakhir
  */
-export async function fetchMonthlyData(): Promise<MonthlySummary[]> {
+export async function fetchMonthlyData(profileId?: string): Promise<MonthlySummary[]> {
   const db = await getDatabase();
   const results: MonthlySummary[] = [];
 
@@ -260,14 +292,32 @@ export async function fetchMonthlyData(): Promise<MonthlySummary[]> {
     endD.setDate(0);
     endD.setHours(23, 59, 59, 999);
 
-    const income = await db.getFirstAsync<{ total: number }>(
-      "SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'income' AND date >= ? AND date <= ?",
-      [d.getTime(), endD.getTime()],
-    );
-    const expense = await db.getFirstAsync<{ total: number }>(
-      "SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'expense' AND date >= ? AND date <= ?",
-      [d.getTime(), endD.getTime()],
-    );
+    let query =
+      "SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = ? AND date >= ? AND date <= ?";
+    let params: any[] = [d.getTime(), endD.getTime()];
+
+    if (profileId) {
+      query += " AND profile_id = ?";
+      params.push(profileId);
+    }
+
+    // Since we need to run this twice (income/expense), and query is dynamic, let's construct it properly
+    const getQuery = (type: string) => {
+      let q =
+        "SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = ? AND date >= ? AND date <= ?";
+      const p: any[] = [type, d.getTime(), endD.getTime()];
+      if (profileId) {
+        q += " AND profile_id = ?";
+        p.push(profileId);
+      }
+      return { q, p };
+    };
+
+    const incomeQ = getQuery("income");
+    const income = await db.getFirstAsync<{ total: number }>(incomeQ.q, incomeQ.p);
+
+    const expenseQ = getQuery("expense");
+    const expense = await db.getFirstAsync<{ total: number }>(expenseQ.q, expenseQ.p);
 
     const totalIncome = income?.total ?? 0;
     const totalExpense = expense?.total ?? 0;

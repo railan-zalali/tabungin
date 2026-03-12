@@ -1,44 +1,57 @@
 // Palet warna utama Tabungin
+// Berdasarkan UI/UX Revision Plan (Tailwind-like tokens)
 export const Colors = {
-    // Primary
-    primary: '#1DB954',
-    primaryDark: '#158A3E',
-    primaryLight: '#E8F8EE',
+    // Primary (Green)
+    primary: '#16A34A', // Green 600
+    primaryDark: '#15803D', // Green 700
+    primaryLight: '#DCFCE7', // Green 100
+    primaryBg: '#F0FDF4', // Green 50
 
-    // Secondary
-    secondary: '#F5A623',
-    secondaryLight: '#FEF3DC',
+    // Neutral (Grayscale)
+    neutral900: '#111827', // Text Primary
+    neutral700: '#374151', // Text Secondary
+    neutral500: '#6B7280', // Text Disabled / Icon
+    neutral300: '#9CA3AF', // Border
+    neutral100: '#E5E7EB', // Divider
+    neutral50: '#F9FAFB',  // Background Alt
+
+    // Semantic / Status
+    success: '#16A34A',
+    successBg: '#DCFCE7',
+    warning: '#F59E0B',
+    warningBg: '#FEF3C7',
+    danger: '#DC2626',
+    dangerBg: '#FEE2E2',
+    info: '#2563EB',
+    infoBg: '#DBEAFE',
 
     // Background & Surface
-    background: '#F7F9FC',
+    background: '#FFFFFF', // Clean White
     surface: '#FFFFFF',
-    surfaceElevated: '#F0F4F8',
+    surfaceAlt: '#F3F4F6', // Light Gray for cards/sections
 
-    // Text
-    textPrimary: '#1A1A2E',
-    textSecondary: '#6B7280',
-    textDisabled: '#9CA3AF',
+    // Text Aliases
+    textPrimary: '#111827',
+    textSecondary: '#374151',
+    textTertiary: '#6B7280',
     textInverse: '#FFFFFF',
 
-    // Status
-    danger: '#EF4444',
-    dangerLight: '#FEE2E2',
-    success: '#10B981',
-    successLight: '#D1FAE5',
-    warning: '#F59E0B',
-    warningLight: '#FEF3C7',
-    info: '#3B82F6',
-    infoLight: '#DBEAFE',
-
-    // Border & Divider
+    // Border & Divider Aliases
     border: '#E5E7EB',
     divider: '#F3F4F6',
 
     // Overlay
     overlay: 'rgba(0, 0, 0, 0.5)',
-    overlayLight: 'rgba(0, 0, 0, 0.1)',
+    
+    // Transparent
+    transparent: 'transparent',
 
-    // Dark mode (digunakan lewat theme context)
+    // --- LEGACY COMPATIBILITY ---
+    // Keep these to prevent breaking existing components while migrating
+    secondary: '#F5A623', // Deprecated: Use 'warning' or specific color
+    secondaryLight: '#FEF3DC',
+    
+    // Dark mode tokens (Legacy)
     dark: {
         background: '#0F172A',
         surface: '#1E293B',
@@ -48,9 +61,6 @@ export const Colors = {
         border: '#334155',
         divider: '#1E293B',
     },
-
-    // Transparan
-    transparent: 'transparent',
 } as const;
 
 // Warna kategori transaksi
@@ -63,7 +73,7 @@ export const CategoryColors: Record<string, string> = {
     Pendidikan: '#06B6D4',
     Tagihan: '#EF4444',
     Lainnya: '#6B7280',
-    Gaji: '#1DB954',
+    Gaji: '#16A34A',
     Freelance: '#F5A623',
     Bisnis: '#0EA5E9',
     Investasi: '#7C3AED',

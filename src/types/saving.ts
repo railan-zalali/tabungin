@@ -18,6 +18,8 @@ export interface SavingGoal {
     reminder_enabled: boolean;
     reminder_time: string | null; // format HH:mm
     created_at: number;
+    wallet_id?: string;
+    profile_id?: string;
 }
 
 export interface SavingLog {

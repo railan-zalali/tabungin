@@ -12,8 +12,8 @@ import {
     fetchMonthlyData,
 } from '../database/transactionQueries';
 import { isSameDay, startOfDay, endOfDay } from '../utils/date';
-
 import { useWalletStore } from './useWalletStore';
+import { useProfileStore } from './useProfileStore';
 
 interface TransactionState {
     transactions: Transaction[];
@@ -48,7 +48,8 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     loadTransactions: async (filter?: TransactionFilter) => {
         set({ isLoading: true });
         try {
-            const f = filter ?? get().filter;
+            const profileId = useProfileStore.getState().activeProfileId;
+            const f = { ...filter ?? get().filter, profile_id: profileId || undefined };
             const data = await fetchTransactions(f);
             set({ transactions: data, filter: f });
         } finally {
@@ -57,12 +58,14 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     },
 
     loadRecent: async () => {
-        const data = await fetchRecentTransactions(5);
+        const profileId = useProfileStore.getState().activeProfileId;
+        const data = await fetchRecentTransactions(5, profileId || undefined);
         set({ recentTransactions: data });
     },
 
     addTransaction: async (data) => {
-        const transaction = await insertTransaction(data);
+        const profileId = useProfileStore.getState().activeProfileId;
+        const transaction = await insertTransaction({ ...data, profile_id: profileId || undefined });
         await get().loadTransactions();
         await get().loadRecent();
         await get().refreshSummary();
@@ -97,7 +100,8 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     },
 
     refreshSummary: async () => {
-        const summary = await fetchMonthlySummary();
+        const profileId = useProfileStore.getState().activeProfileId;
+        const summary = await fetchMonthlySummary(profileId || undefined);
         set({
             totalIncome: summary.totalIncome,
             totalExpense: summary.totalExpense,
@@ -105,7 +109,13 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         });
     },
 
-    getCategorySummary: (type, start, end) => fetchCategorySummary(type, start, end),
+    getCategorySummary: (type, start, end) => {
+        const profileId = useProfileStore.getState().activeProfileId;
+        return fetchCategorySummary(type, start, end, profileId || undefined);
+    },
 
-    getMonthlyData: () => fetchMonthlyData(),
+    getMonthlyData: () => {
+        const profileId = useProfileStore.getState().activeProfileId;
+        return fetchMonthlyData(profileId || undefined);
+    },
 }));

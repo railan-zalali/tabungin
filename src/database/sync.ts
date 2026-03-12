@@ -49,7 +49,25 @@ const SYNC_TABLES: SyncTable[] = [
   },
   {
     tableName: "wallets",
-    columns: ["id", "name", "type", "color", "balance", "is_default", "created_at", "updated_at"],
+    columns: [
+      "id",
+      "name",
+      "type",
+      "color",
+      "balance",
+      "is_default",
+      "created_at",
+      "updated_at",
+      "profile_id",
+    ],
+  },
+  {
+    tableName: "profiles",
+    columns: ["id", "name", "icon", "color", "created_at", "updated_at"],
+  },
+  {
+    tableName: "wallet_members",
+    columns: ["id", "wallet_id", "user_email", "role", "status", "created_at", "updated_at"],
   },
 ];
 
@@ -76,6 +94,7 @@ function mapRecordToSupabase(table: string, row: any): any {
   if (table === "wallets") {
     if ("is_default" in record) record.is_default = Boolean(record.is_default);
   }
+  // No boolean conversion needed for profiles or wallet_members yet
 
   return record;
 }
@@ -166,36 +185,53 @@ function mapRecordFromSupabase(table: string, row: any): any {
 async function pullChanges() {
   const db = await getDatabase();
   const lastSync = await getLastSyncTime();
-  const newSyncTime = Date.now();
+  let maxUpdatedAt = lastSync;
 
   for (const table of SYNC_TABLES) {
-    const { data, error } = await supabase
-      .from(table.tableName)
-      .select("*")
-      .gt("updated_at", lastSync); // Ambil yang berubah sejak sync terakhir
+    try {
+      const { data, error } = await supabase
+        .from(table.tableName)
+        .select("*")
+        .gt("updated_at", lastSync); // Ambil yang berubah sejak sync terakhir
 
-    if (error || !data || data.length === 0) continue;
-
-    await db.withTransactionAsync(async () => {
-      for (const row of data) {
-        // Mapping data types
-        const localRow = mapRecordFromSupabase(table.tableName, row);
-
-        const columns = table.columns.join(", ");
-        const placeholders = table.columns.map(() => "?").join(", ");
-        const values = table.columns.map((col) => localRow[col]);
-
-        // Insert or Replace
-        // Kita perlu set sync_status = 'synced'
-        await db.runAsync(
-          `INSERT OR REPLACE INTO ${table.tableName} (${columns}, sync_status) VALUES (${placeholders}, 'synced')`,
-          [...values],
-        );
+      if (error) {
+        console.error(`Failed to pull ${table.tableName}:`, error);
+        continue;
       }
-    });
+
+      if (!data || data.length === 0) continue;
+
+      await db.withTransactionAsync(async () => {
+        for (const row of data) {
+          // Mapping data types
+          const localRow = mapRecordFromSupabase(table.tableName, row);
+
+          const columns = table.columns.join(", ");
+          const placeholders = table.columns.map(() => "?").join(", ");
+          const values = table.columns.map((col) => localRow[col]);
+
+          // Insert or Replace
+          // Kita perlu set sync_status = 'synced'
+          await db.runAsync(
+            `INSERT OR REPLACE INTO ${table.tableName} (${columns}, sync_status) VALUES (${placeholders}, 'synced')`,
+            [...values],
+          );
+
+          // Track max updated_at
+          if (row.updated_at && row.updated_at > maxUpdatedAt) {
+            maxUpdatedAt = row.updated_at;
+          }
+        }
+      });
+    } catch (e) {
+      console.error(`Error processing pull for ${table.tableName}:`, e);
+    }
   }
 
-  await setLastSyncTime(newSyncTime);
+  // Update last sync time only if we successfully pulled newer data
+  if (maxUpdatedAt > lastSync) {
+    await setLastSyncTime(maxUpdatedAt);
+  }
 }
 
 /**
@@ -209,8 +245,21 @@ export async function syncDatabase() {
     if (!session) return; // Tidak bisa sync jika belum login
 
     console.log("Starting sync...");
-    await pushChanges();
-    await pullChanges();
+
+    // Push first to ensure our local changes are on server
+    try {
+      await pushChanges();
+    } catch (e) {
+      console.error("Push changes failed:", e);
+    }
+
+    // Then pull to get latest updates
+    try {
+      await pullChanges();
+    } catch (e) {
+      console.error("Pull changes failed:", e);
+    }
+
     console.log("Sync completed.");
   } catch (e) {
     console.error("Sync failed:", e);

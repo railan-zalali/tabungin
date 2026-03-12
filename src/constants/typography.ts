@@ -11,22 +11,24 @@ export const FontFamily = {
 } as const;
 
 export const FontSize = {
-    h1: 28,
-    h2: 22,
-    h3: 18,
-    h4: 16,
+    display: 28,
+    h1: 22,
+    h2: 18,
+    h3: 16,
+    h4: 16, // Legacy support (mapped to new H3)
     body: 14,
     caption: 12,
     label: 11,
 } as const;
 
 export const LineHeight = {
-    h1: 36,
-    h2: 30,
-    h3: 26,
-    h4: 24,
-    body: 22,
-    caption: 18,
+    display: 36,
+    h1: 28,
+    h2: 24,
+    h3: 24,
+    h4: 24, // Legacy support
+    body: 20,
+    caption: 16,
     label: 16,
 } as const;
 
@@ -38,17 +40,22 @@ export const LetterSpacing = {
 } as const;
 
 export const Typography = StyleSheet.create({
-    h1: {
+    display: {
         fontFamily: FontFamily.heading,
+        fontSize: FontSize.display,
+        lineHeight: LineHeight.display,
+        letterSpacing: LetterSpacing.tight,
+    },
+    h1: {
+        fontFamily: FontFamily.headingMedium,
         fontSize: FontSize.h1,
         lineHeight: LineHeight.h1,
         letterSpacing: LetterSpacing.tight,
     },
     h2: {
-        fontFamily: FontFamily.heading,
+        fontFamily: FontFamily.headingMedium,
         fontSize: FontSize.h2,
         lineHeight: LineHeight.h2,
-        letterSpacing: LetterSpacing.tight,
     },
     h3: {
         fontFamily: FontFamily.headingMedium,

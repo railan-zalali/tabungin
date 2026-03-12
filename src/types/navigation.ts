@@ -8,13 +8,14 @@ export type RootStackParamList = {
     Register: undefined;
     Main: undefined;
     Budget: undefined;
+    Savings: undefined; // Moved here
 };
 
 // Bottom Tab Navigator
 export type TabParamList = {
     Dashboard: undefined;
     Transactions: undefined;
-    Savings: undefined;
+    Wallet: undefined; // Replaced Savings
     Report: undefined;
     Settings: undefined;
 };
@@ -22,7 +23,7 @@ export type TabParamList = {
 // Transaction Stack
 export type TransactionStackParamList = {
     TransactionList: undefined;
-    AddTransaction: { editId?: string } | undefined;
+    AddTransaction: { editId?: string; type?: 'income' | 'expense' } | undefined;
     TransactionDetail: { transactionId: string };
 };
 
@@ -31,6 +32,12 @@ export type SavingStackParamList = {
     SavingList: undefined;
     AddSavingGoal: { editId?: string } | undefined;
     SavingDetail: { goalId: string };
+};
+
+// Wallet Stack
+export type WalletStackParamList = {
+    WalletList: undefined;
+    AddWallet: { wallet?: any } | undefined;
 };
 
 // Settings Stack

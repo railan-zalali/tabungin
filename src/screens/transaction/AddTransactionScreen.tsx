@@ -1,34 +1,36 @@
-// Add Transaction Screen — Bottom Sheet form dengan numpad dan category picker
-import React, { useState, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   TextInput,
   KeyboardAvoidingView,
   Platform,
   Alert,
+  StatusBar,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "../../constants/colors";
-import { FontFamily, FontSize } from "../../constants/typography";
+import { FontFamily, FontSize, Typography } from "../../constants/typography";
 import { useTransactionStore } from "../../store/useTransactionStore";
 import { useWalletStore } from "../../store/useWalletStore";
 import { CategoryPicker } from "../../components/transaction/CategoryPicker";
 import { Button } from "../../components/common/Button";
-import { formatRupiah, formatInputRupiah, parseRupiah } from "../../utils/currency";
+import { formatInputRupiah, parseRupiah } from "../../utils/currency";
 import { validateAmount } from "../../utils/validation";
 import type { TransactionType } from "../../types/transaction";
+import { Shadow } from "../../constants/theme";
 
 export function AddTransactionScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const route = useRoute<any>();
+  const insets = useSafeAreaInsets();
   const { addTransaction, isLoading } = useTransactionStore();
   const { wallets, loadWallets } = useWalletStore();
 
@@ -43,11 +45,11 @@ export function AddTransactionScreen() {
   const [categoryError, setCategoryError] = useState<string | null>(null);
 
   // Load wallets and set default
-  React.useEffect(() => {
+  useEffect(() => {
     loadWallets();
   }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!selectedWalletId && wallets.length > 0) {
       const defaultWallet = wallets.find((w) => w.is_default);
       setSelectedWalletId(defaultWallet?.id || wallets[0].id);
@@ -83,11 +85,10 @@ export function AddTransactionScreen() {
       category,
       note: note.trim() || null,
       date,
-      wallet_id: selectedWalletId, // Pastikan properti ini ada di interface Transaction
+      wallet_id: selectedWalletId,
     });
 
-    // Refresh wallets to update balance
-    loadWallets();
+    loadWallets(); // Refresh balance
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     navigation.goBack();
@@ -99,9 +100,10 @@ export function AddTransactionScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <StatusBar barStyle='dark-content' backgroundColor='transparent' translucent />
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.flex}
       >
         {/* Header */}
@@ -109,21 +111,21 @@ export function AddTransactionScreen() {
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={styles.closeBtn}
-            accessible={true}
-            accessibilityRole='button'
-            accessibilityLabel='Tutup form'
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <MaterialCommunityIcons name='close' size={22} color={Colors.textPrimary} />
+            <MaterialCommunityIcons name='close' size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle} allowFontScaling={true} accessibilityRole='header'>
-            Tambah Transaksi
-          </Text>
+          <Text style={styles.headerTitle}>Tambah Transaksi</Text>
           <View style={{ width: 44 }} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps='handled'>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps='handled'
+          showsVerticalScrollIndicator={false}
+        >
           {/* Toggle Pemasukan / Pengeluaran */}
-          <View style={styles.typeToggle} accessibilityRole='tablist'>
+          <View style={styles.typeToggleContainer}>
             {(["income", "expense"] as TransactionType[]).map((t) => (
               <TouchableOpacity
                 key={t}
@@ -134,33 +136,48 @@ export function AddTransactionScreen() {
                 onPress={() => {
                   setTxType(t);
                   setCategory("");
+                  setAmountInput("");
+                  setAmountError(null);
                 }}
-                accessible={true}
-                accessibilityRole='tab'
-                accessibilityLabel={t === "income" ? "Pemasukan" : "Pengeluaran"}
-                accessibilityState={{ selected: txType === t }}
               >
                 <MaterialCommunityIcons
                   name={t === "income" ? "arrow-up-circle" : "arrow-down-circle"}
-                  size={18}
+                  size={20}
                   color={txType === t ? Colors.textInverse : Colors.textSecondary}
-                  accessibilityElementsHidden={true}
                 />
-                <Text
-                  style={[styles.typeBtnText, txType === t && { color: Colors.textInverse }]}
-                  allowFontScaling={true}
-                >
+                <Text style={[styles.typeBtnText, txType === t && { color: Colors.textInverse }]}>
                   {t === "income" ? "Pemasukan" : "Pengeluaran"}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
 
+          {/* Input Nominal */}
+          <View style={styles.amountSection}>
+            <Text style={styles.fieldLabel}>Nominal</Text>
+            <View style={[styles.amountContainer, amountError ? styles.amountError : null]}>
+              <Text style={styles.currencyPrefix}>Rp</Text>
+              <TextInput
+                style={styles.amountInput}
+                value={amountInput}
+                onChangeText={handleAmountChange}
+                keyboardType='numeric'
+                placeholder='0'
+                placeholderTextColor={Colors.textDisabled}
+                autoFocus={true}
+              />
+            </View>
+            {amountError && (
+              <View style={styles.errorRow}>
+                <MaterialCommunityIcons name='alert-circle' size={14} color={Colors.danger} />
+                <Text style={styles.errorText}>{amountError}</Text>
+              </View>
+            )}
+          </View>
+
           {/* Wallet Picker */}
           <View style={styles.fieldSection}>
-            <Text style={styles.fieldLabel} allowFontScaling={true}>
-              Dompet
-            </Text>
+            <Text style={styles.fieldLabel}>Dompet</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -176,13 +193,20 @@ export function AddTransactionScreen() {
                   ]}
                   onPress={() => setSelectedWalletId(w.id)}
                 >
-                  <MaterialCommunityIcons
-                    name={
-                      w.type === "bank" ? "bank" : w.type === "e-wallet" ? "cellphone" : "wallet"
-                    }
-                    size={18}
-                    color={selectedWalletId === w.id ? w.color : Colors.textSecondary}
-                  />
+                  <View
+                    style={[
+                      styles.walletIconBg,
+                      { backgroundColor: selectedWalletId === w.id ? w.color : Colors.surfaceAlt },
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name={
+                        w.type === "bank" ? "bank" : w.type === "e-wallet" ? "cellphone" : "wallet"
+                      }
+                      size={16}
+                      color={selectedWalletId === w.id ? "#FFF" : Colors.textSecondary}
+                    />
+                  </View>
                   <Text
                     style={[
                       styles.walletBtnText,
@@ -199,61 +223,12 @@ export function AddTransactionScreen() {
             </ScrollView>
           </View>
 
-          {/* Input Nominal */}
-          <View style={styles.amountSection}>
-            <Text style={styles.fieldLabel} allowFontScaling={true}>
-              Nominal
-            </Text>
-            <View style={[styles.amountContainer, amountError ? styles.amountError : null]}>
-              <Text style={styles.currencyPrefix} allowFontScaling={true}>
-                Rp
-              </Text>
-              <TextInput
-                style={styles.amountInput}
-                value={amountInput}
-                onChangeText={handleAmountChange}
-                keyboardType='numeric'
-                placeholder='0'
-                placeholderTextColor={Colors.textDisabled}
-                accessible={true}
-                accessibilityLabel='Nominal transaksi dalam Rupiah'
-                accessibilityHint='Masukkan jumlah uang'
-                allowFontScaling={true}
-              />
-            </View>
-            {amountError && (
-              <View style={styles.errorRow} accessibilityLiveRegion='polite'>
-                <MaterialCommunityIcons
-                  name='alert-circle'
-                  size={14}
-                  color={Colors.danger}
-                  accessibilityElementsHidden={true}
-                />
-                <Text style={styles.errorText} allowFontScaling={true} accessibilityRole='alert'>
-                  {amountError}
-                </Text>
-              </View>
-            )}
-          </View>
-
           {/* Category Picker */}
           <View style={styles.fieldSection}>
-            <Text style={styles.fieldLabel} allowFontScaling={true}>
-              Kategori
-            </Text>
-            {categoryError && (
-              <View style={styles.errorRow} accessibilityLiveRegion='polite'>
-                <MaterialCommunityIcons
-                  name='alert-circle'
-                  size={14}
-                  color={Colors.danger}
-                  accessibilityElementsHidden={true}
-                />
-                <Text style={styles.errorText} allowFontScaling={true} accessibilityRole='alert'>
-                  {categoryError}
-                </Text>
-              </View>
-            )}
+            <View style={styles.labelRow}>
+              <Text style={styles.fieldLabel}>Kategori</Text>
+              {categoryError && <Text style={styles.errorTextInline}>{categoryError}</Text>}
+            </View>
             <CategoryPicker
               type={txType}
               selectedCategory={category}
@@ -266,66 +241,61 @@ export function AddTransactionScreen() {
 
           {/* Catatan */}
           <View style={styles.fieldSection}>
-            <Text style={styles.fieldLabel} allowFontScaling={true}>
-              Catatan (opsional)
-            </Text>
+            <Text style={styles.fieldLabel}>Catatan (opsional)</Text>
             <TextInput
               style={styles.noteInput}
               value={note}
               onChangeText={setNote}
-              placeholder='Tambahkan keterangan...'
+              placeholder='Tulis catatan...'
               placeholderTextColor={Colors.textDisabled}
               multiline
               numberOfLines={3}
-              accessible={true}
-              accessibilityLabel='Catatan tambahan untuk transaksi'
-              allowFontScaling={true}
             />
           </View>
         </ScrollView>
 
-        {/* Tombol Simpan */}
+        {/* Footer Button */}
         <View style={styles.footer}>
           <Button
-            label={`Simpan ${txType === "income" ? "Pemasukan" : "Pengeluaran"}`}
+            label='Simpan Transaksi'
             onPress={handleSave}
             variant='primary'
             size='lg'
             loading={isLoading}
             fullWidth
-            accessibilityHint='Ketuk dua kali untuk menyimpan transaksi'
           />
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.surface },
+  container: { flex: 1, backgroundColor: Colors.background },
   flex: { flex: 1 },
+
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: Colors.divider,
   },
-  closeBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  headerTitle: {
-    fontFamily: FontFamily.headingMedium,
-    fontSize: FontSize.h4,
-    color: Colors.textPrimary,
-  },
-  content: { padding: 20, gap: 20, paddingBottom: 40 },
-  typeToggle: {
+  closeBtn: { padding: 4 },
+  headerTitle: { ...Typography.h3, color: Colors.textPrimary },
+
+  content: { padding: 20, gap: 24, paddingBottom: 40 },
+
+  typeToggleContainer: {
     flexDirection: "row",
-    backgroundColor: Colors.surfaceElevated,
-    borderRadius: 12,
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
     padding: 4,
     gap: 4,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   typeBtn: {
     flex: 1,
@@ -334,8 +304,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     paddingVertical: 12,
-    borderRadius: 9,
-    minHeight: 48,
+    borderRadius: 12,
   },
   typeBtnIncome: { backgroundColor: Colors.success },
   typeBtnExpense: { backgroundColor: Colors.danger },
@@ -344,48 +313,93 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     color: Colors.textSecondary,
   },
+
   amountSection: { gap: 8 },
-  fieldSection: { gap: 10 },
+  fieldSection: { gap: 12 },
   fieldLabel: {
-    fontFamily: FontFamily.bodyMedium,
+    fontFamily: FontFamily.bodyBold,
     fontSize: FontSize.caption,
     color: Colors.textSecondary,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
+
   amountContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.surfaceElevated,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderWidth: 1.5,
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderWidth: 1,
     borderColor: Colors.border,
-    gap: 8,
+    gap: 12,
+    ...Shadow.sm,
   },
-  amountError: { borderColor: Colors.danger },
-  currencyPrefix: { fontFamily: FontFamily.bodyBold, fontSize: 22, color: Colors.textSecondary },
+  amountError: { borderColor: Colors.danger, borderWidth: 1 },
+  currencyPrefix: {
+    fontFamily: FontFamily.headingMedium,
+    fontSize: FontSize.h3,
+    color: Colors.textSecondary,
+  },
   amountInput: {
     flex: 1,
     fontFamily: FontFamily.heading,
-    fontSize: 28,
+    fontSize: 32,
     color: Colors.textPrimary,
+    padding: 0,
+    height: 40,
   },
-  errorRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+
+  walletList: { flexDirection: "row", gap: 12 },
+  walletBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingRight: 16,
+    paddingLeft: 6,
+    paddingVertical: 6,
+    borderRadius: 100,
+    borderWidth: 1,
+    backgroundColor: Colors.surface,
+  },
+  walletBtnActive: { backgroundColor: Colors.surface, borderWidth: 1.5 },
+  walletIconBg: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  walletBtnText: {
+    fontFamily: FontFamily.body,
+    fontSize: FontSize.caption,
+    color: Colors.textSecondary,
+  },
+
+  labelRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  errorTextInline: {
+    fontFamily: FontFamily.body,
+    fontSize: FontSize.caption,
+    color: Colors.danger,
+  },
+
+  errorRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
   errorText: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: Colors.danger },
+
   noteInput: {
-    backgroundColor: Colors.surfaceElevated,
-    borderRadius: 12,
-    padding: 14,
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 16,
     fontFamily: FontFamily.body,
     fontSize: FontSize.body,
     color: Colors.textPrimary,
-    minHeight: 88,
+    minHeight: 100,
     textAlignVertical: "top",
     borderWidth: 1,
     borderColor: Colors.border,
   },
+
   footer: {
     padding: 20,
     paddingBottom: 32,

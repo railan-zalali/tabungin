@@ -14,7 +14,7 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 
 // ─── VERSI SCHEMA SAAT INI ─────────────────────────────────────────
 // Naikkan angka ini setiap kali ada perubahan schema database
-const CURRENT_DB_VERSION = 5;
+const CURRENT_DB_VERSION = 7;
 
 // ─── DAFTAR MIGRASI ───────────────────────────────────────────────
 // Key = nomor versi target, value = SQL yang dijalankan untuk upgrade ke versi itu
@@ -129,6 +129,43 @@ const MIGRATIONS: Record<number, string[]> = {
         `ALTER TABLE saving_goals ADD COLUMN wallet_id TEXT;`,
         `ALTER TABLE budgets ADD COLUMN wallet_id TEXT;`,
     ],
+    6: [
+        // Versi 6: Multi-Profile Support
+        `CREATE TABLE IF NOT EXISTS profiles (
+            id TEXT PRIMARY KEY NOT NULL,
+            user_id TEXT, -- Nullable jika offline
+            name TEXT NOT NULL,
+            icon TEXT DEFAULT 'account',
+            color TEXT DEFAULT '#1DB954',
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER,
+            sync_status TEXT DEFAULT 'pending_create'
+        );`,
+
+        // Tambahkan profile_id ke tabel utama
+        `ALTER TABLE wallets ADD COLUMN profile_id TEXT;`,
+        `ALTER TABLE transactions ADD COLUMN profile_id TEXT;`,
+        `ALTER TABLE budgets ADD COLUMN profile_id TEXT;`,
+        `ALTER TABLE saving_goals ADD COLUMN profile_id TEXT;`,
+        
+        `CREATE INDEX IF NOT EXISTS idx_wallets_profile ON wallets (profile_id);`,
+    ],
+    7: [
+        // Versi 7: Shared Wallet (Team)
+        `CREATE TABLE IF NOT EXISTS wallet_members (
+            id TEXT PRIMARY KEY NOT NULL,
+            wallet_id TEXT NOT NULL,
+            user_email TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'viewer', -- owner, editor, viewer
+            status TEXT NOT NULL DEFAULT 'pending', -- pending, active, rejected
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER,
+            sync_status TEXT DEFAULT 'pending_create',
+            FOREIGN KEY (wallet_id) REFERENCES wallets(id) ON DELETE CASCADE
+        );`,
+        `CREATE INDEX IF NOT EXISTS idx_wallet_members_wallet ON wallet_members (wallet_id);`,
+        `CREATE INDEX IF NOT EXISTS idx_wallet_members_email ON wallet_members (user_email);`,
+    ]
 };
 
 // ─── RUNNER MIGRASI ───────────────────────────────────────────────
@@ -175,6 +212,35 @@ export async function initDatabase(): Promise<void> {
     // Jalankan migrasi schema
     await runMigrations(database);
 
+    // [SELF-HEALING] Pastikan kolom kritis ada (untuk mengatasi inkonsistensi versi migrasi)
+    const tablesToCheck = ['transactions', 'saving_goals', 'saving_logs', 'budgets'];
+    for (const table of tablesToCheck) {
+        try {
+            const columns = await database.getAllAsync<{name: string}>(`PRAGMA table_info(${table})`);
+            const columnNames = columns.map(c => c.name);
+
+            if (!columnNames.includes('sync_status')) {
+                console.log(`[DB Repair] Menambahkan sync_status ke ${table}`);
+                await database.execAsync(`ALTER TABLE ${table} ADD COLUMN sync_status TEXT DEFAULT 'pending_create'`);
+                await database.execAsync(`CREATE INDEX IF NOT EXISTS idx_${table}_sync ON ${table} (sync_status)`);
+            }
+            
+            if (!columnNames.includes('updated_at')) {
+                console.log(`[DB Repair] Menambahkan updated_at ke ${table}`);
+                await database.execAsync(`ALTER TABLE ${table} ADD COLUMN updated_at INTEGER`);
+            }
+
+            // Cek wallet_id (kecuali saving_logs yang tidak butuh)
+            if (table !== 'saving_logs' && !columnNames.includes('wallet_id')) {
+                console.log(`[DB Repair] Menambahkan wallet_id ke ${table}`);
+                await database.execAsync(`ALTER TABLE ${table} ADD COLUMN wallet_id TEXT`);
+                await database.execAsync(`CREATE INDEX IF NOT EXISTS idx_${table}_wallet ON ${table} (wallet_id)`);
+            }
+        } catch (e) {
+            console.error(`[DB Repair] Gagal memeriksa tabel ${table}:`, e);
+        }
+    }
+
     // Inisialisasi Default Wallet jika belum ada (untuk migrasi ke v5)
     const walletCount = await database.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM wallets');
     if (walletCount && walletCount.count === 0) {
@@ -203,6 +269,42 @@ export async function initDatabase(): Promise<void> {
             await database.runAsync(
                 `UPDATE budgets SET wallet_id = ?, sync_status = 'pending_update', updated_at = ? WHERE wallet_id IS NULL`,
                 [defaultWalletId, now]
+            );
+        });
+    }
+
+    // Inisialisasi Default Profile jika belum ada (untuk migrasi ke v6)
+    const profileCount = await database.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM profiles');
+    if (profileCount && profileCount.count === 0) {
+        const defaultProfileId = uuidv4();
+        const now = Date.now();
+        
+        console.log('[DB Init] Membuat Default Profile & Migrasi Data Lama...');
+        
+        await database.withTransactionAsync(async () => {
+            // Buat Profil Utama
+            await database.runAsync(
+                `INSERT INTO profiles (id, name, icon, color, created_at, updated_at, sync_status)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [defaultProfileId, 'Pribadi', 'account', '#1DB954', now, now, 'pending_create']
+            );
+            
+            // Assign semua data lama ke profil ini
+            await database.runAsync(
+                `UPDATE wallets SET profile_id = ?, sync_status = 'pending_update', updated_at = ? WHERE profile_id IS NULL`,
+                [defaultProfileId, now]
+            );
+            await database.runAsync(
+                `UPDATE transactions SET profile_id = ?, sync_status = 'pending_update', updated_at = ? WHERE profile_id IS NULL`,
+                [defaultProfileId, now]
+            );
+            await database.runAsync(
+                `UPDATE budgets SET profile_id = ?, sync_status = 'pending_update', updated_at = ? WHERE profile_id IS NULL`,
+                [defaultProfileId, now]
+            );
+            await database.runAsync(
+                `UPDATE saving_goals SET profile_id = ?, sync_status = 'pending_update', updated_at = ? WHERE profile_id IS NULL`,
+                [defaultProfileId, now]
             );
         });
     }

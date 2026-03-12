@@ -17,7 +17,7 @@ import type { TabParamList } from '../types/navigation';
 // Screens
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
 import { TransactionStackNavigator } from './TransactionStackNavigator';
-import { SavingStackNavigator } from './SavingStackNavigator';
+import { WalletStackNavigator } from './WalletStackNavigator';
 import { ReportScreen } from '../screens/report/ReportScreen';
 import { SettingsStackNavigator } from './SettingsStackNavigator';
 
@@ -37,7 +37,7 @@ function TabIcon({ name, label, focused, color }: TabIconProps) {
     React.useEffect(() => {
         if (focused) {
             scale.value = withSpring(1.2, { damping: 10, stiffness: 200 });
-            translateY.value = withSpring(-2, { damping: 10 });
+            translateY.value = withSpring(-4, { damping: 10 });
         } else {
             scale.value = withSpring(1, { damping: 15 });
             translateY.value = withSpring(0, { damping: 15 });
@@ -52,19 +52,17 @@ function TabIcon({ name, label, focused, color }: TabIconProps) {
         <Animated.View style={[styles.tabItem, animStyle]}>
             <MaterialCommunityIcons
                 name={name as any}
-                size={26}
+                size={24}
                 color={color}
                 accessibilityElementsHidden={true}
             />
-            {focused && (
-                <Text
-                    style={[styles.tabLabel, { color }]}
-                    allowFontScaling={false}
-                    numberOfLines={1}
-                >
-                    {label}
-                </Text>
-            )}
+            <Text
+                style={[styles.tabLabel, { color, opacity: focused ? 1 : 0.7 }]}
+                allowFontScaling={false}
+                numberOfLines={1}
+            >
+                {label}
+            </Text>
         </Animated.View>
     );
 }
@@ -72,38 +70,20 @@ function TabIcon({ name, label, focused, color }: TabIconProps) {
 export function TabNavigator() {
     return (
         <Tab.Navigator
-            screenOptions={({ route }) => ({
+            screenOptions={{
                 headerShown: false,
                 tabBarShowLabel: false,
                 tabBarStyle: styles.tabBar,
                 tabBarActiveTintColor: Colors.primary,
                 tabBarInactiveTintColor: Colors.textSecondary,
-                tabBarButton: (props) => (
-                    <Pressable
-                        {...props}
-                        ref={props.ref as any}
-                        accessible={true}
-                        accessibilityRole="tab"
-                        onPress={(e) => {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            props.onPress?.(e);
-                        }}
-                        style={({ pressed }) => [
-                            props.style as any,
-                            styles.tabButton,
-                            pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
-                        ]}
-                    />
-                ),
-            })}
+            }}
         >
             <Tab.Screen
                 name="Dashboard"
                 component={DashboardScreen}
                 options={{
-                    tabBarAccessibilityLabel: 'Dashboard, tab',
                     tabBarIcon: ({ focused, color }) => (
-                        <TabIcon name={focused ? 'home' : 'home-outline'} label="Home" focused={focused} color={color} />
+                        <TabIcon name={focused ? 'home' : 'home-outline'} label="Beranda" focused={focused} color={color} />
                     ),
                 }}
             />
@@ -111,19 +91,17 @@ export function TabNavigator() {
                 name="Transactions"
                 component={TransactionStackNavigator}
                 options={{
-                    tabBarAccessibilityLabel: 'Transaksi, tab',
                     tabBarIcon: ({ focused, color }) => (
-                        <TabIcon name={focused ? 'swap-horizontal-bold' : 'swap-horizontal'} label="Trans" focused={focused} color={color} />
+                        <TabIcon name={focused ? 'swap-horizontal-bold' : 'swap-horizontal'} label="Transaksi" focused={focused} color={color} />
                     ),
                 }}
             />
             <Tab.Screen
-                name="Savings"
-                component={SavingStackNavigator}
+                name="Wallet"
+                component={WalletStackNavigator}
                 options={{
-                    tabBarAccessibilityLabel: 'Tabungan, tab',
                     tabBarIcon: ({ focused, color }) => (
-                        <TabIcon name={focused ? 'piggy-bank' : 'piggy-bank-outline'} label="Save" focused={focused} color={color} />
+                        <TabIcon name={focused ? 'wallet' : 'wallet-outline'} label="Dompet" focused={focused} color={color} />
                     ),
                 }}
             />
@@ -131,9 +109,8 @@ export function TabNavigator() {
                 name="Report"
                 component={ReportScreen}
                 options={{
-                    tabBarAccessibilityLabel: 'Laporan, tab',
                     tabBarIcon: ({ focused, color }) => (
-                        <TabIcon name={focused ? 'chart-bar' : 'chart-bar'} label="Report" focused={focused} color={color} />
+                        <TabIcon name={focused ? 'chart-bar' : 'chart-bar'} label="Laporan" focused={focused} color={color} />
                     ),
                 }}
             />
@@ -141,9 +118,8 @@ export function TabNavigator() {
                 name="Settings"
                 component={SettingsStackNavigator}
                 options={{
-                    tabBarAccessibilityLabel: 'Pengaturan, tab',
                     tabBarIcon: ({ focused, color }) => (
-                        <TabIcon name={focused ? 'cog' : 'cog-outline'} label="Setting" focused={focused} color={color} />
+                        <TabIcon name={focused ? 'cog' : 'cog-outline'} label="Setelan" focused={focused} color={color} />
                     ),
                 }}
             />
@@ -153,35 +129,28 @@ export function TabNavigator() {
 
 const styles = StyleSheet.create({
     tabBar: {
-        position: 'absolute',
-        bottom: 20,
-        left: 20,
-        right: 20,
-        height: 64,
-        borderRadius: 20,
+        height: Platform.OS === 'ios' ? 88 : 70,
+        paddingTop: 8,
+        paddingBottom: Platform.OS === 'ios' ? 28 : 12,
         backgroundColor: Colors.surface,
-        borderTopWidth: 0,
-        ...Shadow.lg,
+        borderTopWidth: 1,
+        borderTopColor: Colors.border,
+        elevation: 8,
         shadowColor: '#000',
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 10,
-        paddingBottom: 0, 
-        paddingTop: 0,
-    },
-    tabButton: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: -2 },
     },
     tabItem: {
         alignItems: 'center',
         justifyContent: 'center',
         gap: 4,
+        width: 60, 
     },
     tabLabel: {
-        fontFamily: FontFamily.bold,
+        fontFamily: FontFamily.bodyMedium,
         fontSize: 10,
         marginTop: 2,
+        textAlign: 'center',
     },
 });

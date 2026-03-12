@@ -20,6 +20,7 @@ import {
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { initDatabase } from './src/database/schema';
 import { Colors } from './src/constants/colors';
+import { linking } from './src/navigation/LinkingConfiguration';
 
 export default function App() {
     const [dbReady, setDbReady] = useState(false);
@@ -67,7 +68,7 @@ export default function App() {
     return (
         <GestureHandlerRootView style={styles.container}>
             <SafeAreaProvider>
-                <NavigationContainer>
+                <NavigationContainer linking={linking}>
                     <StatusBar style="auto" />
                     <RootNavigator />
                 </NavigationContainer>
