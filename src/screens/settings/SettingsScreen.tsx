@@ -17,6 +17,7 @@ import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { Shadow } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
+import { deleteUserAccount } from '../../database/authQueries';
 import { useTransactionStore } from '../../store/useTransactionStore';
 import { useSavingStore } from '../../store/useSavingStore';
 import { exportBackupJSON } from '../../utils/exportUtils';
@@ -71,6 +72,30 @@ export function SettingsScreen() {
             [
                 { text: 'Batal', style: 'cancel' },
                 { text: 'Keluar', style: 'destructive', onPress: logout },
+            ]
+        );
+    };
+
+    const handleDeleteAccount = () => {
+        Alert.alert(
+            'Hapus Akun',
+            'PERINGATAN: Tindakan ini akan menghapus SEMUA data transaksi, tabungan, dan budget Anda secara permanen baik di perangkat ini maupun di cloud. Tindakan ini tidak dapat dibatalkan.\n\nApakah Anda yakin?',
+            [
+                { text: 'Batal', style: 'cancel' },
+                { 
+                    text: 'Hapus Permanen', 
+                    style: 'destructive', 
+                    onPress: async () => {
+                        try {
+                            await deleteUserAccount();
+                            // State update di deleteUserAccount akan memicu logout di AuthStore jika di-wire,
+                            // tapi lebih aman panggil logout dari store juga untuk update UI
+                            logout(); 
+                        } catch (e) {
+                            Alert.alert('Error', 'Gagal menghapus akun.');
+                        }
+                    } 
+                },
             ]
         );
     };
@@ -209,7 +234,16 @@ export function SettingsScreen() {
                     <Text style={styles.sectionTitle} allowFontScaling={true}>Keuangan</Text>
                     <View style={[styles.card, Shadow.sm]}>
                         <SettingRow
-                            icon="wallet"
+                            icon="wallet-outline"
+                            iconColor={Colors.primary}
+                            title="Dompet Saya"
+                            subtitle="Kelola akun dan saldo"
+                            onPress={() => navigation.navigate('WalletList')}
+                            accessibilityHint="Navigasi ke halaman daftar dompet"
+                        />
+                        <View style={styles.divider} />
+                        <SettingRow
+                            icon="chart-pie"
                             iconColor={Colors.success}
                             title="Budget Bulanan"
                             subtitle="Atur batas pengeluaran kategori"
@@ -258,17 +292,29 @@ export function SettingsScreen() {
                 </View>
 
                 {/* Keluar */}
-                <TouchableOpacity
-                    style={styles.logoutBtn}
-                    onPress={handleLogout}
-                    accessible={true}
-                    accessibilityRole="button"
-                    accessibilityLabel="Keluar dari aplikasi"
-                    accessibilityHint="Ketuk dua kali untuk keluar dari akun Anda"
-                >
-                    <MaterialCommunityIcons name="logout" size={20} color={Colors.danger} accessibilityElementsHidden={true} />
-                    <Text style={styles.logoutText} allowFontScaling={true}>Keluar</Text>
-                </TouchableOpacity>
+                <View style={styles.section}>
+                    <TouchableOpacity
+                        style={styles.logoutBtn}
+                        onPress={handleLogout}
+                        accessible={true}
+                        accessibilityRole="button"
+                        accessibilityLabel="Keluar dari aplikasi"
+                        accessibilityHint="Ketuk dua kali untuk keluar dari akun Anda"
+                    >
+                        <MaterialCommunityIcons name="logout" size={20} color={Colors.danger} accessibilityElementsHidden={true} />
+                        <Text style={styles.logoutText} allowFontScaling={true}>Keluar</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.logoutBtn, { backgroundColor: 'transparent', marginTop: 8 }]}
+                        onPress={handleDeleteAccount}
+                        accessible={true}
+                        accessibilityRole="button"
+                        accessibilityLabel="Hapus akun permanen"
+                    >
+                        <Text style={[styles.logoutText, { color: Colors.textDisabled, fontSize: 12 }]}>Hapus Akun & Data</Text>
+                    </TouchableOpacity>
+                </View>
             </ScrollView>
         </SafeAreaView>
     );

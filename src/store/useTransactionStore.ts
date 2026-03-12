@@ -13,6 +13,8 @@ import {
 } from '../database/transactionQueries';
 import { isSameDay, startOfDay, endOfDay } from '../utils/date';
 
+import { useWalletStore } from './useWalletStore';
+
 interface TransactionState {
     transactions: Transaction[];
     recentTransactions: Transaction[];
@@ -25,7 +27,7 @@ interface TransactionState {
     // Actions
     loadTransactions: (filter?: TransactionFilter) => Promise<void>;
     loadRecent: () => Promise<void>;
-    addTransaction: (data: Omit<Transaction, 'id' | 'created_at'>) => Promise<Transaction>;
+    addTransaction: (data: Omit<Transaction, 'id' | 'created_at'> & { wallet_id?: string }) => Promise<Transaction>;
     editTransaction: (id: string, data: Partial<Omit<Transaction, 'id' | 'created_at'>>) => Promise<void>;
     removeTransaction: (id: string) => Promise<void>;
     setFilter: (filter: TransactionFilter) => void;
@@ -64,6 +66,8 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         await get().loadTransactions();
         await get().loadRecent();
         await get().refreshSummary();
+        // Refresh saldo wallet
+        useWalletStore.getState().loadWallets();
         return transaction;
     },
 
@@ -72,6 +76,8 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         await get().loadTransactions();
         await get().loadRecent();
         await get().refreshSummary();
+        // Refresh saldo wallet (jika ada perubahan wallet atau amount - TODO: handle complex logic)
+        useWalletStore.getState().loadWallets();
     },
 
     removeTransaction: async (id) => {
@@ -81,6 +87,8 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
             recentTransactions: state.recentTransactions.filter((t) => t.id !== id),
         }));
         await get().refreshSummary();
+        // Refresh saldo wallet
+        useWalletStore.getState().loadWallets();
     },
 
     setFilter: (filter) => {

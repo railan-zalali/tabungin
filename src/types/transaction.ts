@@ -10,6 +10,7 @@ export interface Transaction {
     note: string | null;
     date: number; // timestamp unix
     created_at: number;
+    wallet_id?: string | null;
 }
 
 export interface TransactionFilter {

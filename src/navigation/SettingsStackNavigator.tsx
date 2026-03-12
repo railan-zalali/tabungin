@@ -4,6 +4,8 @@ import type { SettingsStackParamList } from '../types/navigation';
 
 import { SettingsScreen } from '../screens/settings/SettingsScreen';
 import { ProfileScreen } from '../screens/settings/ProfileScreen';
+import { WalletListScreen } from '../screens/settings/WalletListScreen';
+import { AddWalletScreen } from '../screens/settings/AddWalletScreen';
 
 const Stack = createNativeStackNavigator<SettingsStackParamList>();
 
@@ -12,6 +14,8 @@ export function SettingsStackNavigator() {
         <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="SettingsMain" component={SettingsScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="WalletList" component={WalletListScreen} />
+            <Stack.Screen name="AddWallet" component={AddWalletScreen} />
         </Stack.Navigator>
     );
 }

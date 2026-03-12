@@ -1,15 +1,11 @@
 // Zustand store untuk autentikasi — menggunakan password hashing + expo-secure-store
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../lib/supabase';
+import { clearAllData } from '../database/schema';
+import { syncDatabase } from '../database/sync';
 import {
-    registerUser,
-    loginUser,
-    updateUserProfile,
-    changePassword,
-    loadSession,
-    clearSession,
     createOfflineSession,
-    isEmailRegistered,
     type UserRecord,
 } from '../database/authQueries';
 
@@ -70,11 +66,6 @@ interface AuthState {
     setHapticEnabled: (value: boolean) => void;
 }
 
-function userRecordToAuthUser(r: UserRecord): AuthUser {
-    return { id: r.id, name: r.name, email: r.email, avatarColor: r.avatar_color };
-}
-
-
 export const useAuthStore = create<AuthState>((set, get) => ({
     user: null,
     isLoggedIn: false,
@@ -89,14 +80,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     loadSession: async () => {
         try {
             await loadSettingsCache();
-            const user = await loadSession();
-            if (user) {
+            
+            // Cek session Supabase
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            if (session?.user) {
                 set({
-                    user: userRecordToAuthUser(user),
+                    user: {
+                        id: session.user.id,
+                        name: session.user.user_metadata?.name || 'Pengguna',
+                        email: session.user.email || '',
+                        avatarColor: session.user.user_metadata?.avatar_color || '#1DB954',
+                    },
                     isLoggedIn: true,
-                    isOfflineMode: user.id.startsWith('offline_'),
+                    isOfflineMode: false,
                 });
+            } else {
+                // Cek session offline jika tidak ada session Supabase
+                // TODO: Implementasi load session offline yang lebih robust jika diperlukan
             }
+
             set({
                 isDarkMode: readSettingSync('isDarkMode', false),
                 textSize: readSettingSync<'normal' | 'large' | 'xlarge'>('textSize', 'normal'),
@@ -112,13 +115,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     login: async (email: string, password: string) => {
         set({ authError: null });
         try {
-            const user = await loginUser(email, password);
-            if (!user) {
-                set({ authError: 'Email atau password salah.' });
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            });
+
+            if (error) {
+                set({ authError: error.message });
                 return false;
             }
-            set({ user: userRecordToAuthUser(user), isLoggedIn: true, isOfflineMode: false });
-            return true;
+
+            if (data.user) {
+                set({
+                    user: {
+                        id: data.user.id,
+                        name: data.user.user_metadata?.name || 'Pengguna',
+                        email: data.user.email || '',
+                        avatarColor: data.user.user_metadata?.avatar_color || '#1DB954',
+                    },
+                    isLoggedIn: true,
+                    isOfflineMode: false,
+                });
+                
+                // Trigger sync setelah login berhasil
+                setTimeout(() => syncDatabase(), 500);
+                
+                return true;
+            }
+            return false;
         } catch (e: any) {
             set({ authError: 'Terjadi kesalahan saat login.' });
             return false;
@@ -128,67 +152,104 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     loginOffline: async () => {
         set({ authError: null });
         const user = await createOfflineSession();
-        set({ user: userRecordToAuthUser(user), isLoggedIn: true, isOfflineMode: true });
+        // Mapping UserRecord to AuthUser
+        const authUser: AuthUser = {
+             id: user.id,
+             name: user.name,
+             email: user.email,
+             avatarColor: user.avatar_color
+        };
+        set({ user: authUser, isLoggedIn: true, isOfflineMode: true });
     },
 
     register: async (name: string, email: string, password: string) => {
         set({ authError: null });
         try {
-            const exists = await isEmailRegistered(email);
-            if (exists) {
-                set({ authError: 'Email sudah terdaftar. Silakan login.' });
+            const { data, error } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: {
+                        name,
+                        avatar_color: '#1DB954', // Default color
+                    },
+                },
+            });
+
+            if (error) {
+                set({ authError: error.message });
                 return false;
             }
-            const user = await registerUser(name, email, password);
-            set({ user: userRecordToAuthUser(user), isLoggedIn: true, isOfflineMode: false });
-            return true;
-        } catch (e: any) {
-            // Tangkap error duplikat dari SQLite
-            if (e?.message?.includes('UNIQUE')) {
-                set({ authError: 'Email sudah terdaftar. Silakan login.' });
-            } else {
-                set({ authError: 'Terjadi kesalahan saat mendaftar.' });
+
+            if (data.user) {
+                 set({
+                    user: {
+                        id: data.user.id,
+                        name: name,
+                        email: email,
+                        avatarColor: '#1DB954',
+                    },
+                    isLoggedIn: true,
+                    isOfflineMode: false,
+                });
+                return true;
             }
+            return false;
+        } catch (e: any) {
+            set({ authError: 'Terjadi kesalahan saat mendaftar.' });
             return false;
         }
     },
 
     logout: async () => {
-        await clearSession();
+        const { isOfflineMode } = get();
+        if (!isOfflineMode) {
+            await supabase.auth.signOut();
+        }
+        
+        // Bersihkan data lokal demi keamanan dan privasi
+        await clearAllData();
+        
         set({ user: null, isLoggedIn: false, isOfflineMode: false, authError: null });
     },
 
     updateProfile: async (data) => {
         const current = get().user;
         if (!current) return;
-        await updateUserProfile(current.id, {
-            name: data.name,
-            avatar_color: data.avatarColor,
-        });
+        
+        // Update local state
         set({ user: { ...current, ...data } });
-        // Update session di secure store
-        const { loadSession: load } = get();
-        // Re-read updated session implicitly handled by userRecordToAuthUser
-        const sessionData = { ...current, ...data };
-        const { saveSession } = await import('../database/authQueries');
-        await saveSession({
-            id: sessionData.id,
-            name: sessionData.name,
-            email: sessionData.email,
-            avatar_color: sessionData.avatarColor,
-            created_at: Date.now(),
-        });
+
+        // Update Supabase if online
+        if (!get().isOfflineMode) {
+             await supabase.auth.updateUser({
+                data: {
+                    name: data.name,
+                    avatar_color: data.avatarColor
+                }
+            });
+        }
     },
 
     updatePassword: async (oldPassword: string, newPassword: string) => {
-        const current = get().user;
-        if (!current) return false;
-        const { changePassword: change } = await import('../database/authQueries');
-        return await change(current.id, oldPassword, newPassword);
+        const { isOfflineMode } = get();
+        if (isOfflineMode) return false;
+
+        try {
+            // Supabase tidak butuh oldPassword untuk update password jika user sudah login
+            const { error } = await supabase.auth.updateUser({
+                password: newPassword
+            });
+            return !error;
+        } catch {
+            return false;
+        }
     },
 
     checkEmailExists: async (email: string) => {
-        return await isEmailRegistered(email);
+        // Supabase tidak mengekspos API publik untuk cek email exists tanpa mencoba register/login
+        // Kita bisa asumsikan false atau handle error saat register
+        return false; 
     },
 
     clearError: () => set({ authError: null }),

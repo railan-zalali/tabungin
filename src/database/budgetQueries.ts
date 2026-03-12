@@ -20,6 +20,7 @@ export interface BudgetWithSpent extends Budget {
 
 /**
  * Ambil semua budget untuk bulan & tahun tertentu, serta hitung pengeluaran aktual
+ * Filter out pending_delete
  */
 export async function fetchBudgetsWithSpent(month: number, year: number): Promise<BudgetWithSpent[]> {
     const db = await getDatabase();
@@ -29,7 +30,7 @@ export async function fetchBudgetsWithSpent(month: number, year: number): Promis
     const endDate = new Date(year, month, 0, 23, 59, 59, 999).getTime();
 
     const rows = await db.getAllAsync<Budget>(
-        'SELECT * FROM budgets WHERE month = ? AND year = ? ORDER BY amount DESC',
+        "SELECT * FROM budgets WHERE month = ? AND year = ? AND sync_status != 'pending_delete' ORDER BY amount DESC",
         [month, year]
     );
 
@@ -37,7 +38,7 @@ export async function fetchBudgetsWithSpent(month: number, year: number): Promis
     for (const b of rows) {
         const spentRow = await db.getFirstAsync<{ total: number }>(
             `SELECT COALESCE(SUM(amount), 0) as total FROM transactions
-             WHERE type = 'expense' AND category = ? AND date >= ? AND date <= ?`,
+             WHERE type = 'expense' AND category = ? AND date >= ? AND date <= ? AND sync_status != 'pending_delete'`,
             [b.category, startDate, endDate]
         );
         const spent = spentRow?.total ?? 0;
@@ -59,23 +60,26 @@ export async function upsertBudget(
 ): Promise<Budget> {
     const db = await getDatabase();
     const existing = await db.getFirstAsync<Budget>(
-        'SELECT * FROM budgets WHERE category = ? AND month = ? AND year = ?',
+        "SELECT * FROM budgets WHERE category = ? AND month = ? AND year = ? AND sync_status != 'pending_delete'",
         [category, month, year]
     );
 
     if (existing) {
         await db.runAsync(
-            'UPDATE budgets SET amount = ? WHERE id = ?',
-            [amount, existing.id]
+            "UPDATE budgets SET amount = ?, sync_status = 'pending_update', updated_at = ? WHERE id = ?",
+            [amount, Date.now(), existing.id]
         );
         return { ...existing, amount };
     }
 
     const id = uuidv4();
     const created_at = Date.now();
+    const updated_at = created_at;
+    const sync_status = 'pending_create';
+    
     await db.runAsync(
-        'INSERT INTO budgets (id, category, amount, month, year, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-        [id, category, amount, month, year, created_at]
+        'INSERT INTO budgets (id, category, amount, month, year, created_at, updated_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [id, category, amount, month, year, created_at, updated_at, sync_status]
     );
     return { id, category, amount, month, year, created_at };
 }
@@ -85,7 +89,17 @@ export async function upsertBudget(
  */
 export async function deleteBudget(id: string): Promise<void> {
     const db = await getDatabase();
-    await db.runAsync('DELETE FROM budgets WHERE id = ?', [id]);
+    
+    const row = await db.getFirstAsync<{ sync_status: string }>('SELECT sync_status FROM budgets WHERE id = ?', [id]);
+    
+    if (row?.sync_status === 'pending_create') {
+        await db.runAsync('DELETE FROM budgets WHERE id = ?', [id]);
+    } else {
+        await db.runAsync(
+            "UPDATE budgets SET sync_status = 'pending_delete', updated_at = ? WHERE id = ?",
+            [Date.now(), id]
+        );
+    }
 }
 
 /**
@@ -101,13 +115,13 @@ export async function fetchBudgetSummary(month: number, year: number): Promise<{
     const endDate = new Date(year, month, 0, 23, 59, 59, 999).getTime();
 
     const budgetTotal = await db.getFirstAsync<{ total: number }>(
-        'SELECT COALESCE(SUM(amount), 0) as total FROM budgets WHERE month = ? AND year = ?',
+        "SELECT COALESCE(SUM(amount), 0) as total FROM budgets WHERE month = ? AND year = ? AND sync_status != 'pending_delete'",
         [month, year]
     );
 
     const spentTotal = await db.getFirstAsync<{ total: number }>(
         `SELECT COALESCE(SUM(amount), 0) as total FROM transactions
-         WHERE type = 'expense' AND date >= ? AND date <= ?`,
+         WHERE type = 'expense' AND date >= ? AND date <= ? AND sync_status != 'pending_delete'`,
         [startDate, endDate]
     );
 

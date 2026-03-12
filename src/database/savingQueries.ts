@@ -16,16 +16,17 @@ function mapGoalRow(r: RawGoalRow): SavingGoal {
 
 /**
  * Ambil semua saving goals
+ * Filter out pending_delete
  */
 export async function fetchSavingGoals(filter?: 'active' | 'completed' | 'all'): Promise<SavingGoal[]> {
     const db = await getDatabase();
-    let query = 'SELECT * FROM saving_goals';
+    let query = "SELECT * FROM saving_goals WHERE sync_status != 'pending_delete'";
     const params: (string | number)[] = [];
 
     if (filter === 'active') {
-        query += ' WHERE is_completed = 0';
+        query += ' AND is_completed = 0';
     } else if (filter === 'completed') {
-        query += ' WHERE is_completed = 1';
+        query += ' AND is_completed = 1';
     }
 
     query += ' ORDER BY created_at DESC';
@@ -39,7 +40,7 @@ export async function fetchSavingGoals(filter?: 'active' | 'completed' | 'all'):
 export async function fetchSavingGoalById(id: string): Promise<SavingGoal | null> {
     const db = await getDatabase();
     const row = await db.getFirstAsync<RawGoalRow>(
-        'SELECT * FROM saving_goals WHERE id = ?',
+        "SELECT * FROM saving_goals WHERE id = ? AND sync_status != 'pending_delete'",
         [id]
     );
     if (!row) return null;
@@ -56,18 +57,20 @@ export async function insertSavingGoal(
     const db = await getDatabase();
     const id = uuidv4();
     const created_at = Date.now();
+    const updated_at = created_at;
+    const sync_status = 'pending_create';
 
     await db.runAsync(
         `INSERT INTO saving_goals
      (id, name, target_amount, current_amount, emoji, photo_uri, saving_per_period, period_type,
-      color, start_date, estimated_date, is_completed, reminder_enabled, reminder_time, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      color, start_date, estimated_date, is_completed, reminder_enabled, reminder_time, created_at, updated_at, sync_status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             id, data.name, data.target_amount, data.current_amount, data.emoji,
             data.photo_uri || null, data.saving_per_period, data.period_type,
             data.color, data.start_date, data.estimated_date,
             data.is_completed ? 1 : 0, data.reminder_enabled ? 1 : 0,
-            data.reminder_time || null, created_at,
+            data.reminder_time || null, created_at, updated_at, sync_status
         ]
     );
 
@@ -101,17 +104,36 @@ export async function updateSavingGoal(
     }
 
     if (Object.keys(mapped).length === 0) return;
-    const fields = Object.keys(mapped).map((k) => `${k} = ?`).join(', ');
-    const values = [...Object.values(mapped), id];
+    
+    // Tambah sync update
+    const fields = Object.keys(mapped).map((k) => `${k} = ?`).join(', ') + ", sync_status = 'pending_update', updated_at = ?";
+    const values = [...Object.values(mapped), Date.now(), id];
+    
     await db.runAsync(`UPDATE saving_goals SET ${fields} WHERE id = ?`, values);
 }
 
 /**
  * Hapus saving goal (cascade menghapus logs juga)
+ * Gunakan soft delete pending_delete
  */
 export async function deleteSavingGoal(id: string): Promise<void> {
     const db = await getDatabase();
-    await db.runAsync('DELETE FROM saving_goals WHERE id = ?', [id]);
+    
+    const row = await db.getFirstAsync<{ sync_status: string }>('SELECT sync_status FROM saving_goals WHERE id = ?', [id]);
+    
+    if (row?.sync_status === 'pending_create') {
+         await db.runAsync('DELETE FROM saving_goals WHERE id = ?', [id]);
+    } else {
+         await db.runAsync(
+            "UPDATE saving_goals SET sync_status = 'pending_delete', updated_at = ? WHERE id = ?",
+            [Date.now(), id]
+        );
+        // Tandai logs terkait juga untuk dihapus
+        await db.runAsync(
+             "UPDATE saving_logs SET sync_status = 'pending_delete', updated_at = ? WHERE goal_id = ?",
+             [Date.now(), id]
+        );
+    }
 }
 
 /**
@@ -120,7 +142,7 @@ export async function deleteSavingGoal(id: string): Promise<void> {
 export async function fetchSavingLogs(goalId: string): Promise<SavingLog[]> {
     const db = await getDatabase();
     return await db.getAllAsync<SavingLog>(
-        'SELECT * FROM saving_logs WHERE goal_id = ? ORDER BY date DESC',
+        "SELECT * FROM saving_logs WHERE goal_id = ? AND sync_status != 'pending_delete' ORDER BY date DESC",
         [goalId]
     );
 }
@@ -135,22 +157,26 @@ export async function insertSavingLog(
     const db = await getDatabase();
     const id = uuidv4();
     const created_at = Date.now();
+    const updated_at = created_at;
 
     // Lakukan INSERT + UPDATE dalam satu transaction agar atomic
     await db.withTransactionAsync(async () => {
         await db.runAsync(
-            'INSERT INTO saving_logs (id, goal_id, amount, note, date, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-            [id, data.goal_id, data.amount, data.note || null, data.date, created_at]
+            'INSERT INTO saving_logs (id, goal_id, amount, note, date, created_at, updated_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [id, data.goal_id, data.amount, data.note || null, data.date, created_at, updated_at, 'pending_create']
         );
+        
+        // Update goal amount & trigger sync update
         await db.runAsync(
-            'UPDATE saving_goals SET current_amount = current_amount + ? WHERE id = ?',
-            [data.amount, data.goal_id]
+            "UPDATE saving_goals SET current_amount = current_amount + ?, sync_status = 'pending_update', updated_at = ? WHERE id = ?",
+            [data.amount, updated_at, data.goal_id]
         );
+        
         // Tandai goal selesai jika current_amount >= target_amount
         await db.runAsync(
-            `UPDATE saving_goals SET is_completed = 1
+            `UPDATE saving_goals SET is_completed = 1, sync_status = 'pending_update', updated_at = ?
              WHERE id = ? AND is_completed = 0 AND current_amount >= target_amount`,
-            [data.goal_id]
+            [updated_at, data.goal_id]
         );
     });
 

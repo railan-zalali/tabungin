@@ -14,7 +14,7 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 
 // ─── VERSI SCHEMA SAAT INI ─────────────────────────────────────────
 // Naikkan angka ini setiap kali ada perubahan schema database
-const CURRENT_DB_VERSION = 3;
+const CURRENT_DB_VERSION = 5;
 
 // ─── DAFTAR MIGRASI ───────────────────────────────────────────────
 // Key = nomor versi target, value = SQL yang dijalankan untuk upgrade ke versi itu
@@ -84,6 +84,51 @@ const MIGRATIONS: Record<number, string[]> = {
         );`,
         `CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);`,
     ],
+    4: [
+        // Versi 4: Tambah kolom sync_status dan updated_at untuk sinkronisasi ke Supabase
+        // sync_status: 'synced', 'pending_create', 'pending_update', 'pending_delete'
+        
+        // transactions
+        `ALTER TABLE transactions ADD COLUMN sync_status TEXT DEFAULT 'pending_create';`,
+        `ALTER TABLE transactions ADD COLUMN updated_at INTEGER;`,
+        `CREATE INDEX IF NOT EXISTS idx_transactions_sync ON transactions (sync_status);`,
+
+        // saving_goals
+        `ALTER TABLE saving_goals ADD COLUMN sync_status TEXT DEFAULT 'pending_create';`,
+        `ALTER TABLE saving_goals ADD COLUMN updated_at INTEGER;`,
+        `CREATE INDEX IF NOT EXISTS idx_saving_goals_sync ON saving_goals (sync_status);`,
+
+        // saving_logs
+        `ALTER TABLE saving_logs ADD COLUMN sync_status TEXT DEFAULT 'pending_create';`,
+        `ALTER TABLE saving_logs ADD COLUMN updated_at INTEGER;`,
+        `CREATE INDEX IF NOT EXISTS idx_saving_logs_sync ON saving_logs (sync_status);`,
+
+        // budgets
+        `ALTER TABLE budgets ADD COLUMN sync_status TEXT DEFAULT 'pending_create';`,
+        `ALTER TABLE budgets ADD COLUMN updated_at INTEGER;`,
+        `CREATE INDEX IF NOT EXISTS idx_budgets_sync ON budgets (sync_status);`,
+    ],
+    5: [
+        // Versi 5: Support Multi-Wallets (Sub-Akun)
+        `CREATE TABLE IF NOT EXISTS wallets (
+            id TEXT PRIMARY KEY NOT NULL,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL DEFAULT 'general',
+            color TEXT NOT NULL DEFAULT '#1DB954',
+            balance REAL NOT NULL DEFAULT 0,
+            is_default INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER,
+            sync_status TEXT DEFAULT 'pending_create'
+        );`,
+        
+        // Tambahkan wallet_id ke tabel lain
+        `ALTER TABLE transactions ADD COLUMN wallet_id TEXT;`,
+        `CREATE INDEX IF NOT EXISTS idx_transactions_wallet ON transactions (wallet_id);`,
+        
+        `ALTER TABLE saving_goals ADD COLUMN wallet_id TEXT;`,
+        `ALTER TABLE budgets ADD COLUMN wallet_id TEXT;`,
+    ],
 };
 
 // ─── RUNNER MIGRASI ───────────────────────────────────────────────
@@ -130,17 +175,69 @@ export async function initDatabase(): Promise<void> {
     // Jalankan migrasi schema
     await runMigrations(database);
 
-    // Seed data dummy hanya jika belum ada data sama sekali
-    const result = await database.getFirstAsync<{ count: number }>(
-        'SELECT COUNT(*) as count FROM transactions'
-    );
-    if (result && result.count === 0) {
-        await seedDummyData(database);
+    // Inisialisasi Default Wallet jika belum ada (untuk migrasi ke v5)
+    const walletCount = await database.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM wallets');
+    if (walletCount && walletCount.count === 0) {
+        const defaultWalletId = uuidv4();
+        const now = Date.now();
+        
+        console.log('[DB Init] Membuat Default Wallet & Migrasi Data Lama...');
+        
+        await database.withTransactionAsync(async () => {
+            // Buat Dompet Utama
+            await database.runAsync(
+                `INSERT INTO wallets (id, name, type, color, is_default, created_at, updated_at, sync_status)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [defaultWalletId, 'Dompet Utama', 'cash', '#1DB954', 1, now, now, 'pending_create']
+            );
+            
+            // Assign semua data lama ke dompet ini
+            await database.runAsync(
+                `UPDATE transactions SET wallet_id = ?, sync_status = 'pending_update', updated_at = ? WHERE wallet_id IS NULL`,
+                [defaultWalletId, now]
+            );
+            await database.runAsync(
+                `UPDATE saving_goals SET wallet_id = ?, sync_status = 'pending_update', updated_at = ? WHERE wallet_id IS NULL`,
+                [defaultWalletId, now]
+            );
+            await database.runAsync(
+                `UPDATE budgets SET wallet_id = ?, sync_status = 'pending_update', updated_at = ? WHERE wallet_id IS NULL`,
+                [defaultWalletId, now]
+            );
+        });
     }
+
+    // Seed data dummy hanya jika belum ada data sama sekali DAN ini adalah mode debug/development
+    // Untuk production, kita disable auto-seeding agar data user bersih
+    // const result = await database.getFirstAsync<{ count: number }>(
+    //    'SELECT COUNT(*) as count FROM transactions'
+    // );
+    // if (result && result.count === 0) {
+    //    await seedDummyData(database);
+    // }
+}
+
+// ─── CLEAR DATA ───────────────────────────────────────────────────
+/**
+ * Menghapus seluruh data pengguna dari database lokal saat logout.
+ * Ini penting untuk keamanan agar data tidak dapat diakses oleh pengguna lain di perangkat yang sama.
+ */
+export async function clearAllData(): Promise<void> {
+    const database = await getDatabase();
+    
+    await database.withTransactionAsync(async () => {
+        await database.execAsync('DELETE FROM transactions');
+        await database.execAsync('DELETE FROM saving_logs'); // Harus sebelum saving_goals karena FK
+        await database.execAsync('DELETE FROM saving_goals');
+        await database.execAsync('DELETE FROM budgets');
+        // Jangan hapus tabel users jika masih dipakai untuk cache, tapi karena auth sudah via Supabase, aman untuk dihapus atau diabaikan.
+        // Untuk amannya, kita hapus juga users lokal
+        await database.execAsync('DELETE FROM users');
+    });
 }
 
 // ─── SEED DATA DUMMY ─────────────────────────────────────────────
-async function seedDummyData(database: SQLite.SQLiteDatabase): Promise<void> {
+export async function seedDummyData(database: SQLite.SQLiteDatabase): Promise<void> {
     const now = Date.now();
     const today = new Date();
 

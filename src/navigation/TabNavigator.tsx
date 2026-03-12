@@ -1,13 +1,14 @@
-// Tab navigator bawah dengan icon bounce animation
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
     withSpring,
+    withTiming,
 } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { Colors } from '../constants/colors';
 import { FontFamily, FontSize } from '../constants/typography';
 import { Shadow } from '../constants/theme';
@@ -31,32 +32,39 @@ interface TabIconProps {
 
 function TabIcon({ name, label, focused, color }: TabIconProps) {
     const scale = useSharedValue(1);
+    const translateY = useSharedValue(0);
 
     React.useEffect(() => {
         if (focused) {
-            scale.value = withSpring(1.1, { damping: 8, stiffness: 200 }, () => {
-                scale.value = withSpring(1, { damping: 12 });
-            });
+            scale.value = withSpring(1.2, { damping: 10, stiffness: 200 });
+            translateY.value = withSpring(-2, { damping: 10 });
+        } else {
+            scale.value = withSpring(1, { damping: 15 });
+            translateY.value = withSpring(0, { damping: 15 });
         }
     }, [focused]);
 
-    const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+    const animStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: scale.value }, { translateY: translateY.value }],
+    }));
 
     return (
         <Animated.View style={[styles.tabItem, animStyle]}>
             <MaterialCommunityIcons
                 name={name as any}
-                size={24}
+                size={26}
                 color={color}
                 accessibilityElementsHidden={true}
             />
-            <Text
-                style={[styles.tabLabel, { color }]}
-                allowFontScaling={false}
-                numberOfLines={1}
-            >
-                {label}
-            </Text>
+            {focused && (
+                <Text
+                    style={[styles.tabLabel, { color }]}
+                    allowFontScaling={false}
+                    numberOfLines={1}
+                >
+                    {label}
+                </Text>
+            )}
         </Animated.View>
     );
 }
@@ -76,7 +84,15 @@ export function TabNavigator() {
                         ref={props.ref as any}
                         accessible={true}
                         accessibilityRole="tab"
-                        style={({ pressed }) => [props.style as any, pressed && { opacity: 0.8 }]}
+                        onPress={(e) => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            props.onPress?.(e);
+                        }}
+                        style={({ pressed }) => [
+                            props.style as any,
+                            styles.tabButton,
+                            pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
+                        ]}
                     />
                 ),
             })}
@@ -87,7 +103,7 @@ export function TabNavigator() {
                 options={{
                     tabBarAccessibilityLabel: 'Dashboard, tab',
                     tabBarIcon: ({ focused, color }) => (
-                        <TabIcon name={focused ? 'home' : 'home-outline'} label="Dashboard" focused={focused} color={color} />
+                        <TabIcon name={focused ? 'home' : 'home-outline'} label="Home" focused={focused} color={color} />
                     ),
                 }}
             />
@@ -97,7 +113,7 @@ export function TabNavigator() {
                 options={{
                     tabBarAccessibilityLabel: 'Transaksi, tab',
                     tabBarIcon: ({ focused, color }) => (
-                        <TabIcon name={focused ? 'swap-horizontal-bold' : 'swap-horizontal'} label="Transaksi" focused={focused} color={color} />
+                        <TabIcon name={focused ? 'swap-horizontal-bold' : 'swap-horizontal'} label="Trans" focused={focused} color={color} />
                     ),
                 }}
             />
@@ -107,7 +123,7 @@ export function TabNavigator() {
                 options={{
                     tabBarAccessibilityLabel: 'Tabungan, tab',
                     tabBarIcon: ({ focused, color }) => (
-                        <TabIcon name={focused ? 'piggy-bank' : 'piggy-bank-outline'} label="Tabungan" focused={focused} color={color} />
+                        <TabIcon name={focused ? 'piggy-bank' : 'piggy-bank-outline'} label="Save" focused={focused} color={color} />
                     ),
                 }}
             />
@@ -117,7 +133,7 @@ export function TabNavigator() {
                 options={{
                     tabBarAccessibilityLabel: 'Laporan, tab',
                     tabBarIcon: ({ focused, color }) => (
-                        <TabIcon name={focused ? 'chart-bar' : 'chart-bar'} label="Laporan" focused={focused} color={color} />
+                        <TabIcon name={focused ? 'chart-bar' : 'chart-bar'} label="Report" focused={focused} color={color} />
                     ),
                 }}
             />
@@ -127,7 +143,7 @@ export function TabNavigator() {
                 options={{
                     tabBarAccessibilityLabel: 'Pengaturan, tab',
                     tabBarIcon: ({ focused, color }) => (
-                        <TabIcon name={focused ? 'cog' : 'cog-outline'} label="Profil" focused={focused} color={color} />
+                        <TabIcon name={focused ? 'cog' : 'cog-outline'} label="Setting" focused={focused} color={color} />
                     ),
                 }}
             />
@@ -137,23 +153,35 @@ export function TabNavigator() {
 
 const styles = StyleSheet.create({
     tabBar: {
-        height: 72,
-        paddingBottom: 12,
-        paddingTop: 8,
+        position: 'absolute',
+        bottom: 20,
+        left: 20,
+        right: 20,
+        height: 64,
+        borderRadius: 20,
         backgroundColor: Colors.surface,
-        borderTopWidth: 1,
-        borderTopColor: Colors.border,
-        ...Shadow.md,
+        borderTopWidth: 0,
+        ...Shadow.lg,
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        elevation: 10,
+        paddingBottom: 0, 
+        paddingTop: 0,
+    },
+    tabButton: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     tabItem: {
         alignItems: 'center',
-        gap: 3,
-        minWidth: 48,
-        minHeight: 48,
         justifyContent: 'center',
+        gap: 4,
     },
     tabLabel: {
-        fontFamily: FontFamily.body,
+        fontFamily: FontFamily.bold,
         fontSize: 10,
+        marginTop: 2,
     },
 });

@@ -37,4 +37,6 @@ export type SavingStackParamList = {
 export type SettingsStackParamList = {
     SettingsMain: undefined;
     Profile: undefined;
+    WalletList: undefined;
+    AddWallet: { wallet?: any } | undefined;
 };

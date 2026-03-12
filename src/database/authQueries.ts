@@ -128,7 +128,38 @@ export async function isEmailRegistered(email: string): Promise<boolean> {
     return (row?.count ?? 0) > 0;
 }
 
-// ─── SESSION MANAGEMENT via expo-secure-store ──────────────────────
+import { supabase } from '../lib/supabase';
+import { clearAllData } from './schema';
+
+// ... existing imports
+
+/**
+ * Hapus Akun User: Hapus data di Cloud dan Lokal
+ */
+export async function deleteUserAccount(): Promise<void> {
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            // Hapus data di Supabase (RLS akan membatasi ke data user sendiri)
+            // Menggunakan neq('id', '0...') adalah trik untuk 'delete all' yang valid syntaxnya
+            await Promise.all([
+                supabase.from('transactions').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+                supabase.from('saving_goals').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+                supabase.from('budgets').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+            ]);
+        }
+    } catch (e) {
+        console.error('Error deleting cloud data:', e);
+        // Lanjut hapus lokal meskipun cloud gagal (mungkin offline)
+    }
+
+    // Hapus data lokal
+    await clearAllData();
+    
+    // Hapus session
+    await clearSession();
+    await supabase.auth.signOut();
+}
 
 export async function saveSession(user: UserRecord): Promise<void> {
     await SecureStore.setItemAsync(SECURE_SESSION_KEY, JSON.stringify(user));

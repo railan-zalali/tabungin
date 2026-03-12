@@ -30,6 +30,11 @@
         }
       ]
     ],
-    "scheme": "tabungin"
+    "scheme": "tabungin",
+    "extra": {
+      "eas": {
+        "projectId": "43110849-f922-4680-a3ea-66eb86d8ee72"
+      }
+    }
   }
 }
