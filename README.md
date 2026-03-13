@@ -1,16 +1,17 @@
 <div align="center">
   <img src="assets/splash-icon.png" alt="Tabungin Logo" width="120" />
 
-  # 🐷 Tabungin
-  **Catat, Kelola, Wujudkan**
+# 🐷 Tabungin
 
-  Sebuah aplikasi pencatatan keuangan yang modern, simpel, dan elegan untuk membantu Anda merencanakan, mengelola, dan mewujudkan tujuan finansial Anda.
+**Catat, Kelola, Wujudkan**
 
-  [![React Native](https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactnative.dev/)
-  [![Expo](https://img.shields.io/badge/expo-1C1E24?style=for-the-badge&logo=expo&logoColor=#D04A37)](https://expo.dev/)
-  [![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-  [![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-  
+Sebuah aplikasi pencatatan keuangan yang modern, simpel, dan elegan untuk membantu Anda merencanakan, mengelola, dan mewujudkan tujuan finansial Anda.
+
+[![React Native](https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactnative.dev/)
+[![Expo](https://img.shields.io/badge/expo-1C1E24?style=for-the-badge&logo=expo&logoColor=#D04A37)](https://expo.dev/)
+[![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+
   <br />
 </div>
 
@@ -29,16 +30,16 @@ Tabungin is designed with a user-centric approach to provide a seamless financia
 
 Tabungin leverages modern and robust technologies to deliver a high-performance mobile application:
 
-| Category | Technology | Description |
-| :--- | :--- | :--- |
-| **Framework** | [React Native](https://reactnative.dev/) & [Expo](https://expo.dev/) | Cross-platform mobile development framework. |
-| **Language** | [TypeScript](https://www.typescriptlang.org/) | Strongly typed programming language. |
-| **Styling** | [NativeWind](https://www.nativewind.dev/) (Tailwind CSS) | Utility-first styling for React Native. |
-| **Navigation** | [React Navigation](https://reactnavigation.org/) | Routing and navigation for Expo apps. |
-| **State Management**| [Zustand](https://zustand-demo.pmnd.rs/) | A small, fast, and scalable state-management solution. |
-| **Local Storage** | [Expo SQLite](https://docs.expo.dev/versions/latest/sdk/sqlite/) & [MMKV](https://github.com/mrousavy/react-native-mmkv) | Efficient local data persistence. |
-| **UI Components** | [React Native Paper](https://callstack.github.io/react-native-paper/) | Material Design compliant components. |
-| **Charts/Graphics** | [Victory Native](https://commerce.nearform.com/open-source/victory/) & [Skia](https://shopify.github.io/react-native-skia/) | High-performance 2D graphics and charting. |
+| Category             | Technology                                                                                                                  | Description                                            |
+| :------------------- | :-------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------- |
+| **Framework**        | [React Native](https://reactnative.dev/) & [Expo](https://expo.dev/)                                                        | Cross-platform mobile development framework.           |
+| **Language**         | [TypeScript](https://www.typescriptlang.org/)                                                                               | Strongly typed programming language.                   |
+| **Styling**          | [NativeWind](https://www.nativewind.dev/) (Tailwind CSS)                                                                    | Utility-first styling for React Native.                |
+| **Navigation**       | [React Navigation](https://reactnavigation.org/)                                                                            | Routing and navigation for Expo apps.                  |
+| **State Management** | [Zustand](https://zustand-demo.pmnd.rs/)                                                                                    | A small, fast, and scalable state-management solution. |
+| **Local Storage**    | [Expo SQLite](https://docs.expo.dev/versions/latest/sdk/sqlite/) & [MMKV](https://github.com/mrousavy/react-native-mmkv)    | Efficient local data persistence.                      |
+| **UI Components**    | [React Native Paper](https://callstack.github.io/react-native-paper/)                                                       | Material Design compliant components.                  |
+| **Charts/Graphics**  | [Victory Native](https://commerce.nearform.com/open-source/victory/) & [Skia](https://shopify.github.io/react-native-skia/) | High-performance 2D graphics and charting.             |
 
 ## 🎨 UI/UX & Design
 
@@ -79,12 +80,14 @@ Follow these instructions to set up the project locally on your machine.
 ### Installation
 
 1. **Clone the repository:**
+
    ```bash
    git clone https://github.com/yourusername/tabungin.git
    cd tabungin
    ```
 
 2. **Install dependencies:**
+
    ```bash
    npm install
    # or
@@ -95,7 +98,8 @@ Follow these instructions to set up the project locally on your machine.
    ```bash
    npx expo start
    ```
-
+   cd android
+   ./gradlew assembleRelease
 4. **Run the App:**
    - Press `i` in the terminal to open the iOS simulator.
    - Press `a` in the terminal to open the Android emulator.

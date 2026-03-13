@@ -234,7 +234,9 @@ export function AddWalletScreen() {
 
                         {/* Team / Shared Wallet Section */}
                         {isEditing && (
-                            <WalletMemberList walletId={wallet.id} />
+                            <View style={{ marginTop: 8 }}>
+                                <WalletMemberList walletId={wallet.id} />
+                            </View>
                         )}
                     </View>
                 </ScrollView>

@@ -15,8 +15,26 @@ interface SyncTable {
 
 const SYNC_TABLES: SyncTable[] = [
   {
+    tableName: "profiles",
+    columns: ["id", "name", "icon", "color", "created_at", "updated_at"],
+  },
+  {
+    tableName: "wallets",
+    columns: [
+      "id",
+      "name",
+      "type",
+      "color",
+      "balance",
+      "is_default",
+      "created_at",
+      "updated_at",
+      "profile_id",
+    ],
+  },
+  {
     tableName: "transactions",
-    columns: ["id", "type", "amount", "category", "note", "date", "created_at", "updated_at"],
+    columns: ["id", "type", "amount", "category", "note", "date", "created_at", "updated_at", "wallet_id", "profile_id"],
   },
   {
     tableName: "saving_goals",
@@ -37,6 +55,8 @@ const SYNC_TABLES: SyncTable[] = [
       "reminder_time",
       "created_at",
       "updated_at",
+      "wallet_id",
+      "profile_id",
     ],
   },
   {
@@ -45,25 +65,7 @@ const SYNC_TABLES: SyncTable[] = [
   },
   {
     tableName: "budgets",
-    columns: ["id", "category", "amount", "month", "year", "created_at", "updated_at"],
-  },
-  {
-    tableName: "wallets",
-    columns: [
-      "id",
-      "name",
-      "type",
-      "color",
-      "balance",
-      "is_default",
-      "created_at",
-      "updated_at",
-      "profile_id",
-    ],
-  },
-  {
-    tableName: "profiles",
-    columns: ["id", "name", "icon", "color", "created_at", "updated_at"],
+    columns: ["id", "category", "amount", "month", "year", "created_at", "updated_at", "wallet_id", "profile_id"],
   },
   {
     tableName: "wallet_members",

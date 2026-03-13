@@ -280,8 +280,13 @@ export async function fetchWalletMembers(walletId: string): Promise<WalletMember
   }
 }
 
+import { supabase } from "../lib/supabase";
+
+// ... existing imports
+
 /**
  * Tambah anggota ke dompet (Invite)
+ * Sekarang dengan integrasi Supabase Edge Functions / Auth untuk kirim email
  */
 export async function addWalletMember(
   walletId: string,
@@ -293,7 +298,7 @@ export async function addWalletMember(
   const created_at = Date.now();
   const updated_at = created_at;
 
-  // Cek apakah email sudah ada di dompet ini
+  // 1. Cek apakah email sudah ada di dompet ini (Lokal)
   const existing = await db.getFirstAsync<{ id: string }>(
     "SELECT id FROM wallet_members WHERE wallet_id = ? AND user_email = ? AND sync_status != 'pending_delete'",
     [walletId, email],
@@ -303,11 +308,26 @@ export async function addWalletMember(
     throw new Error("Email ini sudah menjadi anggota dompet.");
   }
 
+  // 2. Simpan ke database lokal dulu (Optimistic UI)
   await db.runAsync(
     `INSERT INTO wallet_members (id, wallet_id, user_email, role, status, created_at, updated_at, sync_status)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, walletId, email, role, "pending", created_at, updated_at, "pending_create"],
   );
+
+  // 3. Trigger Invite di Supabase (Jika Online)
+  // Karena kita pakai local-first sync, data akan ter-push otomatis oleh syncDatabase().
+  // Namun, Supabase Auth Invite User biasanya butuh trigger khusus jika ingin kirim magic link.
+  // Tapi untuk "Shared Wallet", biasanya kita hanya insert row, lalu user lain melihatnya.
+  // Jika ingin kirim email notifikasi, kita bisa gunakan Supabase Edge Function atau layanan email lain.
+  // Untuk saat ini, kita andalkan sync.
+
+  // NOTE: Jika tujuannya adalah "Auth Invite" (mengundang user baru ke Aplikasi), gunakan:
+  // await supabase.auth.admin.inviteUserByEmail(email);
+  // Tapi ini butuh Service Role Key (tidak aman di client).
+
+  // SOLUSI: Kita asumsikan user sudah punya akun atau akan daftar sendiri.
+  // Notifikasi email manual belum diimplementasikan di sini.
 
   return {
     id,

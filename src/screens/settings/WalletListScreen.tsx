@@ -147,13 +147,29 @@ export function WalletListScreen() {
           <MaterialCommunityIcons name='arrow-left' size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: colors.textPrimary }]}>Daftar Dompet</Text>
-        <TouchableOpacity
-          onPress={() => navigation.navigate("AddWallet")}
-          style={[styles.addBtn, { backgroundColor: colors.primaryLight }]}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <MaterialCommunityIcons name='plus' size={24} color={colors.primary} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate("QRScanner")}
+            style={[
+              styles.addBtn,
+              {
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.divider,
+              },
+            ]}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <MaterialCommunityIcons name='qrcode-scan' size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => navigation.navigate("AddWallet")}
+            style={[styles.addBtn, { backgroundColor: colors.primaryLight }]}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <MaterialCommunityIcons name='plus' size={24} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Content */}

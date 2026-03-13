@@ -14,6 +14,13 @@ export const linking = {
         screens: {
           Dashboard: 'dashboard',
           Transactions: 'transactions',
+          // Wallet Tab
+          Wallet: {
+            screens: {
+              WalletList: 'my-wallets',
+              JoinWallet: 'invite/:walletId',
+            },
+          },
           // Settings Tab
           Settings: {
             screens: {

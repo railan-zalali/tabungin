@@ -38,6 +38,8 @@ export type SavingStackParamList = {
 export type WalletStackParamList = {
     WalletList: undefined;
     AddWallet: { wallet?: any } | undefined;
+    QRScanner: undefined;
+    JoinWallet: { walletId: string };
 };
 
 // Settings Stack
