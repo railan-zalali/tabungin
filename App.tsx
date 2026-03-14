@@ -26,7 +26,7 @@ export default function App() {
     const [dbReady, setDbReady] = useState(false);
     const [dbError, setDbError] = useState<string | null>(null);
 
-    const [fontsLoaded] = useFonts({
+    const [fontsLoaded, fontError] = useFonts({
         PlusJakartaSans_400Regular,
         PlusJakartaSans_600SemiBold,
         PlusJakartaSans_700Bold,
@@ -49,7 +49,7 @@ export default function App() {
         setupDatabase();
     }, []);
 
-    if (!fontsLoaded || !dbReady) {
+    if (!fontsLoaded && !fontError || !dbReady) {
         return (
             <View style={styles.loadingContainer} accessible={true} accessibilityLabel="Memuat aplikasi Tabungin">
                 <View style={styles.logoContainer}>
@@ -61,6 +61,9 @@ export default function App() {
                 {dbError && (
                     <Text style={styles.errorText} allowFontScaling={false}>{dbError}</Text>
                 )}
+                {fontError && (
+                    <Text style={styles.errorText} allowFontScaling={false}>Gagal memuat font.</Text>
+                )}
             </View>
         );
     }
@@ -68,7 +71,7 @@ export default function App() {
     return (
         <GestureHandlerRootView style={styles.container}>
             <SafeAreaProvider>
-                <NavigationContainer linking={linking}>
+                <NavigationContainer linking={linking as any}>
                     <StatusBar style="auto" />
                     <RootNavigator />
                 </NavigationContainer>

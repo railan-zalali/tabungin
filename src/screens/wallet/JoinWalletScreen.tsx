@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  Image,
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -16,6 +17,7 @@ import { FontFamily, FontSize } from "../../constants/typography";
 import { supabase } from "../../lib/supabase";
 import { useAuthStore } from "../../store/useAuthStore";
 import { syncDatabase } from "../../database/sync";
+import { getDatabase } from "../../database/schema";
 import type { WalletStackParamList } from "../../types/navigation";
 import { v4 as uuidv4 } from "uuid";
 
@@ -59,26 +61,41 @@ export function JoinWalletScreen() {
 
         if (member) {
           setAlreadyMember(true);
-          // Jika sudah member, kita tetap fetch info wallet untuk ditampilkan
         }
       }
 
-      // 2. Ambil info wallet
-      // Catatan: Ini mungkin gagal jika RLS membatasi akses SELECT ke non-member
-      // Solusi: Mengandalkan function RPC 'get_wallet_preview' jika ada, atau asumsi RLS mengizinkan read by ID
-      const { data: wallet, error: walletError } = await supabase
-        .from("wallets")
-        .select("name, color, type, owner_id:profile_id") // owner_id is guess, usually profile_id
-        .eq("id", walletId)
-        .single();
+      // 2. Ambil info wallet menggunakan RPC (Bypass RLS)
+      // Kita menggunakan RPC 'get_wallet_preview' agar user bisa melihat nama dompet
+      // meskipun belum menjadi member (RLS table 'wallets' biasanya memblokir SELECT)
+      const { data: walletPreview, error: rpcError } = await supabase.rpc("get_wallet_preview", {
+        p_wallet_id: walletId,
+      });
 
-      if (walletError) {
-        // Jika error permission denied, kita mungkin hanya bisa menampilkan ID
-        console.warn("Gagal fetch wallet info (mungkin RLS):", walletError);
-        // Fallback UI
-        setWalletInfo({ name: "Dompet Terkunci", type: "unknown", color: Colors.neutral300 });
+      if (!rpcError && walletPreview && walletPreview.length > 0) {
+        setWalletInfo(walletPreview[0]);
       } else {
-        setWalletInfo(wallet);
+        // Fallback: Jika RPC belum dibuat, coba SELECT biasa (mungkin gagal karena RLS)
+        console.log("RPC get_wallet_preview gagal/tidak ada, mencoba SELECT biasa...", rpcError);
+
+        const { data: wallet, error: walletError } = await supabase
+          .from("wallets")
+          .select("id, name, type, color") // Select limited fields
+          .eq("id", walletId)
+          .single();
+
+        if (walletError) {
+          console.warn("Gagal fetch wallet info (RLS Block):", walletError);
+          // Jika gagal, tampilkan info generik tapi JANGAN block user untuk join
+          // Error PGRST116 = 0 rows (karena RLS filter row-nya)
+          setWalletInfo({
+            name: "Dompet Pribadi",
+            type: "general",
+            color: Colors.neutral300,
+            isLocked: true,
+          });
+        } else {
+          setWalletInfo(wallet);
+        }
       }
     } catch (e: any) {
       console.error(e);
@@ -90,20 +107,19 @@ export function JoinWalletScreen() {
 
   const handleJoin = async () => {
     if (!user?.email) {
-      Alert.alert("Error", "Anda harus login terlebih dahulu");
+      Alert.alert("Login Diperlukan", "Anda harus login terlebih dahulu untuk bergabung.");
       return;
     }
 
     try {
       setIsJoining(true);
 
-      // Payload bersih tanpa sync_status
-      const newMemberId = uuidv4(); // Deklarasi ulang
+      const newMemberId = uuidv4();
       const memberPayload = {
         id: newMemberId,
         wallet_id: walletId,
         user_email: user.email,
-        role: "viewer",
+        role: "editor",
         status: "active",
         created_at: Date.now(),
         updated_at: Date.now(),
@@ -111,6 +127,7 @@ export function JoinWalletScreen() {
 
       console.log("[JoinWallet] Payload:", JSON.stringify(memberPayload));
 
+      // 1. Insert ke Supabase
       const { error: joinError } = await supabase
         .from("wallet_members")
         .insert(memberPayload)
@@ -118,24 +135,61 @@ export function JoinWalletScreen() {
         .single();
 
       if (joinError) {
-        // Handle duplicate key error gracefully
+        // Handle unique violation (sudah member)
         if (joinError.code === "23505") {
-          // Unique violation
           Alert.alert("Info", "Anda sudah menjadi anggota dompet ini");
           navigation.replace("WalletList");
           return;
         }
+        // Handle RLS error
+        if (joinError.code === "42501") {
+          throw new Error(
+            "Gagal bergabung: Izin ditolak (RLS). Pastikan Anda menggunakan email yang benar.",
+          );
+        }
         throw joinError;
       }
 
-      // Trigger sync agar data turun ke local DB
-      Alert.alert("Sukses", "Berhasil bergabung ke dompet!");
-      syncDatabase().catch(console.error);
+      // 2. Fetch Info Lengkap (Sekarang sudah boleh karena sudah member)
+      const { data: fullWallet, error: fetchErr } = await supabase
+        .from("wallets")
+        .select("*")
+        .eq("id", walletId)
+        .single();
 
-      // Navigate back to wallet list
-      navigation.replace("WalletList");
+      // 3. Simpan ke Lokal (Upsert)
+      if (fullWallet) {
+        try {
+          const db = await getDatabase();
+          await db.runAsync(
+            `INSERT OR REPLACE INTO wallets (id, name, type, color, balance, is_default, created_at, updated_at, profile_id, sync_status) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`,
+            [
+              fullWallet.id,
+              fullWallet.name || "Shared Wallet",
+              fullWallet.type || "general",
+              fullWallet.color || Colors.primary,
+              fullWallet.balance || 0,
+              fullWallet.is_default ? 1 : 0,
+              fullWallet.created_at || Date.now(),
+              Date.now(),
+              fullWallet.profile_id || null,
+            ],
+          );
+
+          // Trigger sync agar transaksi/member lain juga masuk
+          syncDatabase().catch(console.error);
+        } catch (dbErr) {
+          console.error("Gagal menyimpan wallet referensi ke lokal:", dbErr);
+        }
+      }
+
+      Alert.alert("Sukses", "Berhasil bergabung ke dompet!", [
+        { text: "OK", onPress: () => navigation.replace("WalletList") },
+      ]);
     } catch (e: any) {
-      Alert.alert("Gagal", e.message || "Gagal bergabung ke dompet");
+      console.error(e);
+      Alert.alert("Gagal", e.message || "Terjadi kesalahan saat bergabung.");
     } finally {
       setIsJoining(false);
     }
@@ -145,15 +199,16 @@ export function JoinWalletScreen() {
     return (
       <View style={[styles.container, styles.center]}>
         <ActivityIndicator size='large' color={Colors.primary} />
-        <Text style={styles.loadingText}>Memuat info dompet...</Text>
+        <Text style={styles.loadingText}>Memeriksa undangan...</Text>
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={[styles.container, styles.center, { padding: 20 }]}>
-        <MaterialCommunityIcons name='alert-circle-outline' size={48} color={Colors.danger} />
+      <View style={[styles.container, styles.center, { padding: 24 }]}>
+        <MaterialCommunityIcons name='alert-circle-outline' size={64} color={Colors.danger} />
+        <Text style={styles.errorTitle}>Terjadi Kesalahan</Text>
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.buttonOutline} onPress={() => navigation.goBack()}>
           <Text style={styles.buttonOutlineText}>Kembali</Text>
@@ -174,33 +229,46 @@ export function JoinWalletScreen() {
 
       <View style={styles.content}>
         <View style={[styles.card, { backgroundColor: walletInfo?.color || Colors.primary }]}>
-          <MaterialCommunityIcons
-            name={
-              walletInfo?.type === "bank"
-                ? "bank-outline"
-                : walletInfo?.type === "e-wallet"
-                  ? "cellphone"
-                  : "wallet-outline"
-            }
-            size={48}
-            color='#FFF'
-          />
+          <View style={styles.iconContainer}>
+            <MaterialCommunityIcons
+              name={
+                walletInfo?.type === "bank"
+                  ? "bank-outline"
+                  : walletInfo?.type === "e-wallet"
+                    ? "cellphone"
+                    : "wallet-outline"
+              }
+              size={40}
+              color={walletInfo?.color || Colors.primary}
+            />
+          </View>
+
           <Text style={styles.walletName}>{walletInfo?.name || "Dompet Bersama"}</Text>
-          <Text style={styles.walletId}>ID: {walletId.substring(0, 8)}...</Text>
+          <Text style={styles.walletType}>
+            {walletInfo?.type ? walletInfo.type.toUpperCase() : "GENERAL"}
+          </Text>
+
+          {walletInfo?.isLocked && (
+            <View style={styles.lockedBadge}>
+              <MaterialCommunityIcons name='lock' size={14} color='#FFF' />
+              <Text style={styles.lockedText}>Info Terbatas</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.infoSection}>
           <Text style={styles.infoTitle}>Anda diundang bergabung!</Text>
           <Text style={styles.infoDesc}>
-            Bergabunglah dengan dompet ini untuk mulai mengelola keuangan bersama. Sebagai anggota,
-            Anda dapat melihat riwayat transaksi dan saldo.
+            {walletInfo?.isLocked
+              ? "Dompet ini bersifat privat. Gabung untuk melihat saldo dan riwayat transaksi."
+              : "Bergabunglah untuk mulai mengelola keuangan bersama, melihat riwayat transaksi, dan memantau anggaran."}
           </Text>
         </View>
 
         {alreadyMember ? (
           <View style={styles.actionSection}>
             <View style={styles.alreadyMemberBadge}>
-              <MaterialCommunityIcons name='check-circle' size={20} color={Colors.success} />
+              <MaterialCommunityIcons name='check-circle' size={24} color={Colors.success} />
               <Text style={styles.alreadyMemberText}>Anda sudah menjadi anggota</Text>
             </View>
             <TouchableOpacity
@@ -256,6 +324,8 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     padding: 8,
+    borderRadius: 50,
+    backgroundColor: Colors.neutral100,
   },
   title: {
     fontFamily: FontFamily.heading,
@@ -269,16 +339,31 @@ const styles = StyleSheet.create({
   },
   card: {
     width: "100%",
-    padding: 32,
-    borderRadius: 24,
+    paddingVertical: 40,
+    paddingHorizontal: 24,
+    borderRadius: 32,
     alignItems: "center",
-    gap: 16,
+    gap: 12,
     marginBottom: 32,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  iconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#FFF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
+    shadowRadius: 8,
+    elevation: 4,
   },
   walletName: {
     fontFamily: FontFamily.heading,
@@ -286,43 +371,63 @@ const styles = StyleSheet.create({
     color: "#FFF",
     textAlign: "center",
   },
-  walletId: {
+  walletType: {
+    fontFamily: FontFamily.bodyMedium,
+    fontSize: FontSize.caption,
+    color: "rgba(255,255,255,0.9)",
+    letterSpacing: 1,
+  },
+  lockedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(0,0,0,0.2)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginTop: 8,
+  },
+  lockedText: {
     fontFamily: FontFamily.body,
     fontSize: FontSize.caption,
-    color: "rgba(255,255,255,0.8)",
+    color: "#FFF",
   },
   infoSection: {
     marginBottom: 40,
     alignItems: "center",
-    gap: 8,
+    gap: 12,
+    paddingHorizontal: 16,
   },
   infoTitle: {
     fontFamily: FontFamily.heading,
     fontSize: FontSize.h3,
     color: Colors.textPrimary,
+    textAlign: "center",
   },
   infoDesc: {
     fontFamily: FontFamily.body,
     fontSize: FontSize.body,
     color: Colors.textSecondary,
     textAlign: "center",
-    lineHeight: 22,
+    lineHeight: 24,
   },
   actionSection: {
     width: "100%",
     gap: 16,
+    marginTop: "auto",
+    marginBottom: 20,
   },
   buttonPrimary: {
     backgroundColor: Colors.primary,
-    paddingVertical: 16,
-    borderRadius: 16,
+    paddingVertical: 18,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 6,
   },
   buttonText: {
     fontFamily: FontFamily.bodyBold,
@@ -343,17 +448,24 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     color: Colors.textSecondary,
   },
+  errorTitle: {
+    fontFamily: FontFamily.heading,
+    fontSize: FontSize.h3,
+    color: Colors.textPrimary,
+    marginTop: 16,
+    marginBottom: 8,
+  },
   errorText: {
-    marginVertical: 16,
+    marginBottom: 24,
     fontFamily: FontFamily.body,
     color: Colors.textSecondary,
     textAlign: "center",
   },
   buttonOutline: {
     paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingHorizontal: 32,
     borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.primary,
   },
   buttonOutlineText: {
@@ -364,13 +476,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: 12,
     backgroundColor: Colors.successBg,
-    padding: 12,
-    borderRadius: 12,
+    padding: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.success,
   },
   alreadyMemberText: {
-    fontFamily: FontFamily.bodyMedium,
+    fontFamily: FontFamily.bodyBold,
     color: Colors.success,
+    fontSize: FontSize.body,
   },
 });

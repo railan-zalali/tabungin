@@ -214,7 +214,7 @@ export async function fetchMonthlySummary(profileId?: string): Promise<{
 }> {
   const db = await getDatabase();
   const start = startOfMonth().getTime();
-  const params = [start];
+  const params: any[] = [start];
 
   let profileQuery = "";
   if (profileId) {

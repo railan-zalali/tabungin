@@ -80,7 +80,7 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
 
     setInviteLoading(true);
     try {
-      await addWalletMember(walletId, email, "viewer"); // Default role viewer
+      await addWalletMember(walletId, email, "editor"); // Default role editor
       setEmail("");
       setIsInviting(false);
       await loadMembers();
@@ -174,7 +174,7 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
               value={email}
               onChangeText={setEmail}
               placeholder='email@contoh.com'
-              placeholderTextColor={Colors.textDisabled}
+              placeholderTextColor={Colors.textTertiary}
               autoCapitalize='none'
               keyboardType='email-address'
             />
@@ -274,10 +274,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.surface,
-    padding: 12,
-    borderRadius: 12,
+    padding: 16,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: Colors.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
     gap: 12,
   },
   memberAvatar: {
@@ -302,10 +307,11 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   memberRole: {
-    fontFamily: FontFamily.body,
+    fontFamily: FontFamily.bodyBold,
     fontSize: FontSize.caption,
-    color: Colors.textSecondary,
+    color: Colors.primary,
     textTransform: "capitalize",
+    marginTop: 2,
   },
   removeBtn: {
     padding: 4,

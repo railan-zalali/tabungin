@@ -14,7 +14,7 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 
 // ─── VERSI SCHEMA SAAT INI ─────────────────────────────────────────
 // Naikkan angka ini setiap kali ada perubahan schema database
-const CURRENT_DB_VERSION = 7;
+const CURRENT_DB_VERSION = 8;
 
 // ─── DAFTAR MIGRASI ───────────────────────────────────────────────
 // Key = nomor versi target, value = SQL yang dijalankan untuk upgrade ke versi itu
@@ -163,6 +163,26 @@ const MIGRATIONS: Record<number, string[]> = {
             sync_status TEXT DEFAULT 'pending_create',
             FOREIGN KEY (wallet_id) REFERENCES wallets(id) ON DELETE CASCADE
         );`,
+        `CREATE INDEX IF NOT EXISTS idx_wallet_members_wallet ON wallet_members (wallet_id);`,
+        `CREATE INDEX IF NOT EXISTS idx_wallet_members_email ON wallet_members (user_email);`,
+    ],
+    8: [
+        // Versi 8: Jadikan semua member dompet bersama memiliki akses manage ('editor' minimal)
+        `UPDATE wallet_members SET role = 'editor' WHERE role = 'viewer';`,
+        `CREATE TABLE IF NOT EXISTS _wallet_members_new (
+            id TEXT PRIMARY KEY NOT NULL,
+            wallet_id TEXT NOT NULL,
+            user_email TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'editor',
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER,
+            sync_status TEXT DEFAULT 'pending_create',
+            FOREIGN KEY (wallet_id) REFERENCES wallets(id) ON DELETE CASCADE
+        );`,
+        `INSERT INTO _wallet_members_new SELECT * FROM wallet_members;`,
+        `DROP TABLE wallet_members;`,
+        `ALTER TABLE _wallet_members_new RENAME TO wallet_members;`,
         `CREATE INDEX IF NOT EXISTS idx_wallet_members_wallet ON wallet_members (wallet_id);`,
         `CREATE INDEX IF NOT EXISTS idx_wallet_members_email ON wallet_members (user_email);`,
     ]
@@ -332,6 +352,9 @@ export async function clearAllData(): Promise<void> {
         await database.execAsync('DELETE FROM saving_logs'); // Harus sebelum saving_goals karena FK
         await database.execAsync('DELETE FROM saving_goals');
         await database.execAsync('DELETE FROM budgets');
+        await database.execAsync('DELETE FROM wallet_members');
+        await database.execAsync('DELETE FROM wallets');
+        await database.execAsync('DELETE FROM profiles');
         // Jangan hapus tabel users jika masih dipakai untuk cache, tapi karena auth sudah via Supabase, aman untuk dihapus atau diabaikan.
         // Untuk amannya, kita hapus juga users lokal
         await database.execAsync('DELETE FROM users');

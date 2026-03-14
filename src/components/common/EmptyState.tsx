@@ -10,6 +10,7 @@ interface EmptyStateProps {
     icon: string;
     title: string;
     description?: string;
+    message?: string;
     actionLabel?: string;
     onAction?: () => void;
     style?: ViewStyle;
@@ -19,6 +20,7 @@ export function EmptyState({
     icon,
     title,
     description,
+    message,
     actionLabel,
     onAction,
     style,
@@ -27,7 +29,7 @@ export function EmptyState({
         <View
             style={[styles.container, style]}
             accessible={true}
-            accessibilityLabel={`${title}${description ? '. ' + description : ''}`}
+            accessibilityLabel={`${title}${description || message ? '. ' + (description || message) : ''}`}
         >
             <View style={styles.iconContainer}>
                 <MaterialCommunityIcons
@@ -40,9 +42,9 @@ export function EmptyState({
             <Text style={styles.title} allowFontScaling={true}>
                 {title}
             </Text>
-            {description && (
+            {(description || message) && (
                 <Text style={styles.description} allowFontScaling={true}>
-                    {description}
+                    {description || message}
                 </Text>
             )}
             {actionLabel && onAction && (

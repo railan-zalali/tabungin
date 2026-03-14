@@ -48,4 +48,6 @@ export type SettingsStackParamList = {
     Profile: undefined;
     WalletList: undefined;
     AddWallet: { wallet?: any } | undefined;
+    QRScanner: undefined;
+    JoinWallet: { walletId: string };
 };

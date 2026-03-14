@@ -46,6 +46,15 @@ export const Colors = {
     // Transparent
     transparent: 'transparent',
 
+    // --- ALIASES TO FIX TYPESCRIPT MIGRATION ERRORS ---
+    textDisabled: '#9CA3AF',
+    surfaceElevated: '#FFFFFF',
+    dangerLight: '#FEE2E2',
+    successLight: '#DCFCE7',
+    warningLight: '#FEF3C7',
+    infoLight: '#DBEAFE',
+    overlayLight: 'rgba(0, 0, 0, 0.3)',
+
     // --- LEGACY COMPATIBILITY ---
     // Keep these to prevent breaking existing components while migrating
     secondary: '#F5A623', // Deprecated: Use 'warning' or specific color

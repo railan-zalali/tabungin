@@ -291,7 +291,7 @@ import { supabase } from "../lib/supabase";
 export async function addWalletMember(
   walletId: string,
   email: string,
-  role: "owner" | "editor" | "viewer" = "viewer",
+  role: "owner" | "editor" | "viewer" = "editor",
 ): Promise<WalletMember> {
   const db = await getDatabase();
   const id = uuidv4();

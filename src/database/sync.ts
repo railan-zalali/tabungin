@@ -203,6 +203,44 @@ async function pullChanges() {
 
       if (!data || data.length === 0) continue;
 
+      // [SELF-HEALING] Pastikan foreign key parent (wallet_id) ada di lokal sebelum insert
+      // Karena shared wallet mungkin tidak ter-pull jika 'updated_at' nya lebih tua dari lastSync
+      if (['transactions', 'saving_goals', 'budgets', 'wallet_members'].includes(table.tableName)) {
+        const walletIds = [...new Set(data.map((r: any) => r.wallet_id).filter(Boolean))] as string[];
+        if (walletIds.length > 0) {
+          const placeholders = walletIds.map(() => "?").join(",");
+          const existing = await db.getAllAsync<any>(
+            `SELECT id FROM wallets WHERE id IN (${placeholders})`,
+            walletIds,
+          );
+          const existingIds = new Set(existing.map((e: any) => e.id));
+          const missingIds = walletIds.filter((id) => !existingIds.has(id));
+
+          if (missingIds.length > 0) {
+            console.log(`[Sync] Menemukan wallet yang belum ada di lokal, menarik dari server...`, missingIds);
+            const { data: missingWallets } = await supabase
+              .from("wallets")
+              .select("*")
+              .in("id", missingIds);
+
+            if (missingWallets && missingWallets.length > 0) {
+              const wTable = SYNC_TABLES.find((t) => t.tableName === "wallets")!;
+              for (const w of missingWallets) {
+                const mappedW = mapRecordFromSupabase("wallets", w);
+                const wCols = wTable.columns.join(", ");
+                const wPlaceholders = wTable.columns.map(() => "?").join(", ");
+                const wValues = wTable.columns.map((col) => mappedW[col]);
+
+                await db.runAsync(
+                  `INSERT OR REPLACE INTO wallets (${wCols}, sync_status) VALUES (${wPlaceholders}, 'synced')`,
+                  [...wValues],
+                );
+              }
+            }
+          }
+        }
+      }
+
       await db.withTransactionAsync(async () => {
         for (const row of data) {
           // Mapping data types
