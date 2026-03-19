@@ -14,7 +14,10 @@ import {
 import { isSameDay, startOfDay, endOfDay } from '../utils/date';
 import { useWalletStore } from './useWalletStore';
 import { useProfileStore } from './useProfileStore';
-
+import { useAuthStore } from './useAuthStore';
+import { supabase } from '../lib/supabase';
+import { handleRealtimePayload, syncDatabase } from '../database/sync';
+import { RealtimeChannel } from '@supabase/supabase-js';
 interface TransactionState {
     transactions: Transaction[];
     recentTransactions: Transaction[];
@@ -34,6 +37,11 @@ interface TransactionState {
     refreshSummary: () => Promise<void>;
     getCategorySummary: (type: 'expense' | 'income', start: number, end: number) => Promise<CategorySummary[]>;
     getMonthlyData: () => Promise<MonthlySummary[]>;
+    
+    // Realtime
+    realtimeChannel: RealtimeChannel | null;
+    initRealtime: () => void;
+    stopRealtime: () => void;
 }
 
 export const useTransactionStore = create<TransactionState>((set, get) => ({
@@ -49,7 +57,8 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         set({ isLoading: true });
         try {
             const profileId = useProfileStore.getState().activeProfileId;
-            const f = { ...filter ?? get().filter, profile_id: profileId || undefined };
+            const userEmail = useAuthStore.getState().user?.email;
+            const f = { ...filter ?? get().filter, profile_id: profileId || undefined, userEmail: userEmail || undefined };
             const data = await fetchTransactions(f);
             set({ transactions: data, filter: f });
         } finally {
@@ -59,18 +68,19 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
 
     loadRecent: async () => {
         const profileId = useProfileStore.getState().activeProfileId;
-        const data = await fetchRecentTransactions(5, profileId || undefined);
+        const userEmail = useAuthStore.getState().user?.email;
+        const data = await fetchRecentTransactions(5, profileId || undefined, userEmail || undefined);
         set({ recentTransactions: data });
     },
 
     addTransaction: async (data) => {
-        const profileId = useProfileStore.getState().activeProfileId;
-        const transaction = await insertTransaction({ ...data, profile_id: profileId || undefined });
+        const transaction = await insertTransaction(data);
         await get().loadTransactions();
         await get().loadRecent();
         await get().refreshSummary();
         // Refresh saldo wallet
-        useWalletStore.getState().loadWallets();
+        await useWalletStore.getState().loadWallets();
+        syncDatabase().catch(console.error);
         return transaction;
     },
 
@@ -80,7 +90,8 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         await get().loadRecent();
         await get().refreshSummary();
         // Refresh saldo wallet (jika ada perubahan wallet atau amount - TODO: handle complex logic)
-        useWalletStore.getState().loadWallets();
+        await useWalletStore.getState().loadWallets();
+        syncDatabase().catch(console.error);
     },
 
     removeTransaction: async (id) => {
@@ -91,7 +102,8 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         }));
         await get().refreshSummary();
         // Refresh saldo wallet
-        useWalletStore.getState().loadWallets();
+        await useWalletStore.getState().loadWallets();
+        syncDatabase().catch(console.error);
     },
 
     setFilter: (filter) => {
@@ -101,7 +113,8 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
 
     refreshSummary: async () => {
         const profileId = useProfileStore.getState().activeProfileId;
-        const summary = await fetchMonthlySummary(profileId || undefined);
+        const userEmail = useAuthStore.getState().user?.email;
+        const summary = await fetchMonthlySummary(profileId || undefined, userEmail || undefined);
         set({
             totalIncome: summary.totalIncome,
             totalExpense: summary.totalExpense,
@@ -111,11 +124,51 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
 
     getCategorySummary: (type, start, end) => {
         const profileId = useProfileStore.getState().activeProfileId;
-        return fetchCategorySummary(type, start, end, profileId || undefined);
+        const userEmail = useAuthStore.getState().user?.email;
+        return fetchCategorySummary(type, start, end, profileId || undefined, userEmail || undefined);
     },
 
     getMonthlyData: () => {
         const profileId = useProfileStore.getState().activeProfileId;
-        return fetchMonthlyData(profileId || undefined);
+        const userEmail = useAuthStore.getState().user?.email;
+        return fetchMonthlyData(profileId || undefined, userEmail || undefined);
     },
+
+    realtimeChannel: null,
+    initRealtime: () => {
+        const channel = get().realtimeChannel;
+        if (channel) return;
+
+        console.log('[Realtime] Initializing transactions channel...');
+        const newChannel = supabase
+            .channel('public:transactions')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'transactions' },
+                async (payload) => {
+                    const changed = await handleRealtimePayload('transactions', payload);
+                    if (changed) {
+                        get().loadTransactions();
+                        get().loadRecent();
+                        get().refreshSummary();
+                        useWalletStore.getState().loadWallets();
+                    }
+                }
+            )
+            .subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    console.log('[Realtime] Connected to transactions channel');
+                }
+            });
+
+        set({ realtimeChannel: newChannel });
+    },
+    stopRealtime: () => {
+        const channel = get().realtimeChannel;
+        if (channel) {
+            supabase.removeChannel(channel);
+            set({ realtimeChannel: null });
+            console.log('[Realtime] Disconnected transactions channel');
+        }
+    }
 }));

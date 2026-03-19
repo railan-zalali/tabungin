@@ -1,17 +1,17 @@
-// Register Screen — Validasi real-time semua field
 import React, { useState } from 'react';
 import {
     View,
     Text,
     StyleSheet,
-    SafeAreaView,
     ScrollView,
     TouchableOpacity,
     KeyboardAvoidingView,
     Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
@@ -23,13 +23,14 @@ import type { RootStackParamList } from '../../types/navigation';
 
 export function RegisterScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-    const { register, authError, clearError } = useAuthStore();
+    const { register, loginWithGoogle, authError } = useAuthStore();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirm, setConfirm] = useState('');
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(false);
+    const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
     const validate = (): boolean => {
         const errs: Record<string, string> = {};
@@ -59,13 +60,26 @@ export function RegisterScreen() {
         }
     };
 
-    const clearFieldError = (field: string) => setErrors((e) => { const n = { ...e }; delete n[field]; return n; });
+    const handleGoogleRegister = async () => {
+        setIsGoogleLoading(true);
+        try {
+            const ok = await loginWithGoogle();
+            if (!ok) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        } finally {
+            setIsGoogleLoading(false);
+        }
+    };
+
+    const clearFieldError = (field: string) => setErrors((state) => {
+        const next = { ...state };
+        delete next[field];
+        return next;
+    });
 
     return (
         <SafeAreaView style={styles.safe}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
                 <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-
                     <TouchableOpacity
                         style={styles.backBtn}
                         onPress={() => navigation.goBack()}
@@ -73,11 +87,11 @@ export function RegisterScreen() {
                         accessibilityRole="button"
                         accessibilityLabel="Kembali ke login"
                     >
-                        <Text style={styles.backText} allowFontScaling={true}>← Kembali</Text>
+                        <Text style={styles.backText} allowFontScaling={true}>Kembali</Text>
                     </TouchableOpacity>
 
                     <Text style={styles.heading} allowFontScaling={true} accessibilityRole="header">
-                        Buat Akun Baru ✨
+                        Buat Akun Baru
                     </Text>
                     <Text style={styles.subHeading} allowFontScaling={true}>
                         Mulai perjalanan finansialmu bersama Tabungin
@@ -87,7 +101,7 @@ export function RegisterScreen() {
                         <Input
                             label="Nama Lengkap"
                             value={name}
-                        onChangeText={(v) => { setName(v); clearFieldError('name'); }}
+                            onChangeText={(value) => { setName(value); clearFieldError('name'); }}
                             autoCapitalize="words"
                             leftIcon="account"
                             error={errors.name}
@@ -97,7 +111,7 @@ export function RegisterScreen() {
                         <Input
                             label="Email"
                             value={email}
-                        onChangeText={(v) => { setEmail(v); clearFieldError('email'); }}
+                            onChangeText={(value) => { setEmail(value); clearFieldError('email'); }}
                             keyboardType="email-address"
                             autoCapitalize="none"
                             autoComplete="email"
@@ -109,7 +123,7 @@ export function RegisterScreen() {
                         <Input
                             label="Password"
                             value={password}
-                        onChangeText={(v) => { setPassword(v); clearFieldError('password'); }}
+                            onChangeText={(value) => { setPassword(value); clearFieldError('password'); }}
                             secureTextEntry
                             leftIcon="lock"
                             error={errors.password}
@@ -120,7 +134,7 @@ export function RegisterScreen() {
                         <Input
                             label="Konfirmasi Password"
                             value={confirm}
-                        onChangeText={(v) => { setConfirm(v); clearFieldError('confirm'); }}
+                            onChangeText={(value) => { setConfirm(value); clearFieldError('confirm'); }}
                             secureTextEntry
                             leftIcon="lock-check"
                             error={errors.confirm}
@@ -144,6 +158,22 @@ export function RegisterScreen() {
                         fullWidth
                         style={{ marginTop: 8 }}
                         accessibilityHint="Ketuk dua kali untuk membuat akun baru"
+                    />
+
+                    <View style={styles.divider}>
+                        <View style={styles.dividerLine} />
+                        <Text style={styles.dividerText} allowFontScaling={true}>atau</Text>
+                        <View style={styles.dividerLine} />
+                    </View>
+
+                    <Button
+                        label="Lanjutkan Dengan Google"
+                        onPress={handleGoogleRegister}
+                        variant="outline"
+                        size="md"
+                        loading={isGoogleLoading}
+                        fullWidth
+                        icon={<MaterialCommunityIcons name="google" size={18} color={Colors.primary} />}
                     />
 
                     <View style={styles.footer}>
@@ -173,6 +203,9 @@ const styles = StyleSheet.create({
     heading: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: Colors.textPrimary },
     subHeading: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: Colors.textSecondary },
     fields: { gap: 14 },
+    divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 4 },
+    dividerLine: { flex: 1, height: 1, backgroundColor: Colors.border },
+    dividerText: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: Colors.textSecondary },
     errorBanner: {
         backgroundColor: '#FEF2F2',
         borderRadius: 10,

@@ -7,6 +7,7 @@ import type { RootStackParamList } from '../types/navigation';
 import { OnboardingScreen } from '../screens/auth/OnboardingScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { RegisterScreen } from '../screens/auth/RegisterScreen';
+import { AuthCallbackScreen } from '../screens/auth/AuthCallbackScreen';
 import { TabNavigator } from './TabNavigator';
 import { SavingStackNavigator } from './SavingStackNavigator';
 import { BudgetScreen } from '../screens/budget/BudgetScreen';
@@ -29,9 +30,11 @@ export function RootNavigator() {
                     <Stack.Screen name="Onboarding" component={OnboardingScreen} />
                     <Stack.Screen name="Login" component={LoginScreen} />
                     <Stack.Screen name="Register" component={RegisterScreen} />
+                    <Stack.Screen name="AuthCallback" component={AuthCallbackScreen} />
                 </>
             ) : (
                 <>
+                    <Stack.Screen name="AuthCallback" component={AuthCallbackScreen} />
                     <Stack.Screen name="Main" component={TabNavigator} />
                     <Stack.Screen name="Budget" component={BudgetScreen} />
                     <Stack.Screen name="Savings" component={SavingStackNavigator} />

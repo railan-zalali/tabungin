@@ -13,7 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
+
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { Shadow } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -34,6 +34,7 @@ interface SettingRowProps {
 
 function SettingRow({ icon, iconColor, title, subtitle, onPress, rightElement }: SettingRowProps) {
     const { colors } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
     return (
         <TouchableOpacity
             style={styles.row}
@@ -60,6 +61,7 @@ export function SettingsScreen() {
     const { user, hapticEnabled, setHapticEnabled, logout } = useAuthStore();
     const { mode, setMode, textSize, setTextSize } = useThemeStore();
     const { colors } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
 
     const { transactions } = useTransactionStore();
     const { goals } = useSavingStore();
@@ -146,7 +148,7 @@ export function SettingsScreen() {
                     </View>
                     <View style={styles.profileInfo}>
                         <Text style={[styles.profileName, { color: colors.textPrimary }]}>{user?.name ?? 'Pengguna'}</Text>
-                        <Text style={[styles.profileEmail, { color: colors.textSecondary }]}>{user?.email || 'Mode Offline'}</Text>
+                        <Text style={[styles.profileEmail, { color: colors.textSecondary }]}>{user?.email || '-'}</Text>
                     </View>
                     <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.textSecondary} />
                 </TouchableOpacity>
@@ -302,15 +304,15 @@ export function SettingsScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background },
+const getStyles = (colors: any) => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
     
     header: { 
         paddingHorizontal: 20, 
         paddingVertical: 12,
-        backgroundColor: Colors.background,
+        backgroundColor: colors.background,
     },
-    headerTitle: { ...Typography.h2, color: Colors.textPrimary },
+    headerTitle: { ...Typography.h2, color: colors.textPrimary },
     
     content: { padding: 20, gap: 24, paddingBottom: 100 },
     
@@ -318,11 +320,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 16,
-        backgroundColor: Colors.surface,
+        backgroundColor: colors.surface,
         borderRadius: 20,
         padding: 20,
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: colors.border,
     },
     avatar: { 
         width: 60, 
@@ -331,27 +333,27 @@ const styles = StyleSheet.create({
         alignItems: 'center', 
         justifyContent: 'center' 
     },
-    avatarText: { fontFamily: FontFamily.heading, fontSize: 24, color: Colors.textInverse },
+    avatarText: { fontFamily: FontFamily.heading, fontSize: 24, color: colors.textInverse },
     profileInfo: { flex: 1 },
-    profileName: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: Colors.textPrimary },
-    profileEmail: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: Colors.textSecondary },
+    profileName: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: colors.textPrimary },
+    profileEmail: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary },
     
     section: { gap: 12 },
     sectionTitle: { 
         fontFamily: FontFamily.bodyBold, 
         fontSize: FontSize.caption, 
-        color: Colors.textSecondary, 
+        color: colors.textSecondary, 
         textTransform: 'uppercase', 
         letterSpacing: 0.5, 
         paddingLeft: 4 
     },
     
     card: { 
-        backgroundColor: Colors.surface, 
+        backgroundColor: colors.surface, 
         borderRadius: 16, 
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: colors.border,
     },
     row: { 
         flexDirection: 'row', 
@@ -369,10 +371,10 @@ const styles = StyleSheet.create({
         justifyContent: 'center' 
     },
     rowInfo: { flex: 1 },
-    rowTitle: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.body, color: Colors.textPrimary },
-    rowSubtitle: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: Colors.textSecondary, marginTop: 2 },
+    rowTitle: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.body, color: colors.textPrimary },
+    rowSubtitle: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary, marginTop: 2 },
     
-    divider: { height: 1, backgroundColor: Colors.divider, marginLeft: 76 },
+    divider: { height: 1, backgroundColor: colors.divider, marginLeft: 76 },
     
     textSizeRow: { 
         flexDirection: 'row', 
@@ -395,20 +397,20 @@ const styles = StyleSheet.create({
         alignItems: 'center', 
         borderRadius: 10, 
         borderWidth: 1, 
-        borderColor: Colors.border, 
-        backgroundColor: Colors.surface 
+        borderColor: colors.border, 
+        backgroundColor: colors.surface 
     },
     textSizeBtnActive: { 
-        backgroundColor: Colors.primaryBg, 
-        borderColor: Colors.primary 
+        backgroundColor: colors.primaryBg, 
+        borderColor: colors.primary 
     },
     textSizeBtnText: { 
         fontFamily: FontFamily.body, 
         fontSize: 12, 
-        color: Colors.textSecondary 
+        color: colors.textSecondary 
     },
     textSizeBtnTextActive: { 
-        color: Colors.primary, 
+        color: colors.primary, 
         fontFamily: FontFamily.bodyBold 
     },
     
@@ -418,11 +420,11 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         gap: 10,
         padding: 16,
-        backgroundColor: Colors.dangerBg,
+        backgroundColor: colors.dangerBg,
         borderRadius: 16,
         minHeight: 56,
         borderWidth: 1,
-        borderColor: Colors.dangerBg,
+        borderColor: colors.dangerBg,
     },
-    logoutText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.body, color: Colors.danger },
+    logoutText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.body, color: colors.danger },
 });

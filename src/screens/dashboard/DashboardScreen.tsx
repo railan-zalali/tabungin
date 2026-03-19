@@ -14,7 +14,8 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Colors } from "../../constants/colors";
+import Animated, { FadeInDown, FadeInUp, ZoomIn } from "react-native-reanimated";
+
 import { FontFamily, FontSize, Typography } from "../../constants/typography";
 import { Shadow } from "../../constants/theme";
 import { useAuthStore } from "../../store/useAuthStore";
@@ -40,6 +41,7 @@ export function DashboardScreen() {
   const user = useAuthStore((s) => s.user);
   const { loadProfiles } = useProfileStore();
   const { colors, mode } = useTheme();
+  const styles = React.useMemo(() => getStyles(colors), [colors]);
 
   const {
     recentTransactions,
@@ -58,9 +60,13 @@ export function DashboardScreen() {
   const [refreshing, setRefreshing] = React.useState(false);
 
   const loadAll = useCallback(async () => {
-    await loadProfiles();
-    await Promise.all([loadRecent(), refreshSummary(), loadGoals(), loadWallets()]);
-  }, []);
+    try {
+      await loadProfiles();
+      await Promise.all([loadRecent(), refreshSummary(), loadGoals(), loadWallets()]);
+    } catch (e) {
+      console.error("Dashboard refresh error:", e);
+    }
+  }, [loadRecent, refreshSummary, loadGoals, loadWallets, loadProfiles]);
 
   useEffect(() => {
     loadAll();
@@ -78,8 +84,8 @@ export function DashboardScreen() {
       id: "1",
       icon: "arrow-up-circle",
       label: "Pemasukan",
-      color: Colors.success,
-      bgColor: Colors.successBg,
+      color: colors.success,
+      bgColor: colors.successBg,
       onPress: () =>
         navigation.navigate("Transactions", {
           screen: "AddTransaction",
@@ -90,8 +96,8 @@ export function DashboardScreen() {
       id: "2",
       icon: "arrow-down-circle",
       label: "Pengeluaran",
-      color: Colors.danger,
-      bgColor: Colors.dangerBg,
+      color: colors.danger,
+      bgColor: colors.dangerBg,
       onPress: () =>
         navigation.navigate("Transactions", {
           screen: "AddTransaction",
@@ -102,8 +108,8 @@ export function DashboardScreen() {
       id: "3",
       icon: "target",
       label: "Target",
-      color: Colors.primary,
-      bgColor: Colors.primaryLight,
+      color: colors.primary,
+      bgColor: colors.primaryLight,
       onPress: () => navigation.navigate("Savings", { screen: "AddSavingGoal" }),
     },
   ];
@@ -132,7 +138,10 @@ export function DashboardScreen() {
         <View style={styles.header}>
           <View>
             <Text style={[styles.greeting, { color: colors.textPrimary }]}>
-              Halo, {user?.name?.split(" ")[0] ?? "Kawan"}! 👋
+              Halo, {user?.name ? user.name.split(" ")[0] : "Kawan"}! 👋
+            </Text>
+            <Text style={[styles.date, { color: colors.textSecondary }]}>
+              {formatDateLong(Date.now())}
             </Text>
             <View style={{ marginTop: 8 }}>
               <ProfileSwitcher />
@@ -153,81 +162,88 @@ export function DashboardScreen() {
         </View>
 
         {/* Kartu Saldo Utama */}
-        <LinearGradient
-          colors={[colors.primary, colors.primaryDark]}
-          style={styles.balanceCard}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <View style={styles.balanceHeader}>
-            <Text style={styles.balanceLabel}>Total Saldo Keseluruhan</Text>
-            <Text style={styles.balanceAmount} numberOfLines={1}>
-              {formatCurrency(totalBalance)}
-            </Text>
-          </View>
-
-          <View style={styles.dividerH} />
-
-          <View style={styles.incomeExpenseRow}>
-            <View style={styles.incomeExpenseItem}>
-              <View style={styles.iconRow}>
-                <View style={[styles.iconBg, { backgroundColor: "rgba(255,255,255,0.2)" }]}>
-                  <MaterialCommunityIcons name='arrow-up' size={16} color='#FFF' />
-                </View>
-                <Text style={styles.incomeExpenseLabel}>Pemasukan</Text>
-              </View>
-              <Text style={styles.incomeAmount}>{formatCurrency(totalIncome)}</Text>
-              <Text style={styles.periodText}>Bulan ini</Text>
-            </View>
-
-            <View style={styles.dividerV} />
-
-            <View style={styles.incomeExpenseItem}>
-              <View style={styles.iconRow}>
-                <View style={[styles.iconBg, { backgroundColor: "rgba(255,255,255,0.2)" }]}>
-                  <MaterialCommunityIcons name='arrow-down' size={16} color='#FFF' />
-                </View>
-                <Text style={styles.incomeExpenseLabel}>Pengeluaran</Text>
-              </View>
-              <Text style={styles.incomeAmount}>{formatCurrency(totalExpense)}</Text>
-              <Text style={styles.periodText}>Bulan ini</Text>
-            </View>
-          </View>
-
-          <TouchableOpacity
-            style={styles.detailBtn}
-            onPress={() => navigation.navigate("Report")}
-            accessibilityLabel='Lihat rincian laporan keuangan'
-            accessibilityRole='button'
+        <Animated.View entering={FadeInUp.delay(100).springify()}>
+          <LinearGradient
+            colors={[colors.primary, colors.primaryDark]}
+            style={styles.balanceCard}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
           >
-            <Text style={styles.detailBtnText}>Lihat Rincian</Text>
-            <MaterialCommunityIcons name='chevron-right' size={16} color='#FFF' />
-          </TouchableOpacity>
-        </LinearGradient>
+            <View style={styles.balanceHeader}>
+              <Text style={styles.balanceLabel}>Total Saldo Keseluruhan</Text>
+              <Text style={styles.balanceAmount} numberOfLines={1}>
+                {formatCurrency(totalBalance)}
+              </Text>
+            </View>
+
+            <View style={styles.dividerH} />
+
+            <View style={styles.incomeExpenseRow}>
+              <View style={styles.incomeExpenseItem}>
+                <View style={styles.iconRow}>
+                  <View style={[styles.iconBg, { backgroundColor: "rgba(255,255,255,0.2)" }]}>
+                    <MaterialCommunityIcons name='arrow-up' size={16} color='#FFF' />
+                  </View>
+                  <Text style={styles.incomeExpenseLabel}>Pemasukan</Text>
+                </View>
+                <Text style={styles.incomeAmount}>{formatCurrency(totalIncome)}</Text>
+                <Text style={styles.periodText}>Bulan ini</Text>
+              </View>
+
+              <View style={styles.dividerV} />
+
+              <View style={styles.incomeExpenseItem}>
+                <View style={styles.iconRow}>
+                  <View style={[styles.iconBg, { backgroundColor: "rgba(255,255,255,0.2)" }]}>
+                    <MaterialCommunityIcons name='arrow-down' size={16} color='#FFF' />
+                  </View>
+                  <Text style={styles.incomeExpenseLabel}>Pengeluaran</Text>
+                </View>
+                <Text style={styles.incomeAmount}>{formatCurrency(totalExpense)}</Text>
+                <Text style={styles.periodText}>Bulan ini</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.detailBtn}
+              onPress={() => navigation.navigate("Report")}
+              accessibilityLabel='Lihat rincian laporan keuangan'
+              accessibilityRole='button'
+            >
+              <Text style={styles.detailBtnText}>Lihat Rincian</Text>
+              <MaterialCommunityIcons name='chevron-right' size={16} color='#FFF' />
+            </TouchableOpacity>
+          </LinearGradient>
+        </Animated.View>
 
         {/* Quick Actions */}
         <View style={styles.quickActions}>
-          {quickActions.map((action) => (
-            <TouchableOpacity
-              key={action.id}
-              style={styles.quickAction}
-              onPress={action.onPress}
-              activeOpacity={0.7}
-              accessibilityLabel={action.label}
-              accessibilityRole='button'
+          {quickActions.map((action, index) => (
+            <Animated.View 
+              key={action.id} 
+              entering={ZoomIn.delay(200 + index * 100).springify()}
+              style={{ flex: 1 }}
             >
-              <View style={[styles.quickActionIcon, { backgroundColor: action.bgColor }]}>
-                <MaterialCommunityIcons name={action.icon as any} size={28} color={action.color} />
-              </View>
-              <Text style={styles.quickActionLabel}>{action.label}</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.quickAction, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={action.onPress}
+                activeOpacity={0.7}
+                accessibilityLabel={action.label}
+                accessibilityRole='button'
+              >
+                <View style={[styles.quickActionIcon, { backgroundColor: action.bgColor }]}>
+                  <MaterialCommunityIcons name={action.icon as any} size={32} color={action.color} />
+                </View>
+                <Text style={[styles.quickActionLabel, { color: colors.textPrimary }]}>{action.label}</Text>
+              </TouchableOpacity>
+            </Animated.View>
           ))}
         </View>
 
         {/* Saving Goals Preview */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Target Tabungan</Text>
+          <Animated.View entering={FadeInDown.delay(400).springify()} style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Target Tabungan</Text>
             <TouchableOpacity
               onPress={() => navigation.navigate("Savings")}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -236,7 +252,7 @@ export function DashboardScreen() {
             >
               <Text style={styles.seeAll}>Lihat Semua</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
 
           {savLoading ? (
             <View style={{ gap: 12, paddingHorizontal: 20 }}>
@@ -279,7 +295,7 @@ export function DashboardScreen() {
 
         {/* Transaksi Terbaru */}
         <View style={[styles.section, { marginBottom: 100 }]}>
-          <View style={styles.sectionHeader}>
+          <Animated.View entering={FadeInDown.delay(500).springify()} style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
               Transaksi Terbaru
             </Text>
@@ -291,7 +307,7 @@ export function DashboardScreen() {
             >
               <Text style={[styles.seeAll, { color: colors.primary }]}>Lihat Semua</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
 
           <View
             style={[
@@ -336,24 +352,24 @@ export function DashboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+const getStyles = (colors: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   scrollContent: { gap: 24, paddingBottom: 40 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 4,
   },
   greeting: {
     ...Typography.h1,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   date: {
     ...Typography.caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 4,
   },
   notifBtn: {
@@ -362,10 +378,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 22,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     ...Shadow.sm,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
 
   balanceCard: {
@@ -430,25 +446,25 @@ const styles = StyleSheet.create({
   quickAction: {
     flex: 1,
     alignItems: "center",
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     padding: 16,
     borderRadius: 16,
     gap: 12,
     ...Shadow.sm,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   quickActionIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 64, // Increased size
+    height: 64, // Increased size
+    borderRadius: 32,
     alignItems: "center",
     justifyContent: "center",
   },
   quickActionLabel: {
     fontFamily: FontFamily.bodyBold,
     fontSize: FontSize.caption,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     textAlign: "center",
   },
 
@@ -461,22 +477,22 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...Typography.h2,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   seeAll: {
     fontFamily: FontFamily.bodyBold,
     fontSize: FontSize.body,
-    color: Colors.primary,
+    color: colors.primary,
   },
 
   transactionList: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     marginHorizontal: 20,
     borderRadius: 20,
     padding: 8,
     ...Shadow.sm,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
-  separator: { height: 1, backgroundColor: Colors.divider, marginLeft: 64, marginRight: 16 },
+  separator: { height: 1, backgroundColor: colors.divider, marginLeft: 64, marginRight: 16 },
 });

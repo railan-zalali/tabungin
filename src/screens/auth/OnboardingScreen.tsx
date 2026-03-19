@@ -7,8 +7,8 @@ import {
     Dimensions,
     TouchableOpacity,
     FlatList,
-    SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,

@@ -17,13 +17,13 @@ import Animated, {
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
 import type { Transaction } from '../../types/transaction';
 import { formatRupiah } from '../../utils/currency';
 
 import { getCategoryById } from '../../constants/categories';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useTheme } from '../../store/useThemeStore';
 
 interface TransactionItemProps {
     transaction: Transaction;
@@ -35,6 +35,8 @@ interface TransactionItemProps {
 const DELETE_THRESHOLD = -80;
 
 export function TransactionItem({ transaction, onDelete, onEdit, onPress }: TransactionItemProps) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
     const translateX = useSharedValue(0);
     const hapticEnabled = useAuthStore((s) => s.hapticEnabled);
 
@@ -93,7 +95,7 @@ export function TransactionItem({ transaction, onDelete, onEdit, onPress }: Tran
         <View style={styles.wrapper}>
             {/* Background hapus — terlihat saat diswipe */}
             <View style={styles.deleteBackground} accessibilityElementsHidden={true}>
-                <MaterialCommunityIcons name="trash-can" size={24} color={Colors.textInverse} />
+                <MaterialCommunityIcons name="trash-can" size={24} color={colors.textInverse} />
                 <Text style={styles.deleteText}>Hapus</Text>
             </View>
 
@@ -109,18 +111,17 @@ export function TransactionItem({ transaction, onDelete, onEdit, onPress }: Tran
                         accessibilityLabel={`Transaksi ${isIncome ? 'pemasukan' : 'pengeluaran'} ${category?.name ?? transaction.category}, ${formatRupiah(transaction.amount)}`}
                         accessibilityHint="Ketuk dua kali untuk melihat detail. Tahan untuk opsi edit dan hapus. Geser kiri untuk hapus"
                     >
-                        {/* Ikon kategori — WCAG: icon + warna + teks */}
                         <View
                             style={[
                                 styles.iconContainer,
-                                { backgroundColor: isIncome ? Colors.successLight : Colors.dangerLight },
+                                { backgroundColor: isIncome ? colors.successLight : colors.dangerLight },
                             ]}
                             accessibilityElementsHidden={true}
                         >
                             <MaterialCommunityIcons
                                 name={(category?.icon ?? 'cash') as any}
                                 size={22}
-                                color={isIncome ? Colors.success : Colors.danger}
+                                color={isIncome ? colors.success : colors.danger}
                             />
                         </View>
 
@@ -138,7 +139,7 @@ export function TransactionItem({ transaction, onDelete, onEdit, onPress }: Tran
                         {/* Amount dengan warna + teks prefix — WCAG triple redundancy */}
                         <View style={styles.amountContainer}>
                             <Text
-                                style={[styles.amount, { color: isIncome ? Colors.success : Colors.danger }]}
+                                style={[styles.amount, { color: isIncome ? colors.success : colors.danger }]}
                                 allowFontScaling={true}
                                 accessibilityLabel={`${isIncome ? 'Pemasukan' : 'Pengeluaran'} ${formatRupiah(transaction.amount)}`}
                             >
@@ -154,7 +155,7 @@ export function TransactionItem({ transaction, onDelete, onEdit, onPress }: Tran
 
 
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
     wrapper: {
         position: 'relative',
         overflow: 'hidden',
@@ -165,7 +166,7 @@ const styles = StyleSheet.create({
         right: 0,
         top: 0,
         bottom: 0,
-        backgroundColor: Colors.danger,
+        backgroundColor: colors.danger,
         justifyContent: 'center',
         alignItems: 'center',
         flexDirection: 'row',
@@ -173,12 +174,12 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     deleteText: {
-        color: Colors.textInverse,
+        color: colors.textInverse,
         fontFamily: FontFamily.bodyBold,
         fontSize: FontSize.caption,
     },
     container: {
-        backgroundColor: Colors.surface,
+        backgroundColor: colors.surface,
     },
     inner: {
         flexDirection: 'row',
@@ -199,12 +200,12 @@ const styles = StyleSheet.create({
     categoryName: {
         fontFamily: FontFamily.bodyMedium,
         fontSize: FontSize.body,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
     },
     note: {
         fontFamily: FontFamily.body,
         fontSize: FontSize.caption,
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
     },
     amountContainer: { alignItems: 'flex-end' },
     amount: {

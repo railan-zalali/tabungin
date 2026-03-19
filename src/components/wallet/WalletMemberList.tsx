@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+// QR Code Component untuk Undangan Dompet
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -8,19 +9,23 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
-  Share, // Import Share
+  Share,
+  ScrollView,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Colors } from "../../constants/colors";
-import { FontFamily, FontSize, Typography } from "../../constants/typography";
-import * as Linking from "expo-linking"; // Import Linking
+import { FontFamily, FontSize } from "../../constants/typography";
+import type { WalletMember } from "../../database/walletQueries";
 import {
-  fetchWalletMembers,
-  addWalletMember,
-  removeWalletMember,
-  type WalletMember,
-} from "../../database/walletQueries";
+  fetchWalletMembersForDisplay,
+  inviteWalletMember,
+  removeWalletMemberWithSync,
+} from "../../database/walletSharingService";
+import {
+  buildWalletInviteMessage,
+  buildWalletInviteUrl,
+} from "../../utils/walletInvite";
 
 interface WalletMemberListProps {
   walletId: string;
@@ -32,43 +37,47 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
   const [isInviting, setIsInviting] = useState(false);
   const [email, setEmail] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
-  const [showQR, setShowQR] = useState(false); // State for QR Modal
+  const [showQR, setShowQR] = useState(false);
 
-  const loadMembers = async () => {
+  const inviteUrl = buildWalletInviteUrl(walletId);
+  const inviteMessage = buildWalletInviteMessage(walletId);
+
+  const loadMembers = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await fetchWalletMembers(walletId);
+      const data = await fetchWalletMembersForDisplay(walletId);
       setMembers(data);
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Gagal", "Gagal memuat anggota dompet.");
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [walletId]);
 
   useEffect(() => {
     loadMembers();
-  }, [walletId]);
+  }, [loadMembers]);
 
   const handleShareLink = async () => {
-    const redirectUrl = Linking.createURL("/invite/" + walletId);
-    const message = `Halo! Saya mengundang Anda untuk bergabung mengelola dompet di aplikasi Tabungin.\n\nKlik link berikut untuk bergabung:\n${redirectUrl}`;
-
     try {
-      const result = await Share.share({
-        message: message,
+      await Share.share({
+        message: inviteMessage,
+        url: inviteUrl,
       });
-      if (result.action === Share.sharedAction) {
-        if (result.activityType) {
-          // shared with activity type of result.activityType
-        } else {
-          // shared
-        }
-      } else if (result.action === Share.dismissedAction) {
-        // dismissed
-      }
     } catch (error: any) {
-      Alert.alert(error.message);
+      Alert.alert("Gagal", error.message || "Gagal membagikan undangan.");
+    }
+  };
+
+  const handleShareQR = async () => {
+    try {
+      await Share.share({
+        message: inviteMessage,
+        url: inviteUrl,
+      });
+    } catch (error: any) {
+      Alert.alert("Gagal", error.message || "Gagal membagikan QR code.");
     }
   };
 
@@ -80,13 +89,13 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
 
     setInviteLoading(true);
     try {
-      await addWalletMember(walletId, email, "editor"); // Default role editor
+      await inviteWalletMember(walletId, email, "editor");
       setEmail("");
       setIsInviting(false);
       await loadMembers();
-      Alert.alert("Sukses", "Undangan terkirim");
-    } catch (e: any) {
-      Alert.alert("Gagal", e.message || "Gagal mengundang anggota");
+      Alert.alert("Sukses", "Undangan terkirim.");
+    } catch (error: any) {
+      Alert.alert("Gagal", error.message || "Gagal mengundang anggota");
     } finally {
       setInviteLoading(false);
     }
@@ -100,10 +109,10 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
         style: "destructive",
         onPress: async () => {
           try {
-            await removeWalletMember(id);
-            loadMembers();
-          } catch (e) {
-            Alert.alert("Error", "Gagal menghapus anggota");
+            await removeWalletMemberWithSync(id);
+            await loadMembers();
+          } catch (error: any) {
+            Alert.alert("Error", error.message || "Gagal menghapus anggota");
           }
         },
       },
@@ -114,7 +123,7 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Anggota Tim</Text>
-        <View style={{ flexDirection: "row", gap: 8 }}>
+        <View style={styles.headerActions}>
           <TouchableOpacity style={styles.inviteBtn} onPress={handleShareLink}>
             <MaterialCommunityIcons name='share-variant' size={16} color={Colors.primary} />
             <Text style={styles.inviteBtnText}>Share</Text>
@@ -136,18 +145,18 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
         <Text style={styles.emptyText}>Belum ada anggota lain di dompet ini.</Text>
       ) : (
         <View style={styles.list}>
-          {members.map((m) => (
-            <View key={m.id} style={styles.memberItem}>
+          {members.map((member) => (
+            <View key={member.id} style={styles.memberItem}>
               <View style={styles.memberAvatar}>
-                <Text style={styles.avatarText}>{m.user_email[0].toUpperCase()}</Text>
+                <Text style={styles.avatarText}>{member.user_email[0].toUpperCase()}</Text>
               </View>
               <View style={styles.memberInfo}>
-                <Text style={styles.memberEmail}>{m.user_email}</Text>
+                <Text style={styles.memberEmail}>{member.user_email}</Text>
                 <Text style={styles.memberRole}>
-                  {m.role} • {m.status === "pending" ? "Menunggu" : "Aktif"}
+                  {member.role} - {member.status === "pending" ? "Menunggu" : "Aktif"}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => handleRemove(m.id)} style={styles.removeBtn}>
+              <TouchableOpacity onPress={() => handleRemove(member.id)} style={styles.removeBtn}>
                 <MaterialCommunityIcons name='trash-can-outline' size={20} color={Colors.danger} />
               </TouchableOpacity>
             </View>
@@ -155,7 +164,6 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
         </View>
       )}
 
-      {/* Invite Email Modal */}
       <Modal
         visible={isInviting}
         transparent
@@ -199,7 +207,6 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
         </View>
       </Modal>
 
-      {/* QR Code Modal */}
       <Modal
         visible={showQR}
         transparent
@@ -207,28 +214,46 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
         onRequestClose={() => setShowQR(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { alignItems: "center" }]}>
-            <Text style={styles.modalTitle}>QR Code Undangan</Text>
-            <Text style={[styles.modalSubtitle, { textAlign: "center", marginBottom: 20 }]}>
-              Minta teman Anda scan QR ini menggunakan aplikasi Tabungin untuk bergabung.
-            </Text>
+          <ScrollView
+            contentContainerStyle={styles.modalScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={[styles.modalContent, { alignItems: "center" }]}>
+              <Text style={styles.modalTitle}>QR Code Undangan</Text>
+              <Text style={[styles.modalSubtitle, { textAlign: "center", marginBottom: 24 }]}>
+                Minta teman Anda scan QR ini menggunakan aplikasi Tabungin untuk bergabung.
+              </Text>
 
-            <View style={{ padding: 10, backgroundColor: "white", borderRadius: 10 }}>
-              <QRCode
-                value={Linking.createURL("/invite/" + walletId)}
-                size={200}
-                color='black'
-                backgroundColor='white'
-              />
+              <View style={styles.qrContainer}>
+                <View style={styles.qrPreview}>
+                  <QRCode
+                    value={inviteUrl}
+                    size={280}
+                    color="#000000"
+                    backgroundColor="#FFFFFF"
+                  />
+                </View>
+
+                <View style={styles.qrActions}>
+                  <TouchableOpacity style={styles.qrActionButton} onPress={handleShareQR}>
+                    <MaterialCommunityIcons name='share-variant' size={20} color={Colors.primary} />
+                    <Text style={styles.qrActionText}>Bagikan</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.infoSection}>
+                <Text style={styles.infoText}>
+                  Tips: QR code ini selalu mengarah ke tautan undangan yang sama. Anda bisa scan,
+                  screenshot, atau bagikan langsung ke teman Anda.
+                </Text>
+              </View>
+
+              <TouchableOpacity style={styles.closeButton} onPress={() => setShowQR(false)}>
+                <Text style={styles.closeButtonText}>Tutup</Text>
+              </TouchableOpacity>
             </View>
-
-            <TouchableOpacity
-              style={[styles.cancelBtn, { marginTop: 20 }]}
-              onPress={() => setShowQR(false)}
-            >
-              <Text style={styles.cancelBtnText}>Tutup</Text>
-            </TouchableOpacity>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
     </View>
@@ -244,6 +269,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+  },
+  headerActions: {
+    flexDirection: "row",
+    gap: 8,
   },
   title: {
     fontFamily: FontFamily.bodyBold,
@@ -316,28 +345,41 @@ const styles = StyleSheet.create({
   removeBtn: {
     padding: 4,
   },
-
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
-    padding: 20,
+  },
+  modalScrollContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 40,
   },
   modalContent: {
     backgroundColor: Colors.surface,
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 24,
-    gap: 16,
+    width: "100%",
+    maxWidth: 400,
+    alignSelf: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 4,
   },
   modalTitle: {
     fontFamily: FontFamily.heading,
     fontSize: FontSize.h3,
     color: Colors.textPrimary,
+    textAlign: "center",
+    marginBottom: 8,
   },
   modalSubtitle: {
     fontFamily: FontFamily.body,
     fontSize: FontSize.body,
     color: Colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 22,
   },
   input: {
     borderWidth: 1,
@@ -361,6 +403,7 @@ const styles = StyleSheet.create({
   },
   cancelBtnText: {
     fontFamily: FontFamily.bodyBold,
+    fontSize: FontSize.body,
     color: Colors.textSecondary,
   },
   confirmBtn: {
@@ -373,6 +416,73 @@ const styles = StyleSheet.create({
   },
   confirmBtnText: {
     fontFamily: FontFamily.bodyBold,
+    fontSize: FontSize.body,
     color: "#FFF",
+  },
+  qrContainer: {
+    width: "100%",
+    alignItems: "center",
+    marginVertical: 20,
+  },
+  qrPreview: {
+    padding: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  qrActions: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 12,
+    marginTop: 20,
+    width: "100%",
+  },
+  qrActionButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: Colors.primaryLight,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+  qrActionText: {
+    fontFamily: FontFamily.bodyBold,
+    fontSize: FontSize.caption,
+    color: Colors.primary,
+  },
+  infoSection: {
+    width: "100%",
+    backgroundColor: Colors.primaryLight + "20",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  infoText: {
+    fontFamily: FontFamily.body,
+    fontSize: FontSize.caption,
+    color: Colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  closeButton: {
+    width: "100%",
+    backgroundColor: Colors.primary,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  closeButtonText: {
+    fontFamily: FontFamily.bodyBold,
+    fontSize: FontSize.body,
+    color: "#FFFFFF",
   },
 });

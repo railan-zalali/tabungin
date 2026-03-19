@@ -11,13 +11,13 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { Shadow } from '../../constants/theme';
 import { useProfileStore } from '../../store/useProfileStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import { useTransactionStore } from '../../store/useTransactionStore';
 import { useSavingStore } from '../../store/useSavingStore';
+import { useTheme } from '../../store/useThemeStore';
 
 const PROFILE_COLORS = ['#16A34A', '#2563EB', '#F59E0B', '#DC2626', '#9333EA', '#0891B2'];
 const PROFILE_ICONS = ['account', 'briefcase', 'home', 'school', 'gamepad-variant', 'cart'];
@@ -28,6 +28,8 @@ export function ProfileSwitcher() {
     const { loadWallets } = useWalletStore();
     const { loadTransactions, loadRecent, refreshSummary } = useTransactionStore();
     const { loadGoals } = useSavingStore();
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
 
     const [visible, setVisible] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
@@ -91,11 +93,11 @@ export function ProfileSwitcher() {
     return (
         <>
             <TouchableOpacity 
-                style={[styles.triggerBtn, { borderColor: activeProfile.color || Colors.primary }]}
+                style={[styles.triggerBtn, { borderColor: activeProfile.color || colors.primary }]}
                 onPress={() => setVisible(true)}
                 activeOpacity={0.8}
             >
-                <View style={[styles.avatar, { backgroundColor: activeProfile.color || Colors.primary }]}>
+                <View style={[styles.avatar, { backgroundColor: activeProfile.color || colors.primary }]}>
                     <MaterialCommunityIcons 
                         name={activeProfile.icon as any || 'account'} 
                         size={20} 
@@ -105,7 +107,7 @@ export function ProfileSwitcher() {
                 <Text style={styles.triggerText} numberOfLines={1}>
                     {activeProfile.name}
                 </Text>
-                <MaterialCommunityIcons name="chevron-down" size={16} color={Colors.textSecondary} />
+                <MaterialCommunityIcons name="chevron-down" size={16} color={colors.textSecondary} />
             </TouchableOpacity>
 
             <Modal
@@ -126,7 +128,7 @@ export function ProfileSwitcher() {
                                 <View style={styles.modalHeader}>
                                     <Text style={styles.modalTitle}>Pilih Profil</Text>
                                     <TouchableOpacity onPress={() => setVisible(false)}>
-                                        <MaterialCommunityIcons name="close" size={24} color={Colors.textSecondary} />
+                                        <MaterialCommunityIcons name="close" size={24} color={colors.textSecondary} />
                                     </TouchableOpacity>
                                 </View>
                                 
@@ -140,7 +142,7 @@ export function ProfileSwitcher() {
                                             ]}
                                             onPress={() => handleSwitch(p.id)}
                                         >
-                                            <View style={[styles.avatar, { backgroundColor: p.color || Colors.primary }]}>
+                                            <View style={[styles.avatar, { backgroundColor: p.color || colors.primary }]}>
                                                 <MaterialCommunityIcons name={p.icon as any || 'account'} size={20} color="#FFF" />
                                             </View>
                                             <Text style={[
@@ -150,7 +152,7 @@ export function ProfileSwitcher() {
                                                 {p.name}
                                             </Text>
                                             {activeProfileId === p.id && (
-                                                <MaterialCommunityIcons name="check" size={20} color={Colors.primary} />
+                                                <MaterialCommunityIcons name="check" size={20} color={colors.primary} />
                                             )}
                                         </TouchableOpacity>
                                     ))}
@@ -160,7 +162,7 @@ export function ProfileSwitcher() {
                                     style={styles.addBtn}
                                     onPress={() => setIsAdding(true)}
                                 >
-                                    <MaterialCommunityIcons name="plus" size={20} color={Colors.primary} />
+                                    <MaterialCommunityIcons name="plus" size={20} color={colors.primary} />
                                     <Text style={styles.addBtnText}>Tambah Profil Baru</Text>
                                 </TouchableOpacity>
                             </>
@@ -169,7 +171,7 @@ export function ProfileSwitcher() {
                             <>
                                 <View style={styles.modalHeader}>
                                     <TouchableOpacity onPress={() => setIsAdding(false)}>
-                                        <MaterialCommunityIcons name="arrow-left" size={24} color={Colors.textPrimary} />
+                                        <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
                                     </TouchableOpacity>
                                     <Text style={styles.modalTitle}>Profil Baru</Text>
                                     <View style={{ width: 24 }} />
@@ -183,7 +185,7 @@ export function ProfileSwitcher() {
                                             value={newName}
                                             onChangeText={setNewName}
                                             placeholder="Contoh: Bisnis, Liburan"
-                                            placeholderTextColor={Colors.textDisabled}
+                                            placeholderTextColor={colors.textDisabled}
                                             autoFocus
                                         />
                                     </View>
@@ -196,14 +198,14 @@ export function ProfileSwitcher() {
                                                     key={icon}
                                                     style={[
                                                         styles.iconOption,
-                                                        newIcon === icon && { backgroundColor: Colors.primaryLight, borderColor: Colors.primary }
+                                                        newIcon === icon && { backgroundColor: colors.primaryLight, borderColor: colors.primary }
                                                     ]}
                                                     onPress={() => setNewIcon(icon)}
                                                 >
                                                     <MaterialCommunityIcons 
                                                         name={icon as any} 
                                                         size={24} 
-                                                        color={newIcon === icon ? Colors.primary : Colors.textSecondary} 
+                                                        color={newIcon === icon ? colors.primary : colors.textSecondary} 
                                                     />
                                                 </TouchableOpacity>
                                             ))}
@@ -246,11 +248,11 @@ export function ProfileSwitcher() {
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
     triggerBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Colors.surface,
+        backgroundColor: colors.surface,
         padding: 4,
         paddingRight: 8,
         borderRadius: 100,
@@ -261,7 +263,7 @@ const styles = StyleSheet.create({
     triggerText: {
         fontFamily: FontFamily.bodyBold,
         fontSize: FontSize.caption,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
         flex: 1,
     },
     avatar: {
@@ -279,7 +281,7 @@ const styles = StyleSheet.create({
         padding: 20,
     },
     modalContent: {
-        backgroundColor: Colors.surface,
+        backgroundColor: colors.surface,
         borderRadius: 24,
         padding: 20,
         maxHeight: '80%',
@@ -293,7 +295,7 @@ const styles = StyleSheet.create({
     },
     modalTitle: {
         ...Typography.h3,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
     },
 
     profileItem: {
@@ -304,21 +306,21 @@ const styles = StyleSheet.create({
         gap: 12,
         marginBottom: 8,
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: colors.border,
     },
     profileItemActive: {
-        backgroundColor: Colors.primaryBg,
-        borderColor: Colors.primary,
+        backgroundColor: colors.primaryBg,
+        borderColor: colors.primary,
     },
     profileName: {
         fontFamily: FontFamily.bodyMedium,
         fontSize: FontSize.body,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
         flex: 1,
     },
     profileNameActive: {
         fontFamily: FontFamily.bodyBold,
-        color: Colors.primary,
+        color: colors.primary,
     },
 
     addBtn: {
@@ -328,12 +330,12 @@ const styles = StyleSheet.create({
         padding: 16,
         gap: 8,
         borderTopWidth: 1,
-        borderTopColor: Colors.border,
+        borderTopColor: colors.border,
         marginTop: 8,
     },
     addBtnText: {
         fontFamily: FontFamily.bodyBold,
-        color: Colors.primary,
+        color: colors.primary,
     },
 
     formContainer: { gap: 20 },
@@ -341,17 +343,17 @@ const styles = StyleSheet.create({
     label: {
         fontFamily: FontFamily.bodyBold,
         fontSize: FontSize.caption,
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
     },
     input: {
-        backgroundColor: Colors.background,
+        backgroundColor: colors.background,
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: colors.border,
         borderRadius: 12,
         padding: 12,
         fontFamily: FontFamily.body,
         fontSize: FontSize.body,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
     },
     iconRow: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
     iconOption: {
@@ -359,7 +361,7 @@ const styles = StyleSheet.create({
         height: 44,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: colors.border,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -372,7 +374,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     saveBtn: {
-        backgroundColor: Colors.primary,
+        backgroundColor: colors.primary,
         padding: 16,
         borderRadius: 12,
         alignItems: 'center',

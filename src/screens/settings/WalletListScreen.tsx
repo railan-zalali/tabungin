@@ -69,24 +69,26 @@ export function WalletListScreen() {
     else if (item.type === "e-wallet") iconName = "cellphone";
     else if (item.type === "cash") iconName = "cash";
 
+    const itemColor = item.color || colors.primary;
+
     return (
       <TouchableOpacity
         activeOpacity={0.9}
         onPress={() => navigation.navigate("AddWallet", { wallet: item })}
         style={[styles.cardContainer, Shadow.sm, { backgroundColor: colors.surface }]}
       >
-        <View style={[styles.cardContent, { borderLeftColor: item.color }]}>
+        <View style={[styles.cardContent, { borderLeftColor: itemColor }]}>
           <View style={styles.cardHeader}>
             <View style={styles.walletInfo}>
-              <View style={[styles.iconBox, { backgroundColor: `${item.color}15` }]}>
-                <MaterialCommunityIcons name={iconName} size={24} color={item.color} />
+              <View style={[styles.iconBox, { backgroundColor: `${itemColor}15` }]}>
+                <MaterialCommunityIcons name={iconName} size={24} color={itemColor} />
               </View>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={[styles.walletName, { color: colors.textPrimary }]} numberOfLines={1}>
-                  {item.name}
+                  {item.name || "Dompet Tanpa Nama"}
                 </Text>
                 <Text style={[styles.walletType, { color: colors.textSecondary }]}>
-                  {item.type.toUpperCase()}
+                  {item.type ? item.type.toUpperCase() : "GENERAL"}
                 </Text>
               </View>
             </View>
@@ -103,7 +105,7 @@ export function WalletListScreen() {
               Saldo Saat Ini
             </Text>
             <Text style={[styles.balanceValue, { color: colors.textPrimary }]}>
-              {formatCurrency(item.balance)}
+              {formatCurrency(item.balance || 0)}
             </Text>
           </View>
         </View>
@@ -113,6 +115,8 @@ export function WalletListScreen() {
             style={styles.deleteBtn}
             onPress={() => handleDelete(item.id, item.name)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityLabel={`Hapus dompet ${item.name}`}
+            accessibilityRole="button"
           >
             <MaterialCommunityIcons
               name='trash-can-outline'
@@ -143,6 +147,8 @@ export function WalletListScreen() {
           onPress={() => navigation.goBack()}
           style={styles.backBtn}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityLabel="Kembali"
+          accessibilityRole="button"
         >
           <MaterialCommunityIcons name='arrow-left' size={24} color={colors.textPrimary} />
         </TouchableOpacity>
@@ -159,6 +165,8 @@ export function WalletListScreen() {
               },
             ]}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityLabel="Scan QR Undangan"
+            accessibilityRole="button"
           >
             <MaterialCommunityIcons name='qrcode-scan' size={24} color={colors.textPrimary} />
           </TouchableOpacity>
@@ -166,6 +174,8 @@ export function WalletListScreen() {
             onPress={() => navigation.navigate("AddWallet")}
             style={[styles.addBtn, { backgroundColor: colors.primaryLight }]}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityLabel="Tambah Dompet Baru"
+            accessibilityRole="button"
           >
             <MaterialCommunityIcons name='plus' size={24} color={colors.primary} />
           </TouchableOpacity>
@@ -173,7 +183,7 @@ export function WalletListScreen() {
       </View>
 
       {/* Content */}
-      {isLoading && !refreshing && (!wallets || wallets.length === 0) ? (
+      {isLoading && !refreshing && wallets.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size='large' color={colors.primary} />
         </View>
@@ -220,9 +230,10 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 4 },
   addBtn: {
-    padding: 4,
-    backgroundColor: Colors.primaryLight,
+    padding: 8,
     borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
   title: {
     ...Typography.h2,
@@ -254,6 +265,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+    flex: 1,
   },
   iconBox: {
     width: 48,
@@ -283,6 +295,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 100,
+    marginLeft: 8,
   },
   defaultText: {
     fontFamily: FontFamily.bodyBold,

@@ -11,6 +11,39 @@ import { startOfDay, endOfDay, startOfMonth } from "../utils/date";
 import "react-native-get-random-values";
 import { v4 as uuidv4 } from "uuid";
 
+function applyAccessibleTransactionScope(
+  query: string,
+  params: (string | number)[],
+  profileId?: string,
+  userEmail?: string,
+): string {
+  if (profileId && userEmail) {
+    query += ` AND (
+      wallet_id IN (
+        SELECT id
+        FROM wallets
+        WHERE sync_status != 'pending_delete'
+          AND (
+            profile_id = ?
+            OR id IN (
+              SELECT wallet_id
+              FROM wallet_members
+              WHERE lower(user_email) = lower(?)
+                AND sync_status != 'pending_delete'
+            )
+          )
+      )
+      OR (wallet_id IS NULL AND profile_id = ?)
+    )`;
+    params.push(profileId, userEmail, profileId);
+  } else if (profileId) {
+    query += " AND profile_id = ?";
+    params.push(profileId);
+  }
+
+  return query;
+}
+
 /**
  * Tambah transaksi baru
  */
@@ -22,6 +55,17 @@ export async function insertTransaction(
   const created_at = Date.now();
   const updated_at = created_at;
   const sync_status = "pending_create";
+  let resolvedProfileId = data.profile_id || null;
+
+  if (data.wallet_id) {
+    const wallet = await db.getFirstAsync<{ profile_id: string | null }>(
+      "SELECT profile_id FROM wallets WHERE id = ?",
+      [data.wallet_id],
+    );
+    if (wallet?.profile_id) {
+      resolvedProfileId = wallet.profile_id;
+    }
+  }
 
   await db.withTransactionAsync(async () => {
     await db.runAsync(
@@ -37,7 +81,7 @@ export async function insertTransaction(
         updated_at,
         sync_status,
         data.wallet_id || null,
-        data.profile_id || null,
+        resolvedProfileId,
       ],
     );
 
@@ -51,13 +95,13 @@ export async function insertTransaction(
     }
   });
 
-  return { id, created_at, ...data };
+  return { id, created_at, ...data, profile_id: resolvedProfileId || undefined };
 }
 
 /**
  * Ambil semua transaksi dengan filter opsional
  */
-export async function fetchTransactions(filter?: TransactionFilter): Promise<Transaction[]> {
+export async function fetchTransactions(filter?: TransactionFilter & { userEmail?: string }): Promise<Transaction[]> {
   const db = await getDatabase();
 
   let query = "SELECT * FROM transactions WHERE sync_status != 'pending_delete'";
@@ -94,10 +138,7 @@ export async function fetchTransactions(filter?: TransactionFilter): Promise<Tra
     params.push(s, s);
   }
 
-  if (filter?.profile_id) {
-    query += " AND profile_id = ?";
-    params.push(filter.profile_id);
-  }
+  query = applyAccessibleTransactionScope(query, params, filter?.profile_id, filter?.userEmail);
 
   query += " ORDER BY date DESC, created_at DESC";
 
@@ -110,15 +151,13 @@ export async function fetchTransactions(filter?: TransactionFilter): Promise<Tra
 export async function fetchRecentTransactions(
   limit = 5,
   profileId?: string,
+  userEmail?: string,
 ): Promise<Transaction[]> {
   const db = await getDatabase();
   let query = "SELECT * FROM transactions WHERE sync_status != 'pending_delete'";
   const params: any[] = [];
 
-  if (profileId) {
-    query += " AND profile_id = ?";
-    params.push(profileId);
-  }
+  query = applyAccessibleTransactionScope(query, params, profileId, userEmail);
 
   query += " ORDER BY date DESC, created_at DESC LIMIT ?";
   params.push(limit);
@@ -208,27 +247,24 @@ export async function updateTransaction(
 /**
  * Hitung ringkasan bulan ini
  */
-export async function fetchMonthlySummary(profileId?: string): Promise<{
+export async function fetchMonthlySummary(profileId?: string, userEmail?: string): Promise<{
   totalIncome: number;
   totalExpense: number;
 }> {
   const db = await getDatabase();
   const start = startOfMonth().getTime();
-  const params: any[] = [start];
-
-  let profileQuery = "";
-  if (profileId) {
-    profileQuery = " AND profile_id = ?";
-    params.push(profileId);
-  }
+  const incomeParams: (string | number)[] = ["income", start];
+  const expenseParams: (string | number)[] = ["expense", start];
+  const baseQuery =
+    "SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE sync_status != 'pending_delete' AND type = ? AND date >= ?";
 
   const income = await db.getFirstAsync<{ total: number }>(
-    `SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'income' AND date >= ?${profileQuery}`,
-    params,
+    applyAccessibleTransactionScope(baseQuery, incomeParams, profileId, userEmail),
+    incomeParams,
   );
   const expense = await db.getFirstAsync<{ total: number }>(
-    `SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'expense' AND date >= ?${profileQuery}`,
-    params,
+    applyAccessibleTransactionScope(baseQuery, expenseParams, profileId, userEmail),
+    expenseParams,
   );
 
   return {
@@ -245,6 +281,7 @@ export async function fetchCategorySummary(
   startDate: number,
   endDate: number,
   profileId?: string,
+  userEmail?: string,
 ): Promise<CategorySummary[]> {
   const db = await getDatabase();
   let query = `SELECT category, SUM(amount) as total, COUNT(*) as count
@@ -252,10 +289,8 @@ export async function fetchCategorySummary(
      WHERE type = ? AND date >= ? AND date <= ?`;
   const params: any[] = [type, startDate, endDate];
 
-  if (profileId) {
-    query += " AND profile_id = ?";
-    params.push(profileId);
-  }
+  query += " AND sync_status != 'pending_delete'";
+  query = applyAccessibleTransactionScope(query, params, profileId, userEmail);
 
   query += ` GROUP BY category ORDER BY total DESC`;
 
@@ -277,7 +312,7 @@ export async function fetchCategorySummary(
 /**
  * Ambil data per bulan untuk 6 bulan terakhir
  */
-export async function fetchMonthlyData(profileId?: string): Promise<MonthlySummary[]> {
+export async function fetchMonthlyData(profileId?: string, userEmail?: string): Promise<MonthlySummary[]> {
   const db = await getDatabase();
   const results: MonthlySummary[] = [];
 
@@ -292,24 +327,12 @@ export async function fetchMonthlyData(profileId?: string): Promise<MonthlySumma
     endD.setDate(0);
     endD.setHours(23, 59, 59, 999);
 
-    let query =
-      "SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = ? AND date >= ? AND date <= ?";
-    let params: any[] = [d.getTime(), endD.getTime()];
-
-    if (profileId) {
-      query += " AND profile_id = ?";
-      params.push(profileId);
-    }
-
-    // Since we need to run this twice (income/expense), and query is dynamic, let's construct it properly
     const getQuery = (type: string) => {
       let q =
         "SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = ? AND date >= ? AND date <= ?";
       const p: any[] = [type, d.getTime(), endD.getTime()];
-      if (profileId) {
-        q += " AND profile_id = ?";
-        p.push(profileId);
-      }
+      q += " AND sync_status != 'pending_delete'";
+      q = applyAccessibleTransactionScope(q, p, profileId, userEmail);
       return { q, p };
     };
 

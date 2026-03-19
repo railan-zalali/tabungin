@@ -27,6 +27,9 @@ import { validateAmount } from "../../utils/validation";
 import type { TransactionType } from "../../types/transaction";
 import { Shadow } from "../../constants/theme";
 
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { formatDateLong } from "../../utils/date";
+
 export function AddTransactionScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const route = useRoute<any>();
@@ -38,7 +41,8 @@ export function AddTransactionScreen() {
   const [amountInput, setAmountInput] = useState("");
   const [category, setCategory] = useState("");
   const [note, setNote] = useState("");
-  const [date] = useState(Date.now());
+  const [date, setDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedWalletId, setSelectedWalletId] = useState<string>("");
 
   const [amountError, setAmountError] = useState<string | null>(null);
@@ -57,6 +61,13 @@ export function AddTransactionScreen() {
   }, [wallets]);
 
   const amount = parseRupiah(amountInput);
+
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setDate(selectedDate);
+    }
+  };
 
   const handleSave = async () => {
     let valid = true;
@@ -84,7 +95,7 @@ export function AddTransactionScreen() {
       amount,
       category,
       note: note.trim() || null,
-      date,
+      date: date.getTime(),
       wallet_id: selectedWalletId,
     });
 
@@ -136,7 +147,6 @@ export function AddTransactionScreen() {
                 onPress={() => {
                   setTxType(t);
                   setCategory("");
-                  setAmountInput("");
                   setAmountError(null);
                 }}
               >
@@ -158,7 +168,7 @@ export function AddTransactionScreen() {
             <View style={[styles.amountContainer, amountError ? styles.amountError : null]}>
               <Text style={styles.currencyPrefix}>Rp</Text>
               <TextInput
-                style={styles.amountInput}
+                style={[styles.amountInput, { fontSize: amountInput.length > 10 ? 24 : 32 }]}
                 value={amountInput}
                 onChangeText={handleAmountChange}
                 keyboardType='numeric'
@@ -172,6 +182,24 @@ export function AddTransactionScreen() {
                 <MaterialCommunityIcons name='alert-circle' size={14} color={Colors.danger} />
                 <Text style={styles.errorText}>{amountError}</Text>
               </View>
+            )}
+          </View>
+
+          {/* Date Picker */}
+          <View style={styles.fieldSection}>
+            <Text style={styles.fieldLabel}>Tanggal</Text>
+            <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
+              <MaterialCommunityIcons name='calendar' size={20} color={Colors.textPrimary} />
+              <Text style={styles.dateText}>{formatDateLong(date.getTime())}</Text>
+            </TouchableOpacity>
+            {showDatePicker && (
+              <DateTimePicker
+                value={date}
+                mode='date'
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                onChange={handleDateChange}
+                maximumDate={new Date()} // Prevent future dates? Usually good for transactions.
+              />
             )}
           </View>
 
@@ -386,6 +414,22 @@ const styles = StyleSheet.create({
 
   errorRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
   errorText: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: Colors.danger },
+
+  dateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.surface,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: 12,
+  },
+  dateText: {
+    fontFamily: FontFamily.bodyMedium,
+    fontSize: FontSize.body,
+    color: Colors.textPrimary,
+  },
 
   noteInput: {
     backgroundColor: Colors.surface,

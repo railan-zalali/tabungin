@@ -13,6 +13,8 @@ import { Colors } from '../constants/colors';
 import { FontFamily, FontSize } from '../constants/typography';
 import { Shadow } from '../constants/theme';
 import type { TabParamList } from '../types/navigation';
+import { useTransactionStore } from '../store/useTransactionStore';
+import { useWalletStore } from '../store/useWalletStore';
 
 // Screens
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
@@ -68,6 +70,18 @@ function TabIcon({ name, label, focused, color }: TabIconProps) {
 }
 
 export function TabNavigator() {
+    const { initRealtime: initTxRealtime, stopRealtime: stopTxRealtime } = useTransactionStore();
+    const { initRealtime: initWalletRealtime, stopRealtime: stopWalletRealtime } = useWalletStore();
+
+    React.useEffect(() => {
+        initTxRealtime();
+        initWalletRealtime();
+        return () => {
+            stopTxRealtime();
+            stopWalletRealtime();
+        };
+    }, []);
+
     return (
         <Tab.Navigator
             screenOptions={{

@@ -1,35 +1,51 @@
-// Zustand store untuk autentikasi — menggunakan password hashing + expo-secure-store
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../lib/supabase';
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
+import { supabase, oauthRedirectUrl } from '../lib/supabase';
 import { clearAllData } from '../database/schema';
 import { syncDatabase } from '../database/sync';
-import {
-    createOfflineSession,
-    type UserRecord,
-} from '../database/authQueries';
 
-// Settings Key di AsyncStorage
 const SETTINGS_KEY = '@tabungin_settings_v2';
-let _cachedSettings: Record<string, unknown> | null = null;
+let cachedSettings: Record<string, unknown> | null = null;
 
 async function loadSettingsCache(): Promise<void> {
     try {
         const raw = await AsyncStorage.getItem(SETTINGS_KEY);
-        _cachedSettings = raw ? JSON.parse(raw) : {};
+        cachedSettings = raw ? JSON.parse(raw) : {};
     } catch {
-        _cachedSettings = {};
+        cachedSettings = {};
     }
 }
+
 async function persistSetting<T>(key: string, value: T): Promise<void> {
-    if (!_cachedSettings) _cachedSettings = {};
-    _cachedSettings[key] = value;
-    await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(_cachedSettings));
+    if (!cachedSettings) cachedSettings = {};
+    cachedSettings[key] = value;
+    await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(cachedSettings));
 }
+
 function readSettingSync<T>(key: string, fallback: T): T {
-    if (!_cachedSettings) return fallback;
-    const v = _cachedSettings[key];
-    return v !== undefined ? (v as T) : fallback;
+    if (!cachedSettings) return fallback;
+    const value = cachedSettings[key];
+    return value !== undefined ? (value as T) : fallback;
+}
+
+function parseAuthCallbackParams(url: string): Record<string, string> {
+    try {
+        const parsedUrl = new URL(url);
+        const params = new URLSearchParams(parsedUrl.search);
+        const hashParams = new URLSearchParams(parsedUrl.hash.replace(/^#/, ''));
+
+        for (const [key, value] of hashParams.entries()) {
+            if (!params.has(key)) {
+                params.set(key, value);
+            }
+        }
+
+        return Object.fromEntries(params.entries());
+    } catch {
+        return {};
+    }
 }
 
 export interface AuthUser {
@@ -42,22 +58,20 @@ export interface AuthUser {
 interface AuthState {
     user: AuthUser | null;
     isLoggedIn: boolean;
-    isOfflineMode: boolean;
     isLoading: boolean;
     authError: string | null;
 
-    // Actions
     login: (email: string, password: string) => Promise<boolean>;
-    loginOffline: () => Promise<void>;
+    loginWithGoogle: () => Promise<boolean>;
     register: (name: string, email: string, password: string) => Promise<boolean>;
     logout: () => Promise<void>;
     updateProfile: (data: Partial<Pick<AuthUser, 'name' | 'avatarColor'>>) => Promise<void>;
     updatePassword: (oldPassword: string, newPassword: string) => Promise<boolean>;
     checkEmailExists: (email: string) => Promise<boolean>;
     loadSession: () => Promise<void>;
+    completeOAuthSession: (url: string) => Promise<boolean>;
     clearError: () => void;
 
-    // Settings (persisted via AsyncStorage)
     isDarkMode: boolean;
     textSize: 'normal' | 'large' | 'xlarge';
     hapticEnabled: boolean;
@@ -66,38 +80,41 @@ interface AuthState {
     setHapticEnabled: (value: boolean) => void;
 }
 
+function mapSessionUser(sessionUser: any): AuthUser {
+    return {
+        id: sessionUser.id,
+        name: sessionUser.user_metadata?.name || 'Pengguna',
+        email: sessionUser.email || '',
+        avatarColor: sessionUser.user_metadata?.avatar_color || '#1DB954',
+    };
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
     user: null,
     isLoggedIn: false,
-    isOfflineMode: false,
     isLoading: true,
     authError: null,
 
     isDarkMode: false,
-    textSize: 'normal' as 'normal' | 'large' | 'xlarge',
+    textSize: 'normal',
     hapticEnabled: true,
 
     loadSession: async () => {
         try {
             await loadSettingsCache();
-            
-            // Cek session Supabase
+
+            const initialUrl = await Linking.getInitialURL();
+            if (initialUrl) {
+                await get().completeOAuthSession(initialUrl);
+            }
+
             const { data: { session } } = await supabase.auth.getSession();
-            
+
             if (session?.user) {
                 set({
-                    user: {
-                        id: session.user.id,
-                        name: session.user.user_metadata?.name || 'Pengguna',
-                        email: session.user.email || '',
-                        avatarColor: session.user.user_metadata?.avatar_color || '#1DB954',
-                    },
+                    user: mapSessionUser(session.user),
                     isLoggedIn: true,
-                    isOfflineMode: false,
                 });
-            } else {
-                // Cek session offline jika tidak ada session Supabase
-                // TODO: Implementasi load session offline yang lebih robust jika diperlukan
             }
 
             set({
@@ -105,8 +122,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 textSize: readSettingSync<'normal' | 'large' | 'xlarge'>('textSize', 'normal'),
                 hapticEnabled: readSettingSync('hapticEnabled', true),
             });
-        } catch (e) {
-            console.error('Gagal memuat sesi:', e);
+        } catch (error) {
+            console.error('Gagal memuat sesi:', error);
         } finally {
             set({ isLoading: false });
         }
@@ -127,39 +144,49 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
             if (data.user) {
                 set({
-                    user: {
-                        id: data.user.id,
-                        name: data.user.user_metadata?.name || 'Pengguna',
-                        email: data.user.email || '',
-                        avatarColor: data.user.user_metadata?.avatar_color || '#1DB954',
-                    },
+                    user: mapSessionUser(data.user),
                     isLoggedIn: true,
-                    isOfflineMode: false,
                 });
-                
-                // Trigger sync setelah login berhasil
+
                 setTimeout(() => syncDatabase(), 500);
-                
                 return true;
             }
+
             return false;
-        } catch (e: any) {
+        } catch (error) {
+            console.error('Login gagal:', error);
             set({ authError: 'Terjadi kesalahan saat login.' });
             return false;
         }
     },
 
-    loginOffline: async () => {
+    loginWithGoogle: async () => {
         set({ authError: null });
-        const user = await createOfflineSession();
-        // Mapping UserRecord to AuthUser
-        const authUser: AuthUser = {
-             id: user.id,
-             name: user.name,
-             email: user.email,
-             avatarColor: user.avatar_color
-        };
-        set({ user: authUser, isLoggedIn: true, isOfflineMode: true });
+        try {
+            const { data, error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: oauthRedirectUrl,
+                    skipBrowserRedirect: true,
+                },
+            });
+
+            if (error || !data?.url) {
+                set({ authError: error?.message || 'Gagal memulai login Google.' });
+                return false;
+            }
+
+            const result = await WebBrowser.openAuthSessionAsync(data.url, oauthRedirectUrl);
+            if (result.type !== 'success' || !result.url) {
+                return false;
+            }
+
+            return await get().completeOAuthSession(result.url);
+        } catch (error: any) {
+            console.error('Google OAuth gagal:', error);
+            set({ authError: error.message || 'Terjadi kesalahan saat login dengan Google.' });
+            return false;
+        }
     },
 
     register: async (name: string, email: string, password: string) => {
@@ -171,7 +198,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 options: {
                     data: {
                         name,
-                        avatar_color: '#1DB954', // Default color
+                        avatar_color: '#1DB954',
                     },
                 },
             });
@@ -182,63 +209,102 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             }
 
             if (data.user) {
-                 set({
+                set({
                     user: {
                         id: data.user.id,
-                        name: name,
-                        email: email,
+                        name,
+                        email,
                         avatarColor: '#1DB954',
                     },
                     isLoggedIn: true,
-                    isOfflineMode: false,
                 });
                 return true;
             }
+
             return false;
-        } catch (e: any) {
+        } catch (error) {
+            console.error('Register gagal:', error);
             set({ authError: 'Terjadi kesalahan saat mendaftar.' });
             return false;
         }
     },
 
-    logout: async () => {
-        const { isOfflineMode } = get();
-        if (!isOfflineMode) {
-            await supabase.auth.signOut();
+    completeOAuthSession: async (url: string) => {
+        try {
+            const params = parseAuthCallbackParams(url);
+            const callbackError = params.error_description || params.error || params.error_code;
+
+            if (callbackError) {
+                throw new Error(callbackError);
+            }
+
+            const accessToken = typeof params.access_token === 'string' ? params.access_token : '';
+            const refreshToken = typeof params.refresh_token === 'string' ? params.refresh_token : '';
+            const authCode = typeof params.code === 'string' ? params.code : '';
+
+            let sessionUser: any = null;
+
+            if (authCode) {
+                const { data, error } = await supabase.auth.exchangeCodeForSession(authCode);
+                if (error || !data.session?.user) {
+                    throw error || new Error('Kode login Google tidak valid.');
+                }
+
+                sessionUser = data.session.user;
+            } else if (accessToken && refreshToken) {
+                const { data, error } = await supabase.auth.setSession({
+                    access_token: accessToken,
+                    refresh_token: refreshToken,
+                });
+
+                if (error || !data.session?.user) {
+                    throw error || new Error('Sesi Google tidak valid.');
+                }
+
+                sessionUser = data.session.user;
+            } else {
+                return false;
+            }
+
+            set({
+                user: mapSessionUser(sessionUser),
+                isLoggedIn: true,
+                authError: null,
+            });
+
+            setTimeout(() => syncDatabase(), 500);
+            return true;
+        } catch (error: any) {
+            console.error('Gagal menyelesaikan sesi OAuth:', error);
+            set({ authError: error.message || 'Gagal menyelesaikan login Google.' });
+            return false;
         }
-        
-        // Bersihkan data lokal demi keamanan dan privasi
+    },
+
+    logout: async () => {
+        await supabase.auth.signOut();
         await clearAllData();
-        
-        set({ user: null, isLoggedIn: false, isOfflineMode: false, authError: null });
+        set({ user: null, isLoggedIn: false, authError: null });
     },
 
     updateProfile: async (data) => {
         const current = get().user;
         if (!current) return;
-        
-        // Update local state
+
         set({ user: { ...current, ...data } });
 
-        // Update Supabase if online
-        if (!get().isOfflineMode) {
-             await supabase.auth.updateUser({
-                data: {
-                    name: data.name,
-                    avatar_color: data.avatarColor
-                }
-            });
-        }
+        await supabase.auth.updateUser({
+            data: {
+                name: data.name,
+                avatar_color: data.avatarColor,
+            },
+        });
     },
 
-    updatePassword: async (oldPassword: string, newPassword: string) => {
-        const { isOfflineMode } = get();
-        if (isOfflineMode) return false;
-
+    updatePassword: async (_oldPassword: string, newPassword: string) => {
         try {
-            // Supabase tidak butuh oldPassword untuk update password jika user sudah login
             const { error } = await supabase.auth.updateUser({
-                password: newPassword
+                password: newPassword,
             });
             return !error;
         } catch {
@@ -246,10 +312,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
     },
 
-    checkEmailExists: async (email: string) => {
-        // Supabase tidak mengekspos API publik untuk cek email exists tanpa mencoba register/login
-        // Kita bisa asumsikan false atau handle error saat register
-        return false; 
+    checkEmailExists: async (_email: string) => {
+        return false;
     },
 
     clearError: () => set({ authError: null }),

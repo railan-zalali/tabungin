@@ -133,7 +133,7 @@ const MIGRATIONS: Record<number, string[]> = {
         // Versi 6: Multi-Profile Support
         `CREATE TABLE IF NOT EXISTS profiles (
             id TEXT PRIMARY KEY NOT NULL,
-            user_id TEXT, -- Nullable jika offline
+            user_id TEXT, -- Nullable untuk data lama yang belum terkait user cloud
             name TEXT NOT NULL,
             icon TEXT DEFAULT 'account',
             color TEXT DEFAULT '#1DB954',

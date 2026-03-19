@@ -1,23 +1,24 @@
 // Tipe navigasi React Navigation untuk Tabungin
-
+import type { NavigatorScreenParams } from '@react-navigation/native';
 
 // Stack Navigator Root
 export type RootStackParamList = {
     Onboarding: undefined;
     Login: undefined;
     Register: undefined;
-    Main: undefined;
+    AuthCallback: undefined;
+    Main: NavigatorScreenParams<TabParamList>;
     Budget: undefined;
-    Savings: undefined; // Moved here
+    Savings: NavigatorScreenParams<SavingStackParamList>;
 };
 
 // Bottom Tab Navigator
 export type TabParamList = {
     Dashboard: undefined;
-    Transactions: undefined;
-    Wallet: undefined; // Replaced Savings
+    Transactions: NavigatorScreenParams<TransactionStackParamList>;
+    Wallet: NavigatorScreenParams<WalletStackParamList>;
     Report: undefined;
-    Settings: undefined;
+    Settings: NavigatorScreenParams<SettingsStackParamList>;
 };
 
 // Transaction Stack

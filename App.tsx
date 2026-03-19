@@ -21,10 +21,13 @@ import { RootNavigator } from './src/navigation/RootNavigator';
 import { initDatabase } from './src/database/schema';
 import { Colors } from './src/constants/colors';
 import { linking } from './src/navigation/LinkingConfiguration';
+import * as Linking from 'expo-linking';
+import { useAuthStore } from './src/store/useAuthStore';
 
 export default function App() {
     const [dbReady, setDbReady] = useState(false);
     const [dbError, setDbError] = useState<string | null>(null);
+    const completeOAuthSession = useAuthStore((state) => state.completeOAuthSession);
 
     const [fontsLoaded, fontError] = useFonts({
         PlusJakartaSans_400Regular,
@@ -48,6 +51,14 @@ export default function App() {
         }
         setupDatabase();
     }, []);
+
+    useEffect(() => {
+        const subscription = Linking.addEventListener('url', ({ url }) => {
+            completeOAuthSession(url).catch(console.error);
+        });
+
+        return () => subscription.remove();
+    }, [completeOAuthSession]);
 
     if (!fontsLoaded && !fontError || !dbReady) {
         return (

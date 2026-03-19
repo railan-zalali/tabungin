@@ -150,7 +150,7 @@ export async function deleteUserAccount(): Promise<void> {
         }
     } catch (e) {
         console.error('Error deleting cloud data:', e);
-        // Lanjut hapus lokal meskipun cloud gagal (mungkin offline)
+        // Lanjut hapus lokal meskipun cloud gagal, agar perangkat tetap bersih
     }
 
     // Hapus data lokal
@@ -177,19 +177,4 @@ export async function loadSession(): Promise<UserRecord | null> {
 
 export async function clearSession(): Promise<void> {
     await SecureStore.deleteItemAsync(SECURE_SESSION_KEY);
-}
-
-/**
- * Buat pengguna offline (tanpa password, tanpa menyimpan ke DB)
- */
-export async function createOfflineSession(): Promise<UserRecord> {
-    const user: UserRecord = {
-        id: 'offline_' + uuidv4(),
-        name: 'Pengguna',
-        email: '',
-        avatar_color: '#1DB954',
-        created_at: Date.now(),
-    };
-    await saveSession(user);
-    return user;
 }

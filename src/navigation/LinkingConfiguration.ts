@@ -1,27 +1,34 @@
 import * as Linking from 'expo-linking';
 
 export const linking = {
-  prefixes: [Linking.createURL('/'), 'tabungin://'],
+  prefixes: ['tabungin://'],
   config: {
     screens: {
       // Auth Screens (Available when not logged in)
       Onboarding: 'onboarding',
       Login: 'login',
       Register: 'register',
-      
+      AuthCallback: 'auth/callback',
+
       // Main App (Available when logged in)
       Main: {
         screens: {
           Dashboard: 'dashboard',
           Transactions: 'transactions',
-          // Wallet Tab
+
+          // Wallet Tab — includes QR Scanner & Join Wallet
+          // URL format: tabungin://wallets/join/:walletId  ← QR code format
+          // URL format: tabungin://wallets/qr-scan         ← scanner screen
           Wallet: {
             screens: {
               WalletList: 'my-wallets',
-              JoinWallet: 'invite/:walletId',
+              AddWallet: 'wallets/edit/:walletId',
+              QRScanner: 'wallets/qr-scan',
+              JoinWallet: 'wallets/join/:walletId',
             },
           },
-          // Settings Tab
+
+          // Settings Tab — separate copy for settings-originated deep links
           Settings: {
             screens: {
               SettingsMain: 'settings',
@@ -32,17 +39,17 @@ export const linking = {
           },
         },
       },
-      
+
       // Other Stacks
       Budget: 'budget',
       Savings: {
         screens: {
-            SavingList: 'savings',
-            AddSavingGoal: 'savings/add',
-            SavingDetail: 'savings/:goalId',
-        }
+          SavingList: 'savings',
+          AddSavingGoal: 'savings/add',
+          SavingDetail: 'savings/:goalId',
+        },
       },
-      
+
       // Catch all
       NotFound: '*',
     },

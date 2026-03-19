@@ -45,16 +45,18 @@ export function AddWalletScreen() {
     const navigation = useNavigation();
     const route = useRoute<any>();
     const insets = useSafeAreaInsets();
-    const wallet = route.params?.wallet;
-    const isEditing = !!wallet;
+    const { wallets, addWallet, editWallet, loadWallets } = useWalletStore();
+    
+    const routeWallet = route.params?.wallet;
+    // Dapatkan data dompet terbaru dari store agar ui reaktif
+    const currentWallet = routeWallet ? (wallets.find((w: any) => w.id === routeWallet.id) || routeWallet) : null;
+    const isEditing = !!currentWallet;
 
-    const { addWallet, editWallet } = useWalletStore();
-
-    const [name, setName] = useState(wallet?.name || '');
-    const [type, setType] = useState(wallet?.type || 'general');
-    const [color, setColor] = useState(wallet?.color || COLORS[0]);
-    const [balance, setBalance] = useState(wallet ? formatInputRupiah(wallet.balance.toString()) : '0');
-    const [isDefault, setIsDefault] = useState(wallet?.is_default || false);
+    const [name, setName] = useState(currentWallet?.name || '');
+    const [type, setType] = useState(currentWallet?.type || 'general');
+    const [color, setColor] = useState(currentWallet?.color || COLORS[0]);
+    const [balance, setBalance] = useState(currentWallet ? formatInputRupiah(currentWallet.balance.toString()) : '0');
+    const [isDefault, setIsDefault] = useState(currentWallet?.is_default || false);
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSave = async () => {
@@ -68,7 +70,7 @@ export function AddWalletScreen() {
             const balanceValue = parseRupiah(balance);
 
             if (isEditing) {
-                await editWallet(wallet.id, {
+                await editWallet(currentWallet.id, {
                     name,
                     type,
                     color,
@@ -235,7 +237,7 @@ export function AddWalletScreen() {
                         {/* Team / Shared Wallet Section */}
                         {isEditing && (
                             <View style={{ marginTop: 8 }}>
-                                <WalletMemberList walletId={wallet.id} />
+                                <WalletMemberList walletId={currentWallet.id} />
                             </View>
                         )}
                     </View>
@@ -411,5 +413,36 @@ const styles = StyleSheet.create({
         fontSize: FontSize.caption,
         color: Colors.textSecondary,
         lineHeight: 18,
+    },
+    unsyncedWallet: {
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 12,
+        padding: 20,
+        borderRadius: 12,
+        backgroundColor: Colors.warningBg,
+        borderWidth: 1,
+        borderColor: Colors.warning,
+    },
+    unsyncedText: {
+        fontFamily: FontFamily.bodyBold,
+        fontSize: FontSize.body,
+        color: Colors.textPrimary,
+        textAlign: 'center',
+        marginBottom: 8,
+    },
+    syncNowBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: Colors.warning,
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 8,
+    },
+    syncNowBtnText: {
+        fontFamily: FontFamily.bodyBold,
+        fontSize: FontSize.caption,
+        color: '#FFF',
     },
 });

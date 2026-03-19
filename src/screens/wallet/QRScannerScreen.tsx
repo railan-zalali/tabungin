@@ -1,75 +1,53 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Dimensions } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
 import { CameraView, Camera } from "expo-camera";
 import { useNavigation } from "@react-navigation/native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "../../constants/colors";
 import { FontFamily, FontSize } from "../../constants/typography";
-import * as Linking from "expo-linking";
+import { parseWalletInvite } from "../../utils/walletInvite";
 
 export function QRScannerScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
 
   useEffect(() => {
-    const getBarCodeScannerPermissions = async () => {
+    const getCameraPermissions = async () => {
       const { status } = await Camera.requestCameraPermissionsAsync();
       setHasPermission(status === "granted");
     };
 
-    getBarCodeScannerPermissions();
+    getCameraPermissions();
   }, []);
 
-  const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) => {
+  const handleBarCodeScanned = ({ data }: { type: string; data: string }) => {
     if (scanned) return;
     setScanned(true);
 
-    console.log("Scanned data:", data);
-
-    // Coba ekstrak walletId dari URL
-    // Format bisa: tabungin://invite/UUID atau exp://.../--/invite/UUID
-    let walletId: string | null = null;
-
-    try {
-      if (data.includes("/invite/")) {
-        const parts = data.split("/invite/");
-        if (parts.length > 1) {
-          // Ambil bagian setelah /invite/
-          const afterInvite = parts[1];
-          // Hapus query params jika ada (misal ?foo=bar)
-          walletId = afterInvite.split("?")[0].split("/")[0];
-        }
-      }
-    } catch (e) {
-      console.error("Error parsing QR:", e);
-    }
-
-    if (walletId && walletId.length > 10) {
-      // Validasi sederhana panjang UUID
-      // Navigasi langsung di dalam app
-      // Gunakan replace agar user tidak balik ke scanner saat tekan back di JoinWallet
+    const walletId = parseWalletInvite(data);
+    if (walletId) {
       navigation.replace("JoinWallet", { walletId });
-    } else {
-      Alert.alert(
-        "QR Code Tidak Valid",
-        "QR Code ini bukan undangan dompet Tabungin yang valid.\nData: " + data,
-        [{ text: "OK", onPress: () => setScanned(false) }],
-      );
+      return;
     }
+
+    Alert.alert("QR Tidak Valid", "Kode QR ini bukan undangan dompet Tabungin yang valid.", [
+      { text: "Coba Lagi", onPress: () => setScanned(false) },
+    ]);
   };
 
   if (hasPermission === null) {
-    return (
-      <View style={styles.container}>
-        <Text>Meminta izin kamera...</Text>
-      </View>
-    );
+    return <View style={styles.container} />;
   }
   if (hasPermission === false) {
     return (
-      <View style={styles.container}>
-        <Text>Tidak ada akses ke kamera</Text>
+      <View style={[styles.container, styles.center]}>
+        <Text style={styles.text}>Akses kamera diperlukan untuk memindai QR code.</Text>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <Text style={styles.backBtnText}>Kembali</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -77,122 +55,55 @@ export function QRScannerScreen() {
   return (
     <View style={styles.container}>
       <CameraView
-        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
         style={StyleSheet.absoluteFillObject}
+        facing="back"
+        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
         barcodeScannerSettings={{
           barcodeTypes: ["qr"],
         }}
       />
-
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <MaterialCommunityIcons name='close' size={24} color='#FFF' />
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
+            <MaterialCommunityIcons name="close" size={28} color="#FFF" />
           </TouchableOpacity>
           <Text style={styles.title}>Scan QR Undangan</Text>
-          <View style={{ width: 40 }} />
+          <View style={{ width: 44 }} />
         </View>
 
-        <View style={styles.scanArea}>
-          <View style={styles.cornerTL} />
-          <View style={styles.cornerTR} />
-          <View style={styles.cornerBL} />
-          <View style={styles.cornerBR} />
+        <View style={styles.scannerBoxContainer}>
+          <View style={styles.scannerBox} />
+          <Text style={styles.instruction}>Arahkan kamera ke QR code undangan</Text>
         </View>
-
-        <Text style={styles.instruction}>Arahkan kamera ke QR Code undangan dompet teman Anda</Text>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#000",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  overlay: {
-    flex: 1,
-    width: "100%",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 50,
-  },
+  container: { flex: 1, backgroundColor: "#000" },
+  center: { justifyContent: "center", alignItems: "center", padding: 24 },
+  text: { color: "#FFF", textAlign: "center", marginBottom: 24, fontFamily: FontFamily.body },
+  backBtn: { backgroundColor: Colors.primary, padding: 16, borderRadius: 12 },
+  backBtnText: { color: "#FFF", fontFamily: FontFamily.bodyBold },
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "space-between" },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    width: "100%",
     paddingHorizontal: 20,
+    paddingVertical: 12,
   },
-  backBtn: {
-    padding: 8,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    borderRadius: 20,
-  },
-  title: {
-    fontFamily: FontFamily.heading,
-    fontSize: FontSize.h3,
-    color: "#FFF",
-  },
-  scanArea: {
+  iconBtn: { padding: 8 },
+  title: { color: "#FFF", fontFamily: FontFamily.heading, fontSize: FontSize.h3 },
+  scannerBoxContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  scannerBox: {
     width: 250,
     height: 250,
-    borderRadius: 20,
     borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.3)",
-    position: "relative",
-  },
-  instruction: {
-    fontFamily: FontFamily.body,
-    color: "#FFF",
-    textAlign: "center",
-    paddingHorizontal: 40,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    padding: 10,
-    borderRadius: 8,
-  },
-  // Corners
-  cornerTL: {
-    position: "absolute",
-    top: -2,
-    left: -2,
-    width: 20,
-    height: 20,
-    borderTopWidth: 4,
-    borderLeftWidth: 4,
     borderColor: Colors.primary,
+    borderRadius: 24,
+    backgroundColor: "transparent",
   },
-  cornerTR: {
-    position: "absolute",
-    top: -2,
-    right: -2,
-    width: 20,
-    height: 20,
-    borderTopWidth: 4,
-    borderRightWidth: 4,
-    borderColor: Colors.primary,
-  },
-  cornerBL: {
-    position: "absolute",
-    bottom: -2,
-    left: -2,
-    width: 20,
-    height: 20,
-    borderBottomWidth: 4,
-    borderLeftWidth: 4,
-    borderColor: Colors.primary,
-  },
-  cornerBR: {
-    position: "absolute",
-    bottom: -2,
-    right: -2,
-    width: 20,
-    height: 20,
-    borderBottomWidth: 4,
-    borderRightWidth: 4,
-    borderColor: Colors.primary,
-  },
+  instruction: { color: "#FFF", marginTop: 24, fontFamily: FontFamily.body, fontSize: FontSize.body },
 });

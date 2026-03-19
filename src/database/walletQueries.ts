@@ -10,19 +10,26 @@ export interface Wallet {
   color: string;
   balance: number;
   is_default: boolean;
+  sync_status?: string; // Tambahkan sync_status untuk cek status sinkronisasi
   created_at: number;
 }
 
 /**
- * Ambil semua dompet (filter by profile jika ada)
+ * Ambil semua dompet
+ * - Filter by profile jika ada
+ * - ATAU jika userEmail diberikan, ambil juga dompet di mana user adalah member
  */
-export async function fetchWallets(profileId?: string): Promise<Wallet[]> {
+export async function fetchWallets(profileId?: string, userEmail?: string): Promise<Wallet[]> {
   try {
     const db = await getDatabase();
     let query = "SELECT * FROM wallets WHERE sync_status != 'pending_delete'";
     const params: any[] = [];
 
-    if (profileId) {
+    // Logic: (profile_id = X) OR (id IN (SELECT wallet_id FROM wallet_members WHERE user_email = Y))
+    if (profileId && userEmail) {
+      query += " AND (profile_id = ? OR id IN (SELECT wallet_id FROM wallet_members WHERE lower(user_email) = lower(?) AND sync_status != 'pending_delete'))";
+      params.push(profileId, userEmail);
+    } else if (profileId) {
       query += " AND profile_id = ?";
       params.push(profileId);
     }
@@ -117,10 +124,6 @@ export async function insertWallet(
   }
 }
 
-// ... updateWallet and deleteWallet logic remains mostly same but check default logic might need profile_id awareness?
-// updateWallet checks is_default switch.
-// deleteWallet checks is_default.
-
 /**
  * Update dompet
  */
@@ -134,7 +137,6 @@ export async function updateWallet(
   try {
     await db.withTransactionAsync(async () => {
       // Need to know current profile_id to switch default correctly
-      // But usually we assume we are updating within same profile context.
       // Best effort: Get the wallet first to know its profile_id
       const currentWallet = await db.getFirstAsync<{ profile_id: string }>(
         "SELECT profile_id FROM wallets WHERE id = ?",
@@ -179,7 +181,6 @@ export async function updateWallet(
         fields.push("is_default = ?");
         values.push(data.is_default ? 1 : 0);
       }
-      // profile_id update is rare but possible? Let's skip for now unless requested.
 
       if (fields.length === 0) return;
 
@@ -233,15 +234,20 @@ export async function deleteWallet(id: string): Promise<void> {
 
 /**
  * Hitung total saldo semua dompet (by profile)
+ * NOTE: Untuk shared wallet, kita mungkin perlu include juga di total balance?
+ * Saat ini kita include jika user member.
  */
-export async function fetchTotalBalance(profileId?: string): Promise<number> {
+export async function fetchTotalBalance(profileId?: string, userEmail?: string): Promise<number> {
   try {
     const db = await getDatabase();
     let query =
       "SELECT COALESCE(SUM(balance), 0) as total FROM wallets WHERE sync_status != 'pending_delete'";
     const params: any[] = [];
 
-    if (profileId) {
+    if (profileId && userEmail) {
+      query += " AND (profile_id = ? OR id IN (SELECT wallet_id FROM wallet_members WHERE lower(user_email) = lower(?) AND sync_status != 'pending_delete'))";
+      params.push(profileId, userEmail);
+    } else if (profileId) {
       query += " AND profile_id = ?";
       params.push(profileId);
     }
@@ -280,13 +286,9 @@ export async function fetchWalletMembers(walletId: string): Promise<WalletMember
   }
 }
 
-import { supabase } from "../lib/supabase";
-
-// ... existing imports
 
 /**
  * Tambah anggota ke dompet (Invite)
- * Sekarang dengan integrasi Supabase Edge Functions / Auth untuk kirim email
  */
 export async function addWalletMember(
   walletId: string,
@@ -300,7 +302,7 @@ export async function addWalletMember(
 
   // 1. Cek apakah email sudah ada di dompet ini (Lokal)
   const existing = await db.getFirstAsync<{ id: string }>(
-    "SELECT id FROM wallet_members WHERE wallet_id = ? AND user_email = ? AND sync_status != 'pending_delete'",
+    "SELECT id FROM wallet_members WHERE wallet_id = ? AND lower(user_email) = lower(?) AND sync_status != 'pending_delete'",
     [walletId, email],
   );
 
@@ -312,27 +314,13 @@ export async function addWalletMember(
   await db.runAsync(
     `INSERT INTO wallet_members (id, wallet_id, user_email, role, status, created_at, updated_at, sync_status)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, walletId, email, role, "pending", created_at, updated_at, "pending_create"],
+    [id, walletId, email.trim().toLowerCase(), role, "pending", created_at, updated_at, "pending_create"],
   );
-
-  // 3. Trigger Invite di Supabase (Jika Online)
-  // Karena kita pakai local-first sync, data akan ter-push otomatis oleh syncDatabase().
-  // Namun, Supabase Auth Invite User biasanya butuh trigger khusus jika ingin kirim magic link.
-  // Tapi untuk "Shared Wallet", biasanya kita hanya insert row, lalu user lain melihatnya.
-  // Jika ingin kirim email notifikasi, kita bisa gunakan Supabase Edge Function atau layanan email lain.
-  // Untuk saat ini, kita andalkan sync.
-
-  // NOTE: Jika tujuannya adalah "Auth Invite" (mengundang user baru ke Aplikasi), gunakan:
-  // await supabase.auth.admin.inviteUserByEmail(email);
-  // Tapi ini butuh Service Role Key (tidak aman di client).
-
-  // SOLUSI: Kita asumsikan user sudah punya akun atau akan daftar sendiri.
-  // Notifikasi email manual belum diimplementasikan di sini.
 
   return {
     id,
     wallet_id: walletId,
-    user_email: email,
+    user_email: email.trim().toLowerCase(),
     role,
     status: "pending",
     created_at,

@@ -2,9 +2,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { Button } from './Button';
+import { useTheme } from '../../store/useThemeStore';
 
 interface EmptyStateProps {
     icon: string;
@@ -25,6 +25,8 @@ export function EmptyState({
     onAction,
     style,
 }: EmptyStateProps) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
     return (
         <View
             style={[styles.container, style]}
@@ -35,7 +37,7 @@ export function EmptyState({
                 <MaterialCommunityIcons
                     name={icon as any}
                     size={56}
-                    color={Colors.textDisabled}
+                    color={colors.textDisabled}
                     accessibilityElementsHidden={true}
                 />
             </View>
@@ -60,7 +62,7 @@ export function EmptyState({
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
     container: {
         flex: 1,
         alignItems: 'center',
@@ -73,7 +75,7 @@ const styles = StyleSheet.create({
         width: 96,
         height: 96,
         borderRadius: 48,
-        backgroundColor: Colors.surfaceElevated,
+        backgroundColor: colors.surfaceElevated,
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: 8,
@@ -81,13 +83,13 @@ const styles = StyleSheet.create({
     title: {
         fontFamily: FontFamily.headingMedium,
         fontSize: FontSize.h4,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
         textAlign: 'center',
     },
     description: {
         fontFamily: FontFamily.body,
         fontSize: FontSize.body,
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
         textAlign: 'center',
         lineHeight: 22,
     },

@@ -2,7 +2,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { Shadow } from '../../constants/theme';
 import type { SavingGoal } from '../../types/saving';
@@ -10,6 +9,7 @@ import { formatRupiah, formatRupiahShort } from '../../utils/currency';
 import { formatRelativeDays, daysFromNow } from '../../utils/date';
 import { calculateProgress } from '../../utils/calculator';
 import { ProgressBar } from './ProgressBar';
+import { useTheme } from '../../store/useThemeStore';
 
 interface SavingGoalCardProps {
     goal: SavingGoal;
@@ -19,6 +19,8 @@ interface SavingGoalCardProps {
 }
 
 export function SavingGoalCard({ goal, onPress, onAddSaving, animationDelay = 0 }: SavingGoalCardProps) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
     const progress = calculateProgress(goal.current_amount, goal.target_amount);
     const daysLeft = daysFromNow(goal.estimated_date);
     const isCompleted = goal.is_completed || goal.current_amount >= goal.target_amount;
@@ -47,7 +49,7 @@ export function SavingGoalCard({ goal, onPress, onAddSaving, animationDelay = 0 
                     </Text>
                     {isCompleted ? (
                         <View style={styles.completedBadge}>
-                            <MaterialCommunityIcons name="check-circle" size={14} color={Colors.success} accessibilityElementsHidden={true} />
+                            <MaterialCommunityIcons name="check-circle" size={14} color={colors.success} accessibilityElementsHidden={true} />
                             <Text style={styles.completedText} allowFontScaling={true}>Sudah tercapai! 🎉</Text>
                         </View>
                     ) : (
@@ -105,9 +107,9 @@ export function SavingGoalCard({ goal, onPress, onAddSaving, animationDelay = 0 
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
     card: {
-        backgroundColor: Colors.surface,
+        backgroundColor: colors.surface,
         borderRadius: 16,
         padding: 16,
         marginHorizontal: 16,
@@ -127,41 +129,41 @@ const styles = StyleSheet.create({
     goalName: {
         fontFamily: FontFamily.headingMedium,
         fontSize: FontSize.h4,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
     },
     savingChip: {
         fontFamily: FontFamily.body,
         fontSize: FontSize.caption,
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
     },
     completedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     completedText: {
         fontFamily: FontFamily.bodyMedium,
         fontSize: FontSize.caption,
-        color: Colors.success,
+        color: colors.success,
     },
     daysContainer: { alignItems: 'center' },
     daysNumber: {
         fontFamily: FontFamily.heading,
         fontSize: 20,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
     },
     daysLabel: {
         fontFamily: FontFamily.body,
         fontSize: FontSize.label,
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
     },
     progressSection: { gap: 8 },
     amountRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     currentAmount: {
         fontFamily: FontFamily.body,
         fontSize: FontSize.caption,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
     },
     targetAmount: {
         fontFamily: FontFamily.bodyMedium,
         fontSize: FontSize.caption,
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
     },
     addBtn: {
         flexDirection: 'row',

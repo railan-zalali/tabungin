@@ -29,7 +29,9 @@
           "color": "#1DB954"
         }
       ],
-      "expo-camera"
+      "expo-camera",
+      "expo-web-browser",
+      "expo-sharing"
     ],
     "scheme": "tabungin",
     "extra": {
