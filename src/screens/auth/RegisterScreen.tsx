@@ -21,16 +21,32 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { validateEmail, validatePassword, validateConfirmPassword, validateName } from '../../utils/validation';
 import type { RootStackParamList } from '../../types/navigation';
 
+function getPasswordStrength(password: string): { label: string; color: string; progress: number } {
+    if (!password) return { label: '', color: Colors.border, progress: 0 };
+    
+    let score = 0;
+    if (password.length >= 8) score++;
+    if (password.length >= 12) score++;
+    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
+    if (/\d/.test(password)) score++;
+    if (/[^a-zA-Z0-9]/.test(password)) score++;
+
+    if (score <= 2) return { label: 'Lemah', color: '#EF4444', progress: 0.33 };
+    if (score <= 3) return { label: 'Sedang', color: '#F59E0B', progress: 0.66 };
+    return { label: 'Kuat', color: '#10B981', progress: 1 };
+}
+
 export function RegisterScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-    const { register, loginWithGoogle, authError } = useAuthStore();
+    const { register, authError } = useAuthStore();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirm, setConfirm] = useState('');
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(false);
-    const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+    const passwordStrength = getPasswordStrength(password);
 
     const validate = (): boolean => {
         const errs: Record<string, string> = {};
@@ -57,16 +73,6 @@ export function RegisterScreen() {
             if (!ok) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         } finally {
             setIsLoading(false);
-        }
-    };
-
-    const handleGoogleRegister = async () => {
-        setIsGoogleLoading(true);
-        try {
-            const ok = await loginWithGoogle();
-            if (!ok) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        } finally {
-            setIsGoogleLoading(false);
         }
     };
 
@@ -120,17 +126,36 @@ export function RegisterScreen() {
                             placeholder="nama@email.com"
                             required
                         />
-                        <Input
-                            label="Password"
-                            value={password}
-                            onChangeText={(value) => { setPassword(value); clearFieldError('password'); }}
-                            secureTextEntry
-                            leftIcon="lock"
-                            error={errors.password}
-                            placeholder="Minimal 8 karakter"
-                            hint="Gunakan kombinasi huruf dan angka"
-                            required
-                        />
+                        <View>
+                            <Input
+                                label="Password"
+                                value={password}
+                                onChangeText={(value) => { setPassword(value); clearFieldError('password'); }}
+                                secureTextEntry
+                                leftIcon="lock"
+                                error={errors.password}
+                                placeholder="Minimal 8 karakter"
+                                required
+                            />
+                            {password.length > 0 && (
+                                <View style={styles.strengthContainer}>
+                                    <View style={styles.strengthBar}>
+                                        <View 
+                                            style={[
+                                                styles.strengthProgress, 
+                                                { 
+                                                    width: `${passwordStrength.progress * 100}%`,
+                                                    backgroundColor: passwordStrength.color 
+                                                }
+                                            ]} 
+                                        />
+                                    </View>
+                                    <Text style={[styles.strengthLabel, { color: passwordStrength.color }]}>
+                                        {passwordStrength.label}
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
                         <Input
                             label="Konfirmasi Password"
                             value={confirm}
@@ -160,22 +185,6 @@ export function RegisterScreen() {
                         accessibilityHint="Ketuk dua kali untuk membuat akun baru"
                     />
 
-                    <View style={styles.divider}>
-                        <View style={styles.dividerLine} />
-                        <Text style={styles.dividerText} allowFontScaling={true}>atau</Text>
-                        <View style={styles.dividerLine} />
-                    </View>
-
-                    <Button
-                        label="Lanjutkan Dengan Google"
-                        onPress={handleGoogleRegister}
-                        variant="outline"
-                        size="md"
-                        loading={isGoogleLoading}
-                        fullWidth
-                        icon={<MaterialCommunityIcons name="google" size={18} color={Colors.primary} />}
-                    />
-
                     <View style={styles.footer}>
                         <Text style={styles.footerText} allowFontScaling={true}>Sudah punya akun? </Text>
                         <TouchableOpacity
@@ -203,9 +212,28 @@ const styles = StyleSheet.create({
     heading: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: Colors.textPrimary },
     subHeading: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: Colors.textSecondary },
     fields: { gap: 14 },
-    divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 4 },
-    dividerLine: { flex: 1, height: 1, backgroundColor: Colors.border },
-    dividerText: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: Colors.textSecondary },
+    strengthContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 8,
+        gap: 12,
+    },
+    strengthBar: {
+        flex: 1,
+        height: 4,
+        backgroundColor: Colors.border,
+        borderRadius: 2,
+        overflow: 'hidden',
+    },
+    strengthProgress: {
+        height: '100%',
+        borderRadius: 2,
+    },
+    strengthLabel: {
+        fontFamily: FontFamily.bodyMedium,
+        fontSize: FontSize.caption,
+        minWidth: 50,
+    },
     errorBanner: {
         backgroundColor: '#FEF2F2',
         borderRadius: 10,

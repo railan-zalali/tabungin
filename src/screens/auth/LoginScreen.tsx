@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors } from "../../constants/colors";
 import { FontFamily, FontSize } from "../../constants/typography";
 import { Input } from "../../components/common/Input";
@@ -21,14 +22,32 @@ import { useAuthStore } from "../../store/useAuthStore";
 import { validateEmail, validatePassword } from "../../utils/validation";
 import type { RootStackParamList } from "../../types/navigation";
 
+const REMEMBER_EMAIL_KEY = '@tabungin_remember_email';
+
 export function LoginScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { login, loginWithGoogle, authError, clearError } = useAuthStore();
+  const { login, authError, clearError } = useAuthStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+
+  useEffect(() => {
+    loadRememberedEmail();
+  }, []);
+
+  const loadRememberedEmail = async () => {
+    try {
+      const remembered = await AsyncStorage.getItem(REMEMBER_EMAIL_KEY);
+      if (remembered) {
+        setEmail(remembered);
+        setRememberMe(true);
+      }
+    } catch (error) {
+      console.error('Failed to load remembered email:', error);
+    }
+  };
 
   const validate = (): boolean => {
     const newErrors: typeof errors = {};
@@ -49,22 +68,16 @@ export function LoginScreen() {
     setIsLoading(true);
     try {
       const ok = await login(email.trim(), password);
+      if (ok && rememberMe) {
+        await AsyncStorage.setItem(REMEMBER_EMAIL_KEY, email.trim());
+      } else if (!rememberMe) {
+        await AsyncStorage.removeItem(REMEMBER_EMAIL_KEY);
+      }
       if (!ok) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } catch (error) {
       console.error(error);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    clearError();
-    setIsGoogleLoading(true);
-    try {
-      const ok = await loginWithGoogle();
-      if (!ok) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    } finally {
-      setIsGoogleLoading(false);
     }
   };
 
@@ -131,6 +144,36 @@ export function LoginScreen() {
               />
             </View>
 
+            <View style={styles.optionsRow}>
+              <TouchableOpacity 
+                style={styles.rememberMeContainer}
+                onPress={() => setRememberMe(!rememberMe)}
+                accessible={true}
+                accessibilityRole='checkbox'
+                accessibilityState={{ checked: rememberMe }}
+                accessibilityLabel='Ingat email saya'
+              >
+                <MaterialCommunityIcons 
+                  name={rememberMe ? 'checkbox-marked' : 'checkbox-blank-outline'} 
+                  size={20} 
+                  color={rememberMe ? Colors.primary : Colors.textSecondary} 
+                />
+                <Text style={[styles.rememberMeText, rememberMe && styles.rememberMeTextActive]}>
+                  Ingat saya
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => navigation.navigate('ForgotPassword')}
+                accessible={true}
+                accessibilityRole='link'
+                accessibilityLabel='Lupa password'
+                hitSlop={{ top: 10, bottom: 10 }}
+              >
+                <Text style={styles.forgotPasswordText}>Lupa password?</Text>
+              </TouchableOpacity>
+            </View>
+
             {authError && (
               <View style={styles.errorBanner} accessible={true} accessibilityRole='alert'>
                 <Text style={styles.errorBannerText} allowFontScaling={true}>
@@ -147,25 +190,6 @@ export function LoginScreen() {
               loading={isLoading}
               fullWidth
               accessibilityHint='Ketuk dua kali untuk masuk ke aplikasi'
-            />
-
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText} allowFontScaling={true}>
-                atau
-              </Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            <Button
-              label='Lanjutkan Dengan Google'
-              onPress={handleGoogleLogin}
-              variant='outline'
-              size='md'
-              loading={isGoogleLoading}
-              icon={<MaterialCommunityIcons name='google' size={18} color={Colors.primary} />}
-              fullWidth
-              accessibilityHint='Ketuk dua kali untuk masuk dengan akun Google'
             />
           </View>
 
@@ -215,6 +239,31 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   fields: { gap: 14 },
+  optionsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 4,
+  },
+  rememberMeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 4,
+  },
+  rememberMeText: {
+    fontFamily: FontFamily.body,
+    fontSize: FontSize.caption,
+    color: Colors.textSecondary,
+  },
+  rememberMeTextActive: {
+    color: Colors.primary,
+  },
+  forgotPasswordText: {
+    fontFamily: FontFamily.bodyMedium,
+    fontSize: FontSize.caption,
+    color: Colors.primary,
+  },
   errorBanner: {
     backgroundColor: "#FEF2F2",
     borderRadius: 10,
@@ -226,13 +275,6 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: FontSize.caption,
     color: Colors.danger,
-  },
-  divider: { flexDirection: "row", alignItems: "center", gap: 12, marginVertical: 4 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: Colors.border },
-  dividerText: {
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
   },
   footer: { flexDirection: "row", justifyContent: "center", marginTop: 24, paddingBottom: 20 },
   footerText: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: Colors.textSecondary },

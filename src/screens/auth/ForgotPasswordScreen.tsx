@@ -1,0 +1,252 @@
+import React, { useState } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    TouchableOpacity,
+    KeyboardAvoidingView,
+    Platform,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { Colors } from '../../constants/colors';
+import { FontFamily, FontSize } from '../../constants/typography';
+import { Input } from '../../components/common/Input';
+import { Button } from '../../components/common/Button';
+import { useAuthStore } from '../../store/useAuthStore';
+import { validateEmail } from '../../utils/validation';
+import type { RootStackParamList } from '../../types/navigation';
+
+export function ForgotPasswordScreen() {
+    const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+    const { sendResetPassword } = useAuthStore();
+    const [email, setEmail] = useState('');
+    const [error, setError] = useState<string | undefined>();
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSuccess, setIsSuccess] = useState(false);
+
+    const validate = (): boolean => {
+        const emailErr = validateEmail(email);
+        if (emailErr) {
+            setError(emailErr);
+            return false;
+        }
+        return true;
+    };
+
+    const handleReset = async () => {
+        if (!validate()) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const result = await sendResetPassword(email.trim());
+            if (result.success) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                setIsSuccess(true);
+            } else {
+                setError(result.error || 'Gagal mengirim email reset password.');
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            }
+        } catch (err: any) {
+            setError(err.message || 'Terjadi kesalahan.');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    if (isSuccess) {
+        return (
+            <SafeAreaView style={styles.safe}>
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={styles.flex}
+                >
+                    <ScrollView contentContainerStyle={styles.container}>
+                        <View style={styles.successContainer}>
+                            <View style={styles.successIcon}>
+                                <MaterialCommunityIcons name='email-check' size={64} color={Colors.primary} />
+                            </View>
+                            <Text style={styles.successTitle}>Email Terkirim!</Text>
+                            <Text style={styles.successSubtitle}>
+                                Kami telah mengirim link reset password ke email:
+                            </Text>
+                            <Text style={styles.successEmail}>{email}</Text>
+                            <Text style={styles.successHint}>
+                                Cek inbox atau folder spam Anda. Link berlaku selama 24 jam.
+                            </Text>
+                        </View>
+
+                        <Button
+                            label="Kembali ke Login"
+                            onPress={() => navigation.navigate('Login')}
+                            variant="primary"
+                            size="lg"
+                            fullWidth
+                            style={{ marginTop: 24 }}
+                        />
+                    </ScrollView>
+                </KeyboardAvoidingView>
+            </SafeAreaView>
+        );
+    }
+
+    return (
+        <SafeAreaView style={styles.safe}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.flex}
+            >
+                <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+                    <TouchableOpacity
+                        style={styles.backBtn}
+                        onPress={() => navigation.goBack()}
+                        accessible={true}
+                        accessibilityRole="button"
+                        accessibilityLabel="Kembali ke login"
+                    >
+                        <MaterialCommunityIcons name='arrow-left' size={24} color={Colors.primary} />
+                        <Text style={styles.backText} allowFontScaling={true}> Kembali</Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.headerSection}>
+                        <View style={styles.iconContainer}>
+                            <MaterialCommunityIcons name='lock-reset' size={48} color={Colors.primary} />
+                        </View>
+                        <Text style={styles.heading} allowFontScaling={true} accessibilityRole="header">
+                            Lupa Password?
+                        </Text>
+                        <Text style={styles.subHeading} allowFontScaling={true}>
+                            Masukkan email Anda dan kami akan mengirimkan link untuk reset password.
+                        </Text>
+                    </View>
+
+                    <View style={styles.fields}>
+                        <Input
+                            label="Email"
+                            value={email}
+                            onChangeText={(value) => {
+                                setEmail(value);
+                                setError(undefined);
+                            }}
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                            autoComplete="email"
+                            leftIcon="email"
+                            error={error}
+                            placeholder="nama@email.com"
+                            required
+                        />
+                    </View>
+
+                    <Button
+                        label="Kirim Link Reset"
+                        onPress={handleReset}
+                        variant="primary"
+                        size="lg"
+                        loading={isLoading}
+                        fullWidth
+                        style={{ marginTop: 8 }}
+                        accessibilityHint="Ketuk dua kali untuk mengirim link reset password"
+                    />
+
+                    <View style={styles.helpSection}>
+                        <Text style={styles.helpText}>
+                            Tidak menerima email?
+                        </Text>
+                        <Text style={styles.helpHint}>
+                            Pastikan email yang Anda masukkan benar dan coba lagi dalam beberapa menit.
+                        </Text>
+                    </View>
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
+    );
+}
+
+const styles = StyleSheet.create({
+    safe: { flex: 1, backgroundColor: Colors.surface },
+    flex: { flex: 1 },
+    container: { flexGrow: 1, padding: 24 },
+    backBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 8,
+        minHeight: 48,
+        width: 120,
+    },
+    backText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.body, color: Colors.primary },
+    headerSection: { alignItems: 'center', marginVertical: 24, gap: 12 },
+    iconContainer: {
+        width: 96,
+        height: 96,
+        borderRadius: 48,
+        backgroundColor: Colors.primaryLight,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 8,
+    },
+    heading: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: Colors.textPrimary },
+    subHeading: {
+        fontFamily: FontFamily.body,
+        fontSize: FontSize.body,
+        color: Colors.textSecondary,
+        textAlign: 'center',
+        lineHeight: 22,
+    },
+    fields: { gap: 14 },
+    helpSection: {
+        marginTop: 24,
+        backgroundColor: Colors.primaryLight + '30',
+        padding: 16,
+        borderRadius: 12,
+    },
+    helpText: {
+        fontFamily: FontFamily.bodyMedium,
+        fontSize: FontSize.body,
+        color: Colors.textPrimary,
+        marginBottom: 4,
+    },
+    helpHint: {
+        fontFamily: FontFamily.body,
+        fontSize: FontSize.caption,
+        color: Colors.textSecondary,
+        lineHeight: 20,
+    },
+    successContainer: { alignItems: 'center', paddingVertical: 40, gap: 12 },
+    successIcon: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        backgroundColor: Colors.primaryLight,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 8,
+    },
+    successTitle: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: Colors.textPrimary },
+    successSubtitle: {
+        fontFamily: FontFamily.body,
+        fontSize: FontSize.body,
+        color: Colors.textSecondary,
+        textAlign: 'center',
+    },
+    successEmail: {
+        fontFamily: FontFamily.bodyBold,
+        fontSize: FontSize.body,
+        color: Colors.primary,
+    },
+    successHint: {
+        fontFamily: FontFamily.body,
+        fontSize: FontSize.caption,
+        color: Colors.textSecondary,
+        textAlign: 'center',
+        marginTop: 8,
+    },
+});

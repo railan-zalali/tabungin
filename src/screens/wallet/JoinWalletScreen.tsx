@@ -62,15 +62,38 @@ export function JoinWalletScreen() {
       });
 
       if (!rpcError && walletPreview && walletPreview.length > 0) {
-        setWalletInfo(walletPreview[0]);
-      } else {
-        // Fallback generic info if RPC fails or RLS blocks
         setWalletInfo({
-          name: "Dompet Bersama",
-          type: "general",
-          color: Colors.primary,
-          isLocked: true,
+          id: walletPreview[0].id,
+          name: walletPreview[0].name,
+          type: walletPreview[0].type,
+          color: walletPreview[0].color || Colors.primary,
+          created_at: walletPreview[0].created_at,
         });
+      } else {
+        // Try direct wallet query as fallback
+        const { data: directWallet, error: directError } = await supabase
+          .from('wallets')
+          .select('id, name, type, color, created_at')
+          .eq('id', walletId)
+          .single();
+        
+        if (!directError && directWallet) {
+          setWalletInfo({
+            id: directWallet.id,
+            name: directWallet.name,
+            type: directWallet.type,
+            color: directWallet.color || Colors.primary,
+            created_at: directWallet.created_at,
+          });
+        } else {
+          // Ultimate fallback
+          setWalletInfo({
+            name: "Dompet Bersama",
+            type: "general",
+            color: Colors.primary,
+            isLocked: true,
+          });
+        }
       }
     } catch (e: any) {
       console.error(e);

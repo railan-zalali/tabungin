@@ -1,12 +1,41 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Linking from 'expo-linking';
-import * as WebBrowser from 'expo-web-browser';
-import { supabase, oauthRedirectUrl } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { clearAllData } from '../database/schema';
 import { syncDatabase } from '../database/sync';
+import { v4 as uuidv4 } from 'uuid';
 
 const SETTINGS_KEY = '@tabungin_settings_v2';
+
+async function ensureProfileExists(userId: string, name: string, email: string): Promise<void> {
+    try {
+        const { data: existing, error: existingError } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        if (existingError) {
+            console.error('[Auth] Failed to fetch profile:', existingError);
+            return;
+        }
+        
+        if (!existing) {
+            const timestamp = Date.now();
+            await supabase.from('profiles').insert({
+                id: uuidv4(),
+                user_id: userId,
+                name: name,
+                created_at: timestamp,
+                updated_at: timestamp,
+            });
+            console.log('[Auth] Profile created for user:', userId);
+        }
+    } catch (error) {
+        console.error('[Auth] Failed to ensure profile exists:', error);
+    }
+}
+
 let cachedSettings: Record<string, unknown> | null = null;
 
 async function loadSettingsCache(): Promise<void> {
@@ -30,24 +59,6 @@ function readSettingSync<T>(key: string, fallback: T): T {
     return value !== undefined ? (value as T) : fallback;
 }
 
-function parseAuthCallbackParams(url: string): Record<string, string> {
-    try {
-        const parsedUrl = new URL(url);
-        const params = new URLSearchParams(parsedUrl.search);
-        const hashParams = new URLSearchParams(parsedUrl.hash.replace(/^#/, ''));
-
-        for (const [key, value] of hashParams.entries()) {
-            if (!params.has(key)) {
-                params.set(key, value);
-            }
-        }
-
-        return Object.fromEntries(params.entries());
-    } catch {
-        return {};
-    }
-}
-
 export interface AuthUser {
     id: string;
     name: string;
@@ -62,14 +73,13 @@ interface AuthState {
     authError: string | null;
 
     login: (email: string, password: string) => Promise<boolean>;
-    loginWithGoogle: () => Promise<boolean>;
     register: (name: string, email: string, password: string) => Promise<boolean>;
     logout: () => Promise<void>;
     updateProfile: (data: Partial<Pick<AuthUser, 'name' | 'avatarColor'>>) => Promise<void>;
     updatePassword: (oldPassword: string, newPassword: string) => Promise<boolean>;
     checkEmailExists: (email: string) => Promise<boolean>;
+    sendResetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
     loadSession: () => Promise<void>;
-    completeOAuthSession: (url: string) => Promise<boolean>;
     clearError: () => void;
 
     isDarkMode: boolean;
@@ -89,6 +99,11 @@ function mapSessionUser(sessionUser: any): AuthUser {
     };
 }
 
+function mapSession(session: any): AuthUser | null {
+    if (!session?.user) return null;
+    return mapSessionUser(session.user);
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
     user: null,
     isLoggedIn: false,
@@ -102,11 +117,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     loadSession: async () => {
         try {
             await loadSettingsCache();
-
-            const initialUrl = await Linking.getInitialURL();
-            if (initialUrl) {
-                await get().completeOAuthSession(initialUrl);
-            }
 
             const { data: { session } } = await supabase.auth.getSession();
 
@@ -160,35 +170,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
     },
 
-    loginWithGoogle: async () => {
-        set({ authError: null });
-        try {
-            const { data, error } = await supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                    redirectTo: oauthRedirectUrl,
-                    skipBrowserRedirect: true,
-                },
-            });
-
-            if (error || !data?.url) {
-                set({ authError: error?.message || 'Gagal memulai login Google.' });
-                return false;
-            }
-
-            const result = await WebBrowser.openAuthSessionAsync(data.url, oauthRedirectUrl);
-            if (result.type !== 'success' || !result.url) {
-                return false;
-            }
-
-            return await get().completeOAuthSession(result.url);
-        } catch (error: any) {
-            console.error('Google OAuth gagal:', error);
-            set({ authError: error.message || 'Terjadi kesalahan saat login dengan Google.' });
-            return false;
-        }
-    },
-
     register: async (name: string, email: string, password: string) => {
         set({ authError: null });
         try {
@@ -209,6 +190,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             }
 
             if (data.user) {
+                await ensureProfileExists(data.user.id, name, email);
+                
                 set({
                     user: {
                         id: data.user.id,
@@ -221,62 +204,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 return true;
             }
 
+            if (data.session === null && data.user !== null) {
+                set({ authError: 'Silakan cek email untuk konfirmasi sebelum login.' });
+                return false;
+            }
+
             return false;
         } catch (error) {
             console.error('Register gagal:', error);
             set({ authError: 'Terjadi kesalahan saat mendaftar.' });
-            return false;
-        }
-    },
-
-    completeOAuthSession: async (url: string) => {
-        try {
-            const params = parseAuthCallbackParams(url);
-            const callbackError = params.error_description || params.error || params.error_code;
-
-            if (callbackError) {
-                throw new Error(callbackError);
-            }
-
-            const accessToken = typeof params.access_token === 'string' ? params.access_token : '';
-            const refreshToken = typeof params.refresh_token === 'string' ? params.refresh_token : '';
-            const authCode = typeof params.code === 'string' ? params.code : '';
-
-            let sessionUser: any = null;
-
-            if (authCode) {
-                const { data, error } = await supabase.auth.exchangeCodeForSession(authCode);
-                if (error || !data.session?.user) {
-                    throw error || new Error('Kode login Google tidak valid.');
-                }
-
-                sessionUser = data.session.user;
-            } else if (accessToken && refreshToken) {
-                const { data, error } = await supabase.auth.setSession({
-                    access_token: accessToken,
-                    refresh_token: refreshToken,
-                });
-
-                if (error || !data.session?.user) {
-                    throw error || new Error('Sesi Google tidak valid.');
-                }
-
-                sessionUser = data.session.user;
-            } else {
-                return false;
-            }
-
-            set({
-                user: mapSessionUser(sessionUser),
-                isLoggedIn: true,
-                authError: null,
-            });
-
-            setTimeout(() => syncDatabase(), 500);
-            return true;
-        } catch (error: any) {
-            console.error('Gagal menyelesaikan sesi OAuth:', error);
-            set({ authError: error.message || 'Gagal menyelesaikan login Google.' });
             return false;
         }
     },
@@ -314,6 +250,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     checkEmailExists: async (_email: string) => {
         return false;
+    },
+
+    sendResetPassword: async (email: string) => {
+        try {
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: 'tabungin://reset-password',
+            });
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+
+            return { success: true };
+        } catch (error: any) {
+            return { success: false, error: error.message || 'Terjadi kesalahan.' };
+        }
     },
 
     clearError: () => set({ authError: null }),

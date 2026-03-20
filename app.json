@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
+    "scheme": "tabungin",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -30,10 +31,8 @@
         }
       ],
       "expo-camera",
-      "expo-web-browser",
       "expo-sharing"
     ],
-    "scheme": "tabungin",
     "extra": {
       "eas": {
         "projectId": "43110849-f922-4680-a3ea-66eb86d8ee72"

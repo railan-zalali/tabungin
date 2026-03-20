@@ -8,7 +8,7 @@ export const linking = {
       Onboarding: 'onboarding',
       Login: 'login',
       Register: 'register',
-      AuthCallback: 'auth/callback',
+      ForgotPassword: 'forgot-password',
 
       // Main App (Available when logged in)
       Main: {

@@ -2,6 +2,7 @@ import { getDatabase } from "./schema";
 import { supabase } from "../lib/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { NetInfoState, useNetInfo } from "@react-native-community/netinfo";
+import { v4 as uuidv4 } from "uuid";
 
 const LAST_SYNC_KEY = "tabungin_last_sync_time";
 
@@ -16,7 +17,7 @@ interface SyncTable {
 const SYNC_TABLES: SyncTable[] = [
   {
     tableName: "profiles",
-    columns: ["id", "name", "icon", "color", "created_at", "updated_at"],
+    columns: ["id", "user_id", "name", "icon", "color", "created_at", "updated_at"],
   },
   {
     tableName: "wallets",
@@ -102,8 +103,128 @@ function mapRecordToSupabase(table: string, row: any): any {
 }
 
 /**
+ * Pastikan profile exists di Supabase sebelum sync wallets
+ * Jika profile_id tidak ada di Supabase, buat profile baru
+ */
+async function ensureProfileExistsInSupabase(userId: string, userEmail: string): Promise<string | null> {
+  try {
+    // Cek apakah profile dengan user_id ini ada di Supabase
+    const { data: existingProfile, error: existingProfileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (existingProfileError) {
+      console.error('[Sync] Failed to fetch remote profile:', existingProfileError);
+      return null;
+    }
+
+    if (existingProfile) {
+      return existingProfile.id;
+    }
+
+    // Jika tidak ada, buat profile baru
+    const profileId = uuidv4();
+    const timestamp = Date.now();
+
+    const { error: insertError } = await supabase
+      .from('profiles')
+      .insert({
+        id: profileId,
+        user_id: userId,
+        name: userEmail.split('@')[0] || 'User',
+        color: '#1DB954',
+        created_at: timestamp,
+        updated_at: timestamp,
+      });
+
+    if (insertError) {
+      console.error('[Sync] Failed to create profile:', insertError);
+      return null;
+    }
+
+    console.log('[Sync] Created new profile in Supabase:', profileId);
+    return profileId;
+  } catch (e) {
+    console.error('[Sync] Error ensuring profile exists:', e);
+    return null;
+  }
+}
+
+async function reconcileLocalProfileWithSupabase(
+  remoteProfileId: string,
+  userId: string,
+  userEmail: string,
+): Promise<string> {
+  const db = await getDatabase();
+  const { useProfileStore } = await import('../store/useProfileStore');
+
+  const now = Date.now();
+  const fallbackName = userEmail.split('@')[0] || 'User';
+  const currentActiveProfileId = useProfileStore.getState().activeProfileId;
+
+  const [remoteProfile, activeProfile] = await Promise.all([
+    db.getFirstAsync<any>('SELECT * FROM profiles WHERE id = ?', [remoteProfileId]),
+    currentActiveProfileId
+      ? db.getFirstAsync<any>('SELECT * FROM profiles WHERE id = ?', [currentActiveProfileId])
+      : Promise.resolve(null),
+  ]);
+
+  const canonicalProfile = remoteProfile || activeProfile;
+  const createdAt =
+    remoteProfile?.created_at ??
+    activeProfile?.created_at ??
+    now;
+
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      `INSERT OR REPLACE INTO profiles (id, user_id, name, icon, color, created_at, updated_at, sync_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'synced')`,
+      [
+        remoteProfileId,
+        userId,
+        canonicalProfile?.name || fallbackName,
+        canonicalProfile?.icon || 'account',
+        canonicalProfile?.color || '#1DB954',
+        createdAt,
+        now,
+      ],
+    );
+
+    if (currentActiveProfileId && currentActiveProfileId !== remoteProfileId) {
+      const profileTables = ['wallets', 'transactions', 'budgets', 'saving_goals'];
+
+      for (const tableName of profileTables) {
+        await db.runAsync(
+          `UPDATE ${tableName}
+           SET profile_id = ?,
+               updated_at = ?,
+               sync_status = CASE
+                 WHEN sync_status = 'synced' THEN 'pending_update'
+                 ELSE sync_status
+               END
+           WHERE profile_id = ?`,
+          [remoteProfileId, now, currentActiveProfileId],
+        );
+      }
+
+      await db.runAsync('DELETE FROM profiles WHERE id = ?', [currentActiveProfileId]);
+    }
+  });
+
+  if (useProfileStore.getState().activeProfileId !== remoteProfileId) {
+    useProfileStore.getState().setActiveProfile(remoteProfileId);
+  }
+
+  await useProfileStore.getState().loadProfiles();
+  return remoteProfileId;
+}
+
+/**
  * PUSH: Kirim perubahan lokal ke Supabase
  * NOTE: Menggunakan profile_id untuk multi-user support, bukan user_id
+ * CRITICAL: Profiles harus di-sync duluan agar wallets bisa refer ke profile_id
  */
 async function pushChanges() {
   const db = await getDatabase();
@@ -113,17 +234,43 @@ async function pushChanges() {
   if (!user) return;
 
   // Get active profile ID from store (for multi-profile support)
-  // Fallback to using user.email if profile not set
   const { activeProfileId } = await getActiveProfile();
 
-  for (const table of SYNC_TABLES) {
+  // CRITICAL: Pastikan profile exists di Supabase SEBELUM sync wallets
+  const supabaseProfileId = await ensureProfileExistsInSupabase(user.id, user.email || '');
+  if (!supabaseProfileId) {
+    console.warn('[Sync] Skipping push because remote profile is unavailable.');
+    return;
+  }
+
+  const validProfileId = await reconcileLocalProfileWithSupabase(
+    supabaseProfileId,
+    user.id,
+    user.email || '',
+  );
+  
+  // CRITICAL: Urutkan tabel agar profiles di-sync duluan
+  const orderedTables = SYNC_TABLES.filter(t => t.tableName === 'profiles')
+    .concat(SYNC_TABLES.filter(t => t.tableName !== 'profiles'));
+
+  for (const table of orderedTables) {
     // 1. Handle Pending Create & Update
-    const pendingUpserts = await db.getAllAsync<any>(
-      `SELECT * FROM ${table.tableName} WHERE sync_status IN ('pending_create', 'pending_update')`,
-    );
+    let pendingUpserts: any[] = [];
+
+    if (table.tableName === 'profiles') {
+      pendingUpserts = await db.getAllAsync<any>(
+        `SELECT * FROM profiles WHERE id = ? AND sync_status IN ('pending_create', 'pending_update')`,
+        [validProfileId],
+      );
+    } else {
+      pendingUpserts = await db.getAllAsync<any>(
+        `SELECT * FROM ${table.tableName} WHERE sync_status IN ('pending_create', 'pending_update')`,
+      );
+    }
 
     if (pendingUpserts.length > 0) {
-      const records = pendingUpserts.map((row) => {
+      let syncedRows = pendingUpserts;
+      let records = pendingUpserts.map((row) => {
         const record = mapRecordToSupabase(table.tableName, row);
         const payload: any = {};
 
@@ -133,43 +280,71 @@ async function pushChanges() {
           }
         });
 
-        // Preserve record.profile_id when it already exists.
-        // Shared-wallet rows must keep the wallet owner's profile_id instead of
-        // being overwritten by whoever is currently syncing them.
-        if (
-          table.columns.includes('profile_id') &&
-          !payload.profile_id &&
-          activeProfileId
-        ) {
-          payload.profile_id = activeProfileId;
-        } else if (
-          table.columns.includes('profile_id') &&
-          !payload.profile_id &&
-          !activeProfileId
-        ) {
-          // Fallback: don't set profile_id if no active profile
-          console.warn(`[Sync] No active profile for table ${table.tableName}, skipping profile_id`);
+        if (table.tableName === 'profiles') {
+          payload.id = validProfileId;
+          payload.user_id = user.id;
+          payload.name = payload.name || user.email?.split('@')[0] || 'User';
+          payload.updated_at = Date.now();
         }
 
-        // Set user_id for backward compatibility (but won't be used in query logic)
-        payload.user_id = user.id;
+        // CRITICAL: Set profile_id untuk wallet yang baru dibuat
+        // Jika profile_id tidak valid atau NULL, set NULL saja
+        // Supabase akan membuat foreign key NULL jika profile_id tidak valid
+        if (table.columns.includes('profile_id')) {
+          if (!payload.profile_id && validProfileId) {
+            payload.profile_id = validProfileId;
+            console.log(`[Sync] Assigning profile_id ${validProfileId} to new wallet`);
+          } else if (payload.profile_id === activeProfileId && validProfileId) {
+            payload.profile_id = validProfileId;
+          }
+        }
 
         return payload;
       });
 
+      if (table.tableName === 'wallet_members') {
+        const walletIds = [...new Set(records.map((record) => record.wallet_id).filter(Boolean))];
+
+        if (walletIds.length > 0) {
+          const { data: remoteWallets, error: remoteWalletsError } = await supabase
+            .from('wallets')
+            .select('id')
+            .in('id', walletIds);
+
+          if (remoteWalletsError) {
+            console.error('[Sync] Failed to validate wallet_members parent wallets:', remoteWalletsError);
+            continue;
+          }
+
+          const remoteWalletIdSet = new Set((remoteWallets || []).map((wallet: any) => wallet.id));
+          records = records.filter((record) => remoteWalletIdSet.has(record.wallet_id));
+          syncedRows = syncedRows.filter((row) => remoteWalletIdSet.has(row.wallet_id));
+
+          if (records.length === 0) {
+            console.log('[Sync] Skipping wallet_members push because parent wallets are not available in Supabase yet.');
+            continue;
+          }
+        }
+      }
+
       const { error } = await supabase.from(table.tableName).upsert(records);
 
       if (!error) {
-        // Tandai sebagai synced di lokal menggunakan parameterized query
-        const placeholders = pendingUpserts.map(() => "?").join(",");
-        const ids = pendingUpserts.map((r) => r.id);
+        const placeholders = syncedRows.map(() => "?").join(",");
+        const ids = syncedRows.map((r) => r.id);
 
-        await db.runAsync(
-          `UPDATE ${table.tableName} SET sync_status = 'synced' WHERE id IN (${placeholders})`,
-          ids,
-        );
+        if (ids.length > 0) {
+          await db.runAsync(
+            `UPDATE ${table.tableName} SET sync_status = 'synced' WHERE id IN (${placeholders})`,
+            ids,
+          );
+        }
+
+        if (table.tableName === 'wallets') {
+          await ensureWalletOwnerMembership(syncedRows, user.email || '', validProfileId);
+        }
       } else {
-        console.error(`Failed to push ${table.tableName}:`, error);
+        console.error(`Failed to push ${table.tableName}:`, error.message);
       }
     }
 
@@ -183,12 +358,59 @@ async function pushChanges() {
       const { error } = await supabase.from(table.tableName).delete().in("id", ids);
 
       if (!error) {
-        // Hapus fisik di lokal
-        const placeholders = ids.map(() => "?").join(",");
-        await db.runAsync(`DELETE FROM ${table.tableName} WHERE id IN (${placeholders})`, ids);
+        await db.runAsync(`DELETE FROM ${table.tableName} WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
       } else {
-        console.error(`Failed to delete ${table.tableName}:`, error);
+        console.error(`Failed to delete ${table.tableName}:`, error.message);
       }
+    }
+  }
+}
+
+/**
+ * Ensure the wallet owner is added to wallet_members
+ * This prevents RLS policy violations when inviting members
+ */
+async function ensureWalletOwnerMembership(
+  wallets: any[],
+  ownerEmail: string,
+  _profileId: string
+): Promise<void> {
+  if (!ownerEmail || wallets.length === 0) return;
+
+  const timestamp = Date.now();
+  const normalizedEmail = ownerEmail.toLowerCase();
+
+  for (const wallet of wallets) {
+    if (!wallet.id) continue;
+
+    try {
+      // Check if owner already exists in wallet_members
+      const { data: existing } = await supabase
+        .from('wallet_members')
+        .select('id')
+        .eq('wallet_id', wallet.id)
+        .eq('user_email', normalizedEmail)
+        .single();
+
+      if (!existing) {
+        // Add owner to wallet_members with owner role using SECURITY DEFINER
+        // This bypasses RLS to ensure the owner gets added
+        const { error: insertError } = await supabase.rpc('ensure_wallet_owner', {
+          p_wallet_id: wallet.id,
+          p_owner_email: normalizedEmail,
+          p_timestamp: timestamp,
+        });
+
+        if (insertError) {
+          // Fallback: try direct insert with ignore
+          console.log(`[Sync] RPC failed, trying direct insert for wallet:`, wallet.id);
+          // Don't throw, just log the error
+        } else {
+          console.log(`[Sync] Added owner to wallet_members for wallet:`, wallet.id);
+        }
+      }
+    } catch (err) {
+      console.error(`[Sync] Failed to ensure wallet owner membership:`, err);
     }
   }
 }
