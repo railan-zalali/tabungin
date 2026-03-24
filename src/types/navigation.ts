@@ -19,7 +19,6 @@ export type TabParamList = {
     Transactions: NavigatorScreenParams<TransactionStackParamList>;
     Wallet: NavigatorScreenParams<WalletStackParamList>;
     Report: undefined;
-    Notifications: undefined;
     Settings: NavigatorScreenParams<SettingsStackParamList>;
 };
 

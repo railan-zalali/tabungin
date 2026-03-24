@@ -35,7 +35,7 @@ export function TransactionListScreen() {
   const { transactions, isLoading, loadTransactions, removeTransaction } = useTransactionStore();
   const loadCategories = useCategoryStore((state) => state.loadCategories);
   const categoryCount = useCategoryStore((state) => state.categories.length);
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const styles = React.useMemo(() => getStyles(colors), [colors]);
 
   const [filterType, setFilterType] = useState<FilterType>("all");
@@ -119,7 +119,7 @@ export function TransactionListScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle='dark-content' backgroundColor='transparent' translucent />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor='transparent' translucent />
 
       {/* Header */}
       <View style={styles.header}>

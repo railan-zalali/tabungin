@@ -1,8 +1,8 @@
 // Komponen Badge / Chip untuk label status
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
+import { useTheme } from '../../store/useThemeStore';
 
 type BadgeVariant = 'success' | 'danger' | 'warning' | 'info' | 'primary' | 'secondary' | 'neutral';
 
@@ -14,18 +14,30 @@ interface BadgeProps {
     accessibilityLabel?: string;
 }
 
-const variantConfig: Record<BadgeVariant, { bg: string; text: string }> = {
-    success: { bg: Colors.successLight, text: Colors.success },
-    danger: { bg: Colors.dangerLight, text: Colors.danger },
-    warning: { bg: Colors.warningLight, text: Colors.warning },
-    info: { bg: Colors.infoLight, text: Colors.info },
-    primary: { bg: Colors.primaryLight, text: Colors.primaryDark },
-    secondary: { bg: Colors.secondaryLight, text: '#B45309' },
-    neutral: { bg: Colors.surfaceElevated, text: Colors.textSecondary },
-};
-
 export function Badge({ label, variant = 'neutral', size = 'md', style, accessibilityLabel }: BadgeProps) {
-    const config = variantConfig[variant];
+    const { colors } = useTheme();
+
+    const getVariantConfig = () => {
+        switch (variant) {
+            case 'success':
+                return { bg: colors.successLight, text: colors.success };
+            case 'danger':
+                return { bg: colors.dangerLight, text: colors.danger };
+            case 'warning':
+                return { bg: colors.warningLight, text: colors.warning };
+            case 'info':
+                return { bg: colors.infoLight, text: colors.info };
+            case 'primary':
+                return { bg: colors.primaryLight, text: colors.primaryDark };
+            case 'secondary':
+                return { bg: colors.secondaryLight, text: '#B45309' };
+            case 'neutral':
+            default:
+                return { bg: colors.surfaceElevated, text: colors.textSecondary };
+        }
+    };
+
+    const config = getVariantConfig();
     return (
         <View
             style={[

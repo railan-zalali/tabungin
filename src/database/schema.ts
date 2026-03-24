@@ -15,7 +15,7 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 
 // ─── VERSI SCHEMA SAAT INI ─────────────────────────────────────────
 // Naikkan angka ini setiap kali ada perubahan schema database
-const CURRENT_DB_VERSION = 12;
+const CURRENT_DB_VERSION = 13;
 
 // ─── DAFTAR MIGRASI ───────────────────────────────────────────────
 // Key = nomor versi target, value = SQL yang dijalankan untuk upgrade ke versi itu
@@ -262,7 +262,27 @@ const MIGRATIONS: Record<number, string[]> = {
         );`,
         `CREATE INDEX IF NOT EXISTS idx_categories_user ON transaction_categories (user_id);`,
         `CREATE INDEX IF NOT EXISTS idx_categories_type ON transaction_categories (user_id, type);`,
-    ]
+    ],
+    13: [
+        // Versi 13: Advanced goal sharing metadata
+        `CREATE TABLE IF NOT EXISTS sharing_activity_log (
+            id TEXT PRIMARY KEY,
+            goal_id TEXT NOT NULL,
+            wallet_id TEXT NOT NULL,
+            user_email TEXT NOT NULL,
+            action TEXT NOT NULL,
+            performed_by TEXT NOT NULL,
+            metadata TEXT,
+            timestamp INTEGER NOT NULL,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL,
+            sync_status TEXT DEFAULT 'synced',
+            FOREIGN KEY (goal_id) REFERENCES saving_goals(id) ON DELETE CASCADE
+        );`,
+        `CREATE INDEX IF NOT EXISTS idx_sharing_activity_log_goal_id ON sharing_activity_log (goal_id);`,
+        `CREATE INDEX IF NOT EXISTS idx_sharing_activity_log_wallet_id ON sharing_activity_log (wallet_id);`,
+        `CREATE INDEX IF NOT EXISTS idx_sharing_activity_log_timestamp ON sharing_activity_log (timestamp DESC);`,
+    ],
 };
 
 const SCHEMA_GUARDS: string[] = [
@@ -324,10 +344,29 @@ const SCHEMA_GUARDS: string[] = [
         shared_by TEXT NOT NULL,
         shared_at INTEGER NOT NULL,
         created_at INTEGER NOT NULL,
+        updated_at INTEGER,
+        permission_level TEXT DEFAULT 'read_write',
         sync_status TEXT DEFAULT 'synced'
     );`,
     `CREATE INDEX IF NOT EXISTS idx_wallet_goals_shared_goal ON wallet_goals_shared (goal_id);`,
     `CREATE INDEX IF NOT EXISTS idx_wallet_goals_shared_wallet_user ON wallet_goals_shared (wallet_id, user_email);`,
+    `CREATE TABLE IF NOT EXISTS sharing_activity_log (
+        id TEXT PRIMARY KEY,
+        goal_id TEXT NOT NULL,
+        wallet_id TEXT NOT NULL,
+        user_email TEXT NOT NULL,
+        action TEXT NOT NULL,
+        performed_by TEXT NOT NULL,
+        metadata TEXT,
+        timestamp INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        sync_status TEXT DEFAULT 'synced',
+        FOREIGN KEY (goal_id) REFERENCES saving_goals(id) ON DELETE CASCADE
+    );`,
+    `CREATE INDEX IF NOT EXISTS idx_sharing_activity_log_goal_id ON sharing_activity_log (goal_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_sharing_activity_log_wallet_id ON sharing_activity_log (wallet_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_sharing_activity_log_timestamp ON sharing_activity_log (timestamp DESC);`,
     `CREATE TABLE IF NOT EXISTS recurring_transactions (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
@@ -428,9 +467,28 @@ async function runSchemaGuards(database: SQLite.SQLiteDatabase): Promise<void> {
                     shared_by TEXT NOT NULL,
                     shared_at INTEGER NOT NULL,
                     created_at INTEGER NOT NULL,
+                    updated_at INTEGER,
+                    permission_level TEXT DEFAULT 'read_write',
                     sync_status TEXT DEFAULT 'synced'
                 );`,
-                requiredColumns: ['goal_id', 'wallet_id', 'user_email', 'shared_by', 'shared_at']
+                requiredColumns: ['goal_id', 'wallet_id', 'user_email', 'shared_by', 'shared_at', 'updated_at', 'permission_level']
+            },
+            sharing_activity_log: {
+                sql: `CREATE TABLE IF NOT EXISTS sharing_activity_log (
+                    id TEXT PRIMARY KEY,
+                    goal_id TEXT NOT NULL,
+                    wallet_id TEXT NOT NULL,
+                    user_email TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    performed_by TEXT NOT NULL,
+                    metadata TEXT,
+                    timestamp INTEGER NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    sync_status TEXT DEFAULT 'synced',
+                    FOREIGN KEY (goal_id) REFERENCES saving_goals(id) ON DELETE CASCADE
+                );`,
+                requiredColumns: ['goal_id', 'wallet_id', 'user_email', 'action', 'performed_by', 'timestamp', 'created_at', 'updated_at']
             },
             recurring_transactions: {
                 sql: `CREATE TABLE IF NOT EXISTS recurring_transactions (
@@ -526,7 +584,7 @@ export async function initDatabase(): Promise<void> {
 
             // [SELF-HEALING] Pastikan tabel baru tersedia (untuk mengatasi inkonsistensi versi migrasi)
             const tablesToCheck = ['transactions', 'saving_goals', 'saving_logs', 'budgets'];
-            const newTables = ['notifications', 'wallet_goals_shared', 'recurring_transactions', 'transaction_categories'];
+            const newTables = ['notifications', 'wallet_goals_shared', 'sharing_activity_log', 'recurring_transactions', 'transaction_categories'];
 
             // Cek tabel-tabel yang perlu repair kolom
             for (const table of tablesToCheck) {
@@ -575,6 +633,18 @@ export async function initDatabase(): Promise<void> {
                             if (!columnNames.includes('user_id')) {
                                 console.log(`[DB Repair] Menambahkan user_id ke ${table}`);
                                 await database.execAsync(`ALTER TABLE ${table} ADD COLUMN user_id TEXT`);
+                            }
+                        }
+
+                        if (table === 'wallet_goals_shared') {
+                            if (!columnNames.includes('updated_at')) {
+                                console.log('[DB Repair] Menambahkan updated_at ke wallet_goals_shared');
+                                await database.execAsync('ALTER TABLE wallet_goals_shared ADD COLUMN updated_at INTEGER');
+                            }
+
+                            if (!columnNames.includes('permission_level')) {
+                                console.log('[DB Repair] Menambahkan permission_level ke wallet_goals_shared');
+                                await database.execAsync("ALTER TABLE wallet_goals_shared ADD COLUMN permission_level TEXT DEFAULT 'read_write'");
                             }
                         }
                     }
@@ -685,6 +755,7 @@ export async function clearAllData(): Promise<void> {
         await database.runAsync('DELETE FROM notifications');
         await database.runAsync('DELETE FROM recurring_transactions');
         await database.runAsync('DELETE FROM transaction_categories');
+        await database.runAsync('DELETE FROM sharing_activity_log');
         await database.runAsync('DELETE FROM wallet_goals_shared');
         await database.runAsync('DELETE FROM transactions');
         await database.runAsync('DELETE FROM saving_logs'); // Harus sebelum saving_goals karena FK

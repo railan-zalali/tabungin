@@ -8,7 +8,7 @@ import Animated, {
     withDelay,
     Easing,
 } from 'react-native-reanimated';
-import { Colors } from '../../constants/colors';
+import { useTheme } from '../../store/useThemeStore';
 import { Shadow } from '../../constants/theme';
 
 interface CardProps {
@@ -30,6 +30,8 @@ export function Card({
 }: CardProps) {
     const opacity = useSharedValue(0);
     const translateY = useSharedValue(20);
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
 
     useEffect(() => {
         opacity.value = withDelay(
@@ -63,19 +65,19 @@ export function Card({
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
     base: {
-        backgroundColor: Colors.surface,
+        backgroundColor: colors.surface,
         borderRadius: 12,
         padding: 16,
         overflow: 'hidden',
     },
     flat: {
-        backgroundColor: Colors.background,
+        backgroundColor: colors.background,
     },
     outlined: {
-        backgroundColor: Colors.surface,
+        backgroundColor: colors.surface,
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: colors.border,
     },
 });

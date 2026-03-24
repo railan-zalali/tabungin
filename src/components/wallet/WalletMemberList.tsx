@@ -14,8 +14,8 @@ import {
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Colors } from "../../constants/colors";
 import { FontFamily, FontSize } from "../../constants/typography";
+import { useTheme } from "../../store/useThemeStore";
 import type { WalletMember } from "../../database/walletQueries";
 import {
   fetchWalletMembersForDisplay,
@@ -40,6 +40,8 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [sharedGoalsCount, setSharedGoalsCount] = useState<Record<string, number>>({});
+  const { colors } = useTheme();
+  const styles = React.useMemo(() => getStyles(colors), [colors]);
 
   const inviteUrl = buildWalletInviteUrl(walletId);
   const inviteMessage = buildWalletInviteMessage(walletId);
@@ -142,22 +144,22 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
         <Text style={styles.title}>Anggota Tim</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.inviteBtn} onPress={handleShareLink}>
-            <MaterialCommunityIcons name='share-variant' size={16} color={Colors.primary} />
+            <MaterialCommunityIcons name='share-variant' size={16} color={colors.primary} />
             <Text style={styles.inviteBtnText}>Share</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.inviteBtn} onPress={() => setShowQR(true)}>
-            <MaterialCommunityIcons name='qrcode' size={16} color={Colors.primary} />
+            <MaterialCommunityIcons name='qrcode' size={16} color={colors.primary} />
             <Text style={styles.inviteBtnText}>QR</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.inviteBtn} onPress={() => setIsInviting(true)}>
-            <MaterialCommunityIcons name='plus' size={16} color={Colors.primary} />
+            <MaterialCommunityIcons name='plus' size={16} color={colors.primary} />
             <Text style={styles.inviteBtnText}>Undang</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {isLoading ? (
-        <ActivityIndicator color={Colors.primary} />
+        <ActivityIndicator color={colors.primary} />
       ) : members.length === 0 ? (
         <Text style={styles.emptyText}>Belum ada anggota lain di dompet ini.</Text>
       ) : (
@@ -172,7 +174,7 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
                   <Text style={styles.memberEmail}>{member.user_email}</Text>
                   {sharedGoalsCount[member.id] > 0 && (
                     <View style={styles.goalsBadge}>
-                      <MaterialCommunityIcons name='target' size={12} color={Colors.primary} />
+                      <MaterialCommunityIcons name='target' size={12} color={colors.primary} />
                       <Text style={styles.goalsBadgeText}>{sharedGoalsCount[member.id]}</Text>
                     </View>
                   )}
@@ -182,7 +184,7 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
                 </Text>
               </View>
               <TouchableOpacity onPress={() => handleRemove(member.id)} style={styles.removeBtn}>
-                <MaterialCommunityIcons name='trash-can-outline' size={20} color={Colors.danger} />
+                <MaterialCommunityIcons name='trash-can-outline' size={20} color={colors.danger} />
               </TouchableOpacity>
             </View>
           ))}
@@ -207,7 +209,7 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
               value={email}
               onChangeText={setEmail}
               placeholder='email@contoh.com'
-              placeholderTextColor={Colors.textTertiary}
+              placeholderTextColor={colors.textTertiary}
               autoCapitalize='none'
               keyboardType='email-address'
             />
@@ -261,7 +263,7 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
 
                 <View style={styles.qrActions}>
                   <TouchableOpacity style={styles.qrActionButton} onPress={handleShareQR}>
-                    <MaterialCommunityIcons name='share-variant' size={20} color={Colors.primary} />
+                    <MaterialCommunityIcons name='share-variant' size={20} color={colors.primary} />
                     <Text style={styles.qrActionText}>Bagikan</Text>
                   </TouchableOpacity>
                 </View>
@@ -285,7 +287,7 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   container: {
     marginTop: 24,
     gap: 12,
@@ -302,7 +304,7 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: FontFamily.bodyBold,
     fontSize: FontSize.body,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   inviteBtn: {
     flexDirection: "row",
@@ -313,12 +315,12 @@ const styles = StyleSheet.create({
   inviteBtnText: {
     fontFamily: FontFamily.bodyBold,
     fontSize: FontSize.caption,
-    color: Colors.primary,
+    color: colors.primary,
   },
   emptyText: {
     fontFamily: FontFamily.body,
     fontSize: FontSize.caption,
-    color: Colors.textTertiary,
+    color: colors.textTertiary,
     fontStyle: "italic",
   },
   list: {
@@ -327,11 +329,11 @@ const styles = StyleSheet.create({
   memberItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -343,13 +345,13 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: colors.primaryLight,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarText: {
     fontFamily: FontFamily.headingMedium,
-    color: Colors.primary,
+    color: colors.primary,
     fontSize: 14,
   },
   memberInfo: {
@@ -363,14 +365,14 @@ const styles = StyleSheet.create({
   memberEmail: {
     fontFamily: FontFamily.bodyMedium,
     fontSize: FontSize.body,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     flex: 1,
   },
   goalsBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: colors.primaryLight,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
@@ -378,12 +380,12 @@ const styles = StyleSheet.create({
   goalsBadgeText: {
     fontFamily: FontFamily.bodyBold,
     fontSize: 10,
-    color: Colors.primary,
+    color: colors.primary,
   },
   memberRole: {
     fontFamily: FontFamily.bodyBold,
     fontSize: FontSize.caption,
-    color: Colors.primary,
+    color: colors.primary,
     textTransform: "capitalize",
     marginTop: 2,
   },
@@ -400,7 +402,7 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   modalContent: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     borderRadius: 24,
     padding: 24,
     width: "100%",
@@ -415,25 +417,25 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontFamily: FontFamily.heading,
     fontSize: FontSize.h3,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     textAlign: "center",
     marginBottom: 8,
   },
   modalSubtitle: {
     fontFamily: FontFamily.body,
     fontSize: FontSize.body,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: "center",
     lineHeight: 22,
   },
   input: {
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: 12,
     padding: 12,
     fontFamily: FontFamily.body,
     fontSize: FontSize.body,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   modalActions: {
     flexDirection: "row",
@@ -449,10 +451,10 @@ const styles = StyleSheet.create({
   cancelBtnText: {
     fontFamily: FontFamily.bodyBold,
     fontSize: FontSize.body,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   confirmBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -494,19 +496,19 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: colors.primaryLight,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Colors.primary,
+    borderColor: colors.primary,
   },
   qrActionText: {
     fontFamily: FontFamily.bodyBold,
     fontSize: FontSize.caption,
-    color: Colors.primary,
+    color: colors.primary,
   },
   infoSection: {
     width: "100%",
-    backgroundColor: Colors.primaryLight + "20",
+    backgroundColor: colors.primaryLight + "20",
     padding: 16,
     borderRadius: 12,
     marginBottom: 16,
@@ -514,13 +516,13 @@ const styles = StyleSheet.create({
   infoText: {
     fontFamily: FontFamily.body,
     fontSize: FontSize.caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: "center",
     lineHeight: 20,
   },
   closeButton: {
     width: "100%",
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: "center",

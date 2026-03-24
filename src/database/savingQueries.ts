@@ -118,7 +118,7 @@ export async function insertSavingGoal(
 const GOAL_UPDATABLE_FIELDS: ReadonlySet<string> = new Set([
     'name', 'target_amount', 'current_amount', 'emoji', 'photo_uri',
     'saving_per_period', 'period_type', 'color', 'start_date', 'estimated_date',
-    'is_completed', 'reminder_enabled', 'reminder_time',
+    'is_completed', 'reminder_enabled', 'reminder_time', 'wallet_id', 'profile_id',
 ]);
 
 export async function updateSavingGoal(

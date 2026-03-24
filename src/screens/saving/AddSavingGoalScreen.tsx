@@ -10,8 +10,10 @@ import {
     Platform,
     Switch,
     StatusBar,
+    Alert,
+    ActivityIndicator,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -21,13 +23,14 @@ import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { GOAL_COLORS } from '../../constants/categories';
 import { useSavingStore } from '../../store/useSavingStore';
+import { fetchSavingGoalById } from '../../database/savingQueries';
 import { Button } from '../../components/common/Button';
 import { formatInputRupiah, parseRupiah } from '../../utils/currency';
 import { formatEstimatedDate } from '../../utils/date';
 import { simulateSaving } from '../../utils/calculator';
 import { validateGoalName, validateTargetAmount, validateSavingPerPeriod } from '../../utils/validation';
 import type { PeriodType } from '../../types/saving';
-import { Shadow } from '../../constants/theme';
+import { BorderRadius, Shadow } from '../../constants/theme';
 import { useTheme } from '../../store/useThemeStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import { useProfileStore } from '../../store/useProfileStore';
@@ -36,12 +39,17 @@ const EMOJIS = ['💻', '🌴', '🎮', '🏠', '🚗', '📱', '✈️', '👜'
 
 export function AddSavingGoalScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<any>>();
+    const route = useRoute<RouteProp<any, 'AddSavingGoal'>>();
     const insets = useSafeAreaInsets();
     const { colors, isDark } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
-    const { addGoal, isLoading } = useSavingStore();
+    const { addGoal, editGoal, isLoading } = useSavingStore();
     const { wallets, loadWallets } = useWalletStore();
     const activeProfileId = useProfileStore((state) => state.activeProfileId);
+
+    const editId = route.params?.editId as string | undefined;
+    const isEditMode = Boolean(editId);
+    const [isPrefilling, setIsPrefilling] = useState(false);
 
     const [name, setName] = useState('');
     const [targetInput, setTargetInput] = useState('');
@@ -52,6 +60,9 @@ export function AddSavingGoalScreen() {
     const [color, setColor] = useState(colors.primary);
     const [reminderEnabled, setReminderEnabled] = useState(false);
     const [selectedWalletId, setSelectedWalletId] = useState('');
+    const [startDate, setStartDate] = useState(Date.now());
+    const [estimatedDateValue, setEstimatedDateValue] = useState(Date.now());
+    const [reminderTime, setReminderTime] = useState<string | null>('08:00');
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     const targetAmount = parseRupiah(targetInput);
@@ -59,17 +70,66 @@ export function AddSavingGoalScreen() {
     const savingPerPeriod = parseRupiah(savingInput);
     const selectedWallet = wallets.find((wallet) => wallet.id === selectedWalletId);
     const isSharedWallet = Boolean(selectedWallet?.profile_id && selectedWallet.profile_id !== activeProfileId);
+    const goalProfileId = selectedWallet?.profile_id || activeProfileId || undefined;
 
     useEffect(() => {
         loadWallets();
-    }, []);
+    }, [loadWallets]);
 
     useEffect(() => {
-        if (!selectedWalletId && wallets.length > 0) {
-            const defaultWallet = wallets.find((wallet) => wallet.is_default);
-            setSelectedWalletId(defaultWallet?.id || wallets[0].id);
+        let isMounted = true;
+
+        const loadGoalForEdit = async () => {
+            if (!editId) return;
+
+            setIsPrefilling(true);
+            try {
+                const goal = await fetchSavingGoalById(editId);
+                if (!goal) {
+                    Alert.alert('Target tidak ditemukan');
+                    navigation.goBack();
+                    return;
+                }
+                if (!isMounted) return;
+
+                setName(goal.name);
+                setTargetInput(formatInputRupiah(String(goal.target_amount)));
+                setCurrentInput(formatInputRupiah(String(goal.current_amount)));
+                setSavingInput(formatInputRupiah(String(goal.saving_per_period)));
+                setPeriodType(goal.period_type);
+                setEmoji(goal.emoji);
+                setColor(goal.color);
+                setReminderEnabled(goal.reminder_enabled);
+                setReminderTime(goal.reminder_time);
+                setSelectedWalletId(goal.wallet_id || '');
+                setStartDate(goal.start_date);
+                setEstimatedDateValue(goal.estimated_date);
+            } catch (error) {
+                console.error('Failed to prefill saving goal:', error);
+                if (isMounted) {
+                    Alert.alert('Gagal', 'Gagal memuat data target untuk diedit.');
+                    navigation.goBack();
+                }
+            } finally {
+                if (isMounted) setIsPrefilling(false);
+            }
+        };
+
+        loadGoalForEdit();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [editId, navigation]);
+
+    useEffect(() => {
+        if (selectedWalletId || wallets.length === 0 || (isEditMode && isPrefilling)) {
+            return;
         }
-    }, [wallets, selectedWalletId]);
+
+        const defaultWallet = wallets.find((wallet) => wallet.is_default);
+        setSelectedWalletId(defaultWallet?.id || wallets[0].id);
+    }, [isEditMode, isPrefilling, selectedWalletId, wallets]);
 
     const simulation = useMemo(() => {
         if (targetAmount > 0 && savingPerPeriod > 0 && targetAmount > currentAmount) {
@@ -77,6 +137,15 @@ export function AddSavingGoalScreen() {
         }
         return null;
     }, [targetAmount, currentAmount, savingPerPeriod, periodType]);
+
+    const clearFieldError = (field: string) => {
+        setErrors((prev) => {
+            if (!prev[field]) return prev;
+            const next = { ...prev };
+            delete next[field];
+            return next;
+        });
+    };
 
     const handleSave = async () => {
         const nextErrors: Record<string, string> = {};
@@ -96,8 +165,9 @@ export function AddSavingGoalScreen() {
             return;
         }
 
-        const estimatedDate = simulation?.estimatedDate ?? new Date();
-        await addGoal({
+        const estimatedDate = simulation?.estimatedDate.getTime() ?? estimatedDateValue ?? Date.now();
+        const nextReminderTime = reminderEnabled ? reminderTime || '08:00' : null;
+        const payload = {
             name: name.trim(),
             target_amount: targetAmount,
             current_amount: currentAmount,
@@ -106,16 +176,28 @@ export function AddSavingGoalScreen() {
             saving_per_period: savingPerPeriod,
             period_type: periodType,
             color,
-            start_date: Date.now(),
-            estimated_date: estimatedDate.getTime(),
-            is_completed: false,
+            start_date: startDate,
+            estimated_date: estimatedDate,
+            is_completed: currentAmount >= targetAmount && targetAmount > 0,
             reminder_enabled: reminderEnabled,
-            reminder_time: reminderEnabled ? '08:00' : null,
+            reminder_time: nextReminderTime,
             wallet_id: selectedWalletId,
-        });
+            profile_id: goalProfileId,
+        };
 
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        navigation.goBack();
+        try {
+            if (isEditMode && editId) {
+                await editGoal(editId, payload);
+            } else {
+                await addGoal(payload);
+            }
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            navigation.goBack();
+        } catch (error) {
+            console.error('Failed to save goal:', error);
+            Alert.alert('Gagal', 'Perubahan target belum berhasil disimpan. Coba lagi.');
+        }
     };
 
     const periodOptions: { id: PeriodType; label: string }[] = [
@@ -137,12 +219,21 @@ export function AddSavingGoalScreen() {
                         <MaterialCommunityIcons name="close" size={24} color={colors.textPrimary} />
                     </TouchableOpacity>
                     <View style={styles.headerCenter}>
-                        <Text style={styles.headerTitle}>Buat Target</Text>
-                        <Text style={styles.headerSubtitle}>Lebih rapi, lebih jelas, dan siap terkait ke dompet</Text>
+                        <Text style={styles.headerTitle}>{isEditMode ? 'Edit Target' : 'Buat Target'}</Text>
+                        <Text style={styles.headerSubtitle}>{isEditMode ? 'Edit target ini untuk diperbarui' : 'Lebih rapi, lebih jelas, dan siap terkait ke dompet'}</Text>
                     </View>
                     <View style={{ width: 44 }} />
                 </View>
 
+                {isPrefilling ? (
+                    <View style={styles.loadingState}>
+                        <ActivityIndicator size="large" color={colors.primary} />
+                        <Text style={styles.loadingTitle}>Memuat target...</Text>
+                        <Text style={styles.loadingSubtitle}>
+                            Kami sedang menyiapkan data target agar siap diedit.
+                        </Text>
+                    </View>
+                ) : (
                 <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                     <Animated.View entering={FadeInDown.delay(60).springify()}>
                         <LinearGradient
@@ -205,7 +296,7 @@ export function AddSavingGoalScreen() {
                                         ]}
                                         onPress={() => {
                                             setSelectedWalletId(wallet.id);
-                                            setErrors((prev) => ({ ...prev, wallet: undefined as any }));
+                                            clearFieldError('wallet');
                                         }}
                                     >
                                         <View style={[styles.walletIconWrap, { backgroundColor: active ? wallet.color : `${colors.surface}D4` }]}>
@@ -240,7 +331,7 @@ export function AddSavingGoalScreen() {
                                 value={name}
                                 onChangeText={(value) => {
                                     setName(value);
-                                    setErrors((prev) => ({ ...prev, name: undefined as any }));
+                                    clearFieldError('name');
                                 }}
                                 placeholder="cth: MacBook Air M3"
                                 placeholderTextColor={colors.textSecondary}
@@ -273,7 +364,7 @@ export function AddSavingGoalScreen() {
                                 value={targetInput}
                                 onChangeText={(value) => {
                                     setTargetInput(formatInputRupiah(value));
-                                    setErrors((prev) => ({ ...prev, target: undefined as any }));
+                                    clearFieldError('target');
                                 }}
                                 keyboardType="numeric"
                                 placeholder="0"
@@ -304,7 +395,7 @@ export function AddSavingGoalScreen() {
                                     value={savingInput}
                                     onChangeText={(value) => {
                                         setSavingInput(formatInputRupiah(value));
-                                        setErrors((prev) => ({ ...prev, saving: undefined as any }));
+                                        clearFieldError('saving');
                                     }}
                                     keyboardType="numeric"
                                     placeholder="0"
@@ -385,14 +476,16 @@ export function AddSavingGoalScreen() {
                         </View>
                     </Animated.View>
                 </ScrollView>
+                )}
 
                 <View style={styles.footer}>
                     <Button
-                        label="Buat Target"
+                        label={isEditMode ? 'Simpan Perubahan' : 'Buat Target'}
                         onPress={handleSave}
                         variant="primary"
                         size="lg"
-                        loading={isLoading}
+                        loading={isLoading || isPrefilling}
+                        disabled={isPrefilling}
                         fullWidth
                     />
                 </View>
@@ -414,12 +507,31 @@ const getStyles = (colors: any) => StyleSheet.create({
     closeBtn: {
         width: 44,
         height: 44,
-        borderRadius: 14,
+        borderRadius: BorderRadius.xl,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: `${colors.surface}D8`,
         borderWidth: 1,
         borderColor: `${colors.border}AA`,
+    },
+    loadingState: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 32,
+        gap: 10,
+    },
+    loadingTitle: {
+        fontFamily: FontFamily.headingMedium,
+        fontSize: FontSize.h4,
+        color: colors.textPrimary,
+    },
+    loadingSubtitle: {
+        fontFamily: FontFamily.body,
+        fontSize: FontSize.body,
+        lineHeight: 22,
+        color: colors.textSecondary,
+        textAlign: 'center',
     },
     headerCenter: { flex: 1 },
     headerTitle: { ...Typography.h3, color: colors.textPrimary },

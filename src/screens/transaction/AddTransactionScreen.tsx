@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -18,7 +18,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Colors } from "../../constants/colors";
+import { useTheme } from "../../store/useThemeStore";
 import { FontFamily, FontSize, Typography } from "../../constants/typography";
 import { useTransactionStore } from "../../store/useTransactionStore";
 import { useWalletStore } from "../../store/useWalletStore";
@@ -27,7 +27,7 @@ import { Button } from "../../components/common/Button";
 import { formatInputRupiah, parseRupiah } from "../../utils/currency";
 import { validateAmount } from "../../utils/validation";
 import type { TransactionType } from "../../types/transaction";
-import { Shadow } from "../../constants/theme";
+import { BorderRadius, Shadow } from "../../constants/theme";
 
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { formatDateLong } from "../../utils/date";
@@ -40,6 +40,8 @@ export function AddTransactionScreen() {
   const { wallets, loadWallets } = useWalletStore();
   const editId = route.params?.editId as string | undefined;
   const isEditMode = Boolean(editId);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
 
   const [txType, setTxType] = useState<TransactionType>(route.params?.type ?? "expense");
   const [amountInput, setAmountInput] = useState("");
@@ -168,7 +170,7 @@ export function AddTransactionScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.bgOrbTop} />
       <View style={styles.bgOrbBottom} />
-      <StatusBar barStyle='dark-content' backgroundColor='transparent' translucent />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor='transparent' translucent />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.flex}
@@ -180,7 +182,7 @@ export function AddTransactionScreen() {
             style={styles.closeBtn}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <MaterialCommunityIcons name='close' size={24} color={Colors.textPrimary} />
+            <MaterialCommunityIcons name='close' size={24} color={colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{isEditMode ? "Edit Transaksi" : "Tambah Transaksi"}</Text>
           <View style={{ width: 44 }} />
@@ -188,7 +190,7 @@ export function AddTransactionScreen() {
 
         {isPrefilling ? (
           <View style={styles.loadingState}>
-            <ActivityIndicator size='large' color={Colors.primary} />
+            <ActivityIndicator size='large' color={colors.primary} />
             <Text style={styles.loadingText}>Memuat transaksi...</Text>
           </View>
         ) : (
@@ -198,7 +200,11 @@ export function AddTransactionScreen() {
           showsVerticalScrollIndicator={false}
         >
           <LinearGradient
-            colors={["rgba(255,255,255,0.92)", `${Colors.primaryLight}`, "rgba(255,255,255,0.88)"]}
+            colors={[
+              colors.surface,
+              `${colors.primaryLight}`,
+              colors.surface,
+            ]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.heroCard}
@@ -214,7 +220,7 @@ export function AddTransactionScreen() {
               <View
                 style={[
                   styles.heroIconWrap,
-                  { backgroundColor: txType === "income" ? Colors.success : Colors.danger },
+                  { backgroundColor: txType === "income" ? colors.success : colors.danger },
                 ]}
               >
                 <MaterialCommunityIcons
@@ -242,9 +248,9 @@ export function AddTransactionScreen() {
                   <MaterialCommunityIcons
                     name={t === "income" ? "arrow-up-circle" : "arrow-down-circle"}
                     size={20}
-                    color={txType === t ? Colors.textInverse : Colors.textSecondary}
+                    color={txType === t ? colors.textInverse : colors.textSecondary}
                   />
-                  <Text style={[styles.typeBtnText, txType === t && { color: Colors.textInverse }]}>
+                  <Text style={[styles.typeBtnText, txType === t && { color: colors.textInverse }]}>
                     {t === "income" ? "Pemasukan" : "Pengeluaran"}
                   </Text>
                 </TouchableOpacity>
@@ -261,17 +267,17 @@ export function AddTransactionScreen() {
                   onChangeText={handleAmountChange}
                   keyboardType='numeric'
                   placeholder='0'
-                  placeholderTextColor={Colors.textDisabled}
+                  placeholderTextColor={colors.textDisabled}
                   autoFocus={true}
                 />
               </View>
               <View style={styles.heroMetaRow}>
                 <View style={styles.heroMetaChip}>
-                  <MaterialCommunityIcons name="wallet-outline" size={14} color={Colors.textSecondary} />
+                  <MaterialCommunityIcons name="wallet-outline" size={14} color={colors.textSecondary} />
                   <Text style={styles.heroMetaText}>{selectedWallet?.name ?? "Pilih dompet"}</Text>
                 </View>
                 <View style={styles.heroMetaChip}>
-                  <MaterialCommunityIcons name="calendar-blank-outline" size={14} color={Colors.textSecondary} />
+                  <MaterialCommunityIcons name="calendar-blank-outline" size={14} color={colors.textSecondary} />
                   <Text style={styles.heroMetaText}>{formatDateLong(date.getTime())}</Text>
                 </View>
               </View>
@@ -280,7 +286,7 @@ export function AddTransactionScreen() {
 
           {amountError && (
             <View style={styles.errorRow}>
-              <MaterialCommunityIcons name='alert-circle' size={14} color={Colors.danger} />
+              <MaterialCommunityIcons name='alert-circle' size={14} color={colors.danger} />
               <Text style={styles.errorText}>{amountError}</Text>
             </View>
           )}
@@ -289,7 +295,7 @@ export function AddTransactionScreen() {
           <View style={styles.glassSection}>
             <Text style={styles.fieldLabel}>Tanggal</Text>
             <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
-              <MaterialCommunityIcons name='calendar' size={20} color={Colors.textPrimary} />
+              <MaterialCommunityIcons name='calendar' size={20} color={colors.textPrimary} />
               <Text style={styles.dateText}>{formatDateLong(date.getTime())}</Text>
             </TouchableOpacity>
             {showDatePicker && (
@@ -314,17 +320,17 @@ export function AddTransactionScreen() {
               {wallets.map((w) => (
                 <TouchableOpacity
                   key={w.id}
-                  style={[
-                    styles.walletBtn,
-                    selectedWalletId === w.id && styles.walletBtnActive,
-                    { borderColor: selectedWalletId === w.id ? w.color : Colors.border },
-                  ]}
+                    style={[
+                      styles.walletBtn,
+                      selectedWalletId === w.id && styles.walletBtnActive,
+                      { borderColor: selectedWalletId === w.id ? w.color : colors.border },
+                    ]}
                   onPress={() => setSelectedWalletId(w.id)}
                 >
                   <View
                     style={[
                       styles.walletIconBg,
-                      { backgroundColor: selectedWalletId === w.id ? w.color : Colors.surfaceAlt },
+                      { backgroundColor: selectedWalletId === w.id ? w.color : colors.surfaceAlt },
                     ]}
                   >
                     <MaterialCommunityIcons
@@ -332,14 +338,14 @@ export function AddTransactionScreen() {
                         w.type === "bank" ? "bank" : w.type === "e-wallet" ? "cellphone" : "wallet"
                       }
                       size={16}
-                      color={selectedWalletId === w.id ? "#FFF" : Colors.textSecondary}
+                      color={selectedWalletId === w.id ? colors.textInverse : colors.textSecondary}
                     />
                   </View>
                   <Text
                     style={[
                       styles.walletBtnText,
                       selectedWalletId === w.id && {
-                        color: Colors.textPrimary,
+                        color: colors.textPrimary,
                         fontFamily: FontFamily.bodyBold,
                       },
                     ]}
@@ -375,7 +381,7 @@ export function AddTransactionScreen() {
               value={note}
               onChangeText={setNote}
               placeholder='Tulis catatan...'
-              placeholderTextColor={Colors.textDisabled}
+              placeholderTextColor={colors.textDisabled}
               multiline
               numberOfLines={3}
             />
@@ -399,8 +405,8 @@ export function AddTransactionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+const getStyles = (colors: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   bgOrbTop: {
     position: "absolute",
@@ -408,8 +414,8 @@ const styles = StyleSheet.create({
     right: -20,
     width: 220,
     height: 220,
-    borderRadius: 110,
-    backgroundColor: "rgba(22, 163, 74, 0.10)",
+    borderRadius: BorderRadius.full,
+    backgroundColor: `${colors.primary}1A`,
   },
   bgOrbBottom: {
     position: "absolute",
@@ -417,8 +423,8 @@ const styles = StyleSheet.create({
     left: -50,
     width: 180,
     height: 180,
-    borderRadius: 90,
-    backgroundColor: "rgba(59, 130, 246, 0.08)",
+    borderRadius: BorderRadius.full,
+    backgroundColor: `${colors.info}14`,
   },
 
   header: {
@@ -428,18 +434,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
+    borderBottomColor: colors.divider,
   },
   closeBtn: { padding: 4 },
-  headerTitle: { ...Typography.h3, color: Colors.textPrimary },
+  headerTitle: { ...Typography.h3, color: colors.textPrimary },
 
   content: { padding: 20, gap: 18, paddingBottom: 40 },
   heroCard: {
-    borderRadius: 28,
+    borderRadius: BorderRadius['4xl'],
     padding: 20,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.7)",
+    borderColor: `${colors.border}B8`,
     ...Shadow.md,
   },
   heroShine: {
@@ -448,7 +454,7 @@ const styles = StyleSheet.create({
     right: -18,
     width: 130,
     height: 130,
-    borderRadius: 65,
+    borderRadius: BorderRadius.full,
     backgroundColor: "rgba(255,255,255,0.35)",
   },
   heroTopRow: {
@@ -461,14 +467,14 @@ const styles = StyleSheet.create({
   heroLabel: {
     fontFamily: FontFamily.bodyMedium,
     fontSize: FontSize.caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textTransform: "uppercase",
     letterSpacing: 0.6,
   },
   heroTitle: {
     fontFamily: FontFamily.headingMedium,
     fontSize: FontSize.h3,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     marginTop: 6,
   },
   heroIconWrap: {
@@ -482,12 +488,12 @@ const styles = StyleSheet.create({
 
   typeToggleContainer: {
     flexDirection: "row",
-    backgroundColor: "rgba(255,255,255,0.65)",
-    borderRadius: 18,
+    backgroundColor: `${colors.surface}C8`,
+    borderRadius: BorderRadius['3xl'],
     padding: 4,
     gap: 4,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.7)",
+    borderColor: `${colors.border}CC`,
   },
   typeBtn: {
     flex: 1,
@@ -496,31 +502,31 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: BorderRadius.lg,
   },
-  typeBtnIncome: { backgroundColor: Colors.success },
-  typeBtnExpense: { backgroundColor: Colors.danger },
+  typeBtnIncome: { backgroundColor: colors.success },
+  typeBtnExpense: { backgroundColor: colors.danger },
   typeBtnText: {
     fontFamily: FontFamily.bodyBold,
     fontSize: FontSize.body,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
 
   amountSection: { gap: 8 },
   fieldSection: { gap: 12 },
   glassSection: {
     gap: 12,
-    backgroundColor: "rgba(255,255,255,0.78)",
-    borderRadius: 24,
+    backgroundColor: `${colors.surface}D8`,
+    borderRadius: BorderRadius['3xl'],
     borderWidth: 1,
-    borderColor: "rgba(229,231,235,0.9)",
+    borderColor: `${colors.border}E0`,
     padding: 18,
     ...Shadow.sm,
   },
   fieldLabel: {
     fontFamily: FontFamily.bodyBold,
     fontSize: FontSize.caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
@@ -528,12 +534,12 @@ const styles = StyleSheet.create({
   amountContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.76)",
-    borderRadius: 20,
+    backgroundColor: `${colors.surface}D0`,
+    borderRadius: BorderRadius['2xl'],
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     gap: 12,
     ...Shadow.sm,
   },
@@ -549,27 +555,27 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.58)",
+    borderRadius: BorderRadius.full,
+    backgroundColor: `${colors.surface}B8`,
     borderWidth: 1,
-    borderColor: "rgba(229,231,235,0.9)",
+    borderColor: `${colors.border}D8`,
   },
   heroMetaText: {
     fontFamily: FontFamily.bodyMedium,
     fontSize: FontSize.caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
-  amountError: { borderColor: Colors.danger, borderWidth: 1 },
+  amountError: { borderColor: colors.danger, borderWidth: 1 },
   currencyPrefix: {
     fontFamily: FontFamily.headingMedium,
     fontSize: FontSize.h3,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   amountInput: {
     flex: 1,
     fontFamily: FontFamily.heading,
     fontSize: 32,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     padding: 0,
     height: 40,
   },
@@ -582,69 +588,69 @@ const styles = StyleSheet.create({
     paddingRight: 16,
     paddingLeft: 6,
     paddingVertical: 6,
-    borderRadius: 100,
+    borderRadius: BorderRadius.full,
     borderWidth: 1,
-    backgroundColor: "rgba(255,255,255,0.72)",
+    backgroundColor: `${colors.surface}CC`,
   },
-  walletBtnActive: { backgroundColor: Colors.surface, borderWidth: 1.5 },
+  walletBtnActive: { backgroundColor: colors.surface, borderWidth: 1.5 },
   walletIconBg: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: BorderRadius.xl,
     alignItems: "center",
     justifyContent: "center",
   },
   walletBtnText: {
     fontFamily: FontFamily.body,
     fontSize: FontSize.caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
 
   labelRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   errorTextInline: {
     fontFamily: FontFamily.body,
     fontSize: FontSize.caption,
-    color: Colors.danger,
+    color: colors.danger,
   },
 
   errorRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
-  errorText: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: Colors.danger },
+  errorText: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.danger },
 
   dateBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.72)",
+    backgroundColor: `${colors.surface}CC`,
     padding: 16,
-    borderRadius: 18,
+    borderRadius: BorderRadius['3xl'],
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     gap: 12,
   },
   dateText: {
     fontFamily: FontFamily.bodyMedium,
     fontSize: FontSize.body,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
 
   noteInput: {
-    backgroundColor: "rgba(255,255,255,0.72)",
-    borderRadius: 18,
+    backgroundColor: `${colors.surface}CC`,
+    borderRadius: BorderRadius['3xl'],
     padding: 16,
     fontFamily: FontFamily.body,
     fontSize: FontSize.body,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     minHeight: 100,
     textAlignVertical: "top",
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
 
   footer: {
     padding: 20,
     paddingBottom: 32,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    backgroundColor: "rgba(255,255,255,0.88)",
+    borderTopColor: colors.border,
+    backgroundColor: `${colors.surface}E8`,
   },
   loadingState: {
     flex: 1,
@@ -656,6 +662,6 @@ const styles = StyleSheet.create({
   loadingText: {
     fontFamily: FontFamily.body,
     fontSize: FontSize.body,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
 });

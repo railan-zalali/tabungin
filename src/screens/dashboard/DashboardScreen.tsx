@@ -151,7 +151,11 @@ export function DashboardScreen() {
 
           <TouchableOpacity
             style={styles.notifBtn}
-            onPress={() => navigation.navigate("Notifications" as never)}
+            onPress={() =>
+              navigation.navigate("Settings", {
+                screen: "Notifications",
+              } as never)
+            }
             accessibilityLabel="Notifikasi"
             accessibilityRole="button"
           >

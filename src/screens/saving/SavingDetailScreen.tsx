@@ -142,6 +142,12 @@ export function SavingDetailScreen() {
                 >
                     <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
                 </TouchableOpacity>
+                <TouchableOpacity
+                    onPress={() => navigation.navigate('AddSavingGoal', { editId: goalId })}
+                    style={styles.editBtn}
+                >
+                    <MaterialCommunityIcons name="pencil" size={20} color={colors.textPrimary} />
+                </TouchableOpacity>
                 <Text style={styles.headerTitle} numberOfLines={1}>{currentGoal.name}</Text>
                 <View style={{ width: 44 }} />
             </View>
@@ -316,6 +322,16 @@ const getStyles = (colors: any) => StyleSheet.create({
         paddingVertical: 12,
     },
     backBtn: {
+        width: 44,
+        height: 44,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: `${colors.surface}D8`,
+        borderWidth: 1,
+        borderColor: `${colors.border}AA`,
+    },
+    editBtn: {
         width: 44,
         height: 44,
         borderRadius: 16,

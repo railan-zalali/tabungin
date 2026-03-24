@@ -14,9 +14,9 @@ import Animated, {
     withSpring,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useTheme } from '../../store/useThemeStore';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -54,6 +54,8 @@ export function Button({
 }: ButtonProps) {
     const scale = useSharedValue(1);
     const hapticEnabled = useAuthStore((s) => s.hapticEnabled);
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
 
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [{ scale: scale.value }],
@@ -105,7 +107,7 @@ export function Button({
         >
             {loading ? (
                 <ActivityIndicator
-                    color={variant === 'primary' ? Colors.textInverse : Colors.primary}
+                    color={variant === 'primary' ? colors.textInverse : colors.primary}
                     size="small"
                     accessibilityLabel="Memuat..."
                 />
@@ -122,7 +124,7 @@ export function Button({
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
     base: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -136,18 +138,18 @@ const styles = StyleSheet.create({
     disabled: { opacity: 0.5 },
 
     // Variants
-    primary: { backgroundColor: Colors.primary },
-    secondary: { backgroundColor: Colors.secondary },
-    outline: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.primary },
+    primary: { backgroundColor: colors.primary },
+    secondary: { backgroundColor: colors.secondary },
+    outline: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: colors.primary },
     ghost: { backgroundColor: 'transparent' },
-    danger: { backgroundColor: Colors.danger },
+    danger: { backgroundColor: colors.danger },
 
     // Text variants
-    primaryText: { color: Colors.textInverse },
-    secondaryText: { color: Colors.textPrimary },
-    outlineText: { color: Colors.primary },
-    ghostText: { color: Colors.primary },
-    dangerText: { color: Colors.textInverse },
+    primaryText: { color: colors.textInverse },
+    secondaryText: { color: colors.textPrimary },
+    outlineText: { color: colors.primary },
+    ghostText: { color: colors.primary },
+    dangerText: { color: colors.textInverse },
 
     // Sizes
     sm: { paddingHorizontal: 12, paddingVertical: 8, minHeight: 36, borderRadius: 8 },

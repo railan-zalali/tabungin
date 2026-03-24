@@ -78,7 +78,10 @@ export const useSavingStore = create<SavingState>((set, get) => ({
 
     addGoal: async (data) => {
         const profileId = useProfileStore.getState().activeProfileId;
-        const goal = await insertSavingGoal({ ...data, profile_id: profileId || undefined });
+        const goal = await insertSavingGoal({
+            ...data,
+            profile_id: data.profile_id || profileId || undefined,
+        });
         if (goal.reminder_enabled) {
             await scheduleGoalReminder(goal);
         }

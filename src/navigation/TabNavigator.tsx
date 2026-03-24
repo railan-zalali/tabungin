@@ -1,72 +1,205 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { createBottomTabNavigator, type BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, {
-    useSharedValue,
     useAnimatedStyle,
+    useSharedValue,
     withSpring,
     withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { Colors } from '../constants/colors';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { FontFamily, FontSize } from '../constants/typography';
-import { Shadow } from '../constants/theme';
+import { BorderRadius, Shadow, Spacing } from '../constants/theme';
 import type { TabParamList } from '../types/navigation';
 import { useTransactionStore } from '../store/useTransactionStore';
 import { useWalletStore } from '../store/useWalletStore';
+import { useTheme } from '../store/useThemeStore';
 
-// Screens
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
 import { TransactionStackNavigator } from './TransactionStackNavigator';
 import { WalletStackNavigator } from './WalletStackNavigator';
 import { ReportScreen } from '../screens/report/ReportScreen';
-import { NotificationScreen } from '../screens/notification/NotificationScreen';
 import { SettingsStackNavigator } from './SettingsStackNavigator';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
-interface TabIconProps {
-    name: string;
-    label: string;
-    focused: boolean;
-    color: string;
+type TabRouteName = keyof TabParamList;
+
+const TAB_META: Record<
+    TabRouteName,
+    { label: string; icon: string; activeIcon: string; accent: 'primary' | 'success' | 'warning' | 'info' }
+> = {
+    Dashboard: {
+        label: 'Beranda',
+        icon: 'home-outline',
+        activeIcon: 'home',
+        accent: 'primary',
+    },
+    Transactions: {
+        label: 'Transaksi',
+        icon: 'swap-horizontal',
+        activeIcon: 'swap-horizontal-bold',
+        accent: 'success',
+    },
+    Wallet: {
+        label: 'Dompet',
+        icon: 'wallet-outline',
+        activeIcon: 'wallet',
+        accent: 'warning',
+    },
+    Report: {
+        label: 'Laporan',
+        icon: 'chart-box-outline',
+        activeIcon: 'chart-box',
+        accent: 'info',
+    },
+    Settings: {
+        label: 'Setelan',
+        icon: 'cog-outline',
+        activeIcon: 'cog',
+        accent: 'primary',
+    },
+};
+
+function resolveAccentColor(colors: any, accent: (typeof TAB_META)[TabRouteName]['accent']) {
+    switch (accent) {
+        case 'success':
+            return colors.success;
+        case 'warning':
+            return colors.warning;
+        case 'info':
+            return colors.info;
+        case 'primary':
+        default:
+            return colors.primary;
+    }
 }
 
-function TabIcon({ name, label, focused, color }: TabIconProps) {
-    const scale = useSharedValue(1);
-    const translateY = useSharedValue(0);
+function TabBarButton({
+    routeName,
+    isFocused,
+    onPress,
+}: {
+    routeName: TabRouteName;
+    isFocused: boolean;
+    onPress: () => void;
+}) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const meta = TAB_META[routeName];
+    const accentColor = resolveAccentColor(colors, meta.accent);
+    const scale = useSharedValue(isFocused ? 1 : 0.96);
+    const lift = useSharedValue(isFocused ? -4 : 0);
+    const glow = useSharedValue(isFocused ? 1 : 0);
 
     React.useEffect(() => {
-        if (focused) {
-            scale.value = withSpring(1.2, { damping: 10, stiffness: 200 });
-            translateY.value = withSpring(-4, { damping: 10 });
-        } else {
-            scale.value = withSpring(1, { damping: 15 });
-            translateY.value = withSpring(0, { damping: 15 });
-        }
-    }, [focused]);
+        scale.value = withSpring(isFocused ? 1 : 0.96, { damping: 14, stiffness: 220 });
+        lift.value = withSpring(isFocused ? -4 : 0, { damping: 16, stiffness: 180 });
+        glow.value = withTiming(isFocused ? 1 : 0, { duration: 220 });
+    }, [glow, isFocused, lift, scale]);
 
-    const animStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: scale.value }, { translateY: translateY.value }],
+    const animatedStyle = useAnimatedStyle(() => ({
+        transform: [{ translateY: lift.value }, { scale: scale.value }],
+    }));
+
+    const indicatorStyle = useAnimatedStyle(() => ({
+        opacity: glow.value,
+        transform: [{ scaleX: glow.value }],
     }));
 
     return (
-        <Animated.View style={[styles.tabItem, animStyle]}>
-            <MaterialCommunityIcons
-                name={name as any}
-                size={24}
-                color={color}
-                accessibilityElementsHidden={true}
-            />
-            <Text
-                style={[styles.tabLabel, { color, opacity: focused ? 1 : 0.7 }]}
-                allowFontScaling={false}
-                numberOfLines={1}
-            >
-                {label}
-            </Text>
-        </Animated.View>
+        <TouchableOpacity
+            style={styles.pressable}
+            onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onPress();
+            }}
+            activeOpacity={0.9}
+            accessibilityRole="button"
+            accessibilityLabel={meta.label}
+            accessibilityState={{ selected: isFocused }}
+        >
+            <Animated.View style={[styles.tabButton, animatedStyle]}>
+                {isFocused && (
+                    <LinearGradient
+                        colors={[`${accentColor}24`, `${colors.surface}F4`]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.activeGlow}
+                    />
+                )}
+                <Animated.View style={[styles.activeIndicator, { backgroundColor: accentColor }, indicatorStyle]} />
+                <View style={[styles.iconWrap, isFocused && { backgroundColor: `${accentColor}18` }]}>
+                    <MaterialCommunityIcons
+                        name={(isFocused ? meta.activeIcon : meta.icon) as any}
+                        size={22}
+                        color={isFocused ? accentColor : colors.textSecondary}
+                    />
+                </View>
+                <Text
+                    style={[
+                        styles.tabLabel,
+                        { color: isFocused ? colors.textPrimary : colors.textSecondary },
+                        isFocused && styles.tabLabelFocused,
+                    ]}
+                    numberOfLines={1}
+                >
+                    {meta.label}
+                </Text>
+            </Animated.View>
+        </TouchableOpacity>
+    );
+}
+
+function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+    const insets = useSafeAreaInsets();
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
+
+    return (
+        <View pointerEvents="box-none" style={styles.tabBarOuter}>
+            <View style={[styles.tabBarShell, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+                <LinearGradient
+                    colors={[`${colors.surface}F4`, `${colors.surface}EC`]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.tabBar}
+                >
+                    {state.routes.map((route, index) => {
+                        const isFocused = state.index === index;
+                        const { options } = descriptors[route.key];
+
+                        const onPress = () => {
+                            const event = navigation.emit({
+                                type: 'tabPress',
+                                target: route.key,
+                                canPreventDefault: true,
+                            });
+
+                            if (!isFocused && !event.defaultPrevented) {
+                                navigation.navigate(route.name);
+                            }
+                        };
+
+                        if (!(route.name in TAB_META)) {
+                            return null;
+                        }
+
+                        return (
+                            <TabBarButton
+                                key={route.key}
+                                routeName={route.name as TabRouteName}
+                                isFocused={isFocused}
+                                onPress={onPress}
+                            />
+                        );
+                    })}
+                </LinearGradient>
+            </View>
+        </View>
     );
 }
 
@@ -77,104 +210,98 @@ export function TabNavigator() {
     React.useEffect(() => {
         initTxRealtime();
         initWalletRealtime();
+
         return () => {
             stopTxRealtime();
             stopWalletRealtime();
         };
-    }, []);
+    }, [initTxRealtime, initWalletRealtime, stopTxRealtime, stopWalletRealtime]);
 
     return (
         <Tab.Navigator
+            tabBar={(props) => <CustomTabBar {...props} />}
             screenOptions={{
                 headerShown: false,
                 tabBarShowLabel: false,
-                tabBarStyle: styles.tabBar,
-                tabBarActiveTintColor: Colors.primary,
-                tabBarInactiveTintColor: Colors.textSecondary,
             }}
         >
-            <Tab.Screen
-                name="Dashboard"
-                component={DashboardScreen}
-                options={{
-                    tabBarIcon: ({ focused, color }) => (
-                        <TabIcon name={focused ? 'home' : 'home-outline'} label="Beranda" focused={focused} color={color} />
-                    ),
-                }}
-            />
-            <Tab.Screen
-                name="Transactions"
-                component={TransactionStackNavigator}
-                options={{
-                    tabBarIcon: ({ focused, color }) => (
-                        <TabIcon name={focused ? 'swap-horizontal-bold' : 'swap-horizontal'} label="Transaksi" focused={focused} color={color} />
-                    ),
-                }}
-            />
-            <Tab.Screen
-                name="Wallet"
-                component={WalletStackNavigator}
-                options={{
-                    tabBarIcon: ({ focused, color }) => (
-                        <TabIcon name={focused ? 'wallet' : 'wallet-outline'} label="Dompet" focused={focused} color={color} />
-                    ),
-                }}
-            />
-            <Tab.Screen
-                name="Report"
-                component={ReportScreen}
-                options={{
-                    tabBarIcon: ({ focused, color }) => (
-                        <TabIcon name={focused ? 'chart-bar' : 'chart-bar'} label="Laporan" focused={focused} color={color} />
-                    ),
-                }}
-            />
-            <Tab.Screen
-                name="Settings"
-                component={SettingsStackNavigator}
-                options={{
-                    tabBarIcon: ({ focused, color }) => (
-                        <TabIcon name={focused ? 'cog' : 'cog-outline'} label="Setelan" focused={focused} color={color} />
-                    ),
-                }}
-            />
-            <Tab.Screen
-                name="Notifications"
-                component={NotificationScreen}
-                options={{
-                    tabBarIcon: ({ focused, color }) => (
-                        <TabIcon name={focused ? 'bell' : 'bell-outline'} label="Notifikasi" focused={focused} color={color} />
-                    ),
-                }}
-            />
+            <Tab.Screen name="Dashboard" component={DashboardScreen} />
+            <Tab.Screen name="Transactions" component={TransactionStackNavigator} />
+            <Tab.Screen name="Wallet" component={WalletStackNavigator} />
+            <Tab.Screen name="Report" component={ReportScreen} />
+            <Tab.Screen name="Settings" component={SettingsStackNavigator} />
         </Tab.Navigator>
     );
 }
 
-const styles = StyleSheet.create({
-    tabBar: {
-        height: Platform.OS === 'ios' ? 88 : 70,
-        paddingTop: 8,
-        paddingBottom: Platform.OS === 'ios' ? 28 : 12,
-        backgroundColor: Colors.surface,
-        borderTopWidth: 1,
-        borderTopColor: Colors.border,
-        elevation: 8,
-        shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: -2 },
-    },
-    tabItem: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 4,
-        width: 60, 
-    },
-    tabLabel: {
-        fontFamily: FontFamily.bodyMedium,
-        fontSize: 10,
-        marginTop: 2,
-        textAlign: 'center',
-    },
-});
+const getStyles = (colors: any) =>
+    StyleSheet.create({
+        tabBarOuter: {
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+        },
+        tabBarShell: {
+            paddingHorizontal: Spacing.base,
+        },
+        tabBar: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingHorizontal: 10,
+            paddingTop: 12,
+            borderRadius: BorderRadius['5xl'],
+            borderWidth: 1,
+            borderColor: `${colors.border}CC`,
+            ...Shadow.lg,
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: Platform.OS === 'ios' ? 0.12 : 0.18,
+            shadowRadius: 24,
+            elevation: 12,
+            backgroundColor: colors.surface,
+        },
+        pressable: {
+            flex: 1,
+        },
+        tabButton: {
+            minHeight: 64,
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            borderRadius: BorderRadius['4xl'],
+            overflow: 'hidden',
+            paddingHorizontal: 4,
+            paddingVertical: 10,
+            position: 'relative',
+        },
+        activeGlow: {
+            ...StyleSheet.absoluteFillObject,
+            borderRadius: BorderRadius['4xl'],
+        },
+        activeIndicator: {
+            position: 'absolute',
+            top: 0,
+            alignSelf: 'center',
+            width: 26,
+            height: 4,
+            borderBottomLeftRadius: BorderRadius.sm,
+            borderBottomRightRadius: BorderRadius.sm,
+        },
+        iconWrap: {
+            width: 38,
+            height: 38,
+            borderRadius: BorderRadius['2xl'],
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        tabLabel: {
+            fontFamily: FontFamily.bodyMedium,
+            fontSize: 11,
+            textAlign: 'center',
+        },
+        tabLabelFocused: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.caption,
+        },
+    });
