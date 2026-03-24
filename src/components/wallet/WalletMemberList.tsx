@@ -21,6 +21,7 @@ import {
   fetchWalletMembersForDisplay,
   inviteWalletMember,
   removeWalletMemberWithSync,
+  fetchSharedGoalsForMember,
 } from "../../database/walletSharingService";
 import {
   buildWalletInviteMessage,
@@ -38,6 +39,7 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
   const [email, setEmail] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
   const [showQR, setShowQR] = useState(false);
+  const [sharedGoalsCount, setSharedGoalsCount] = useState<Record<string, number>>({});
 
   const inviteUrl = buildWalletInviteUrl(walletId);
   const inviteMessage = buildWalletInviteMessage(walletId);
@@ -47,6 +49,21 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
     try {
       const data = await fetchWalletMembersForDisplay(walletId);
       setMembers(data);
+
+      // Load shared goals count for each member
+      const goalsCount: Record<string, number> = {};
+      await Promise.all(
+        data.map(async (member) => {
+          try {
+            const sharedGoalIds = await fetchSharedGoalsForMember(walletId, member.user_email);
+            goalsCount[member.id] = sharedGoalIds.length;
+          } catch (error) {
+            console.error(`Failed to load shared goals for ${member.user_email}:`, error);
+            goalsCount[member.id] = 0;
+          }
+        })
+      );
+      setSharedGoalsCount(goalsCount);
     } catch (error) {
       console.error(error);
       Alert.alert("Gagal", "Gagal memuat anggota dompet.");
@@ -151,7 +168,15 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
                 <Text style={styles.avatarText}>{member.user_email[0].toUpperCase()}</Text>
               </View>
               <View style={styles.memberInfo}>
-                <Text style={styles.memberEmail}>{member.user_email}</Text>
+                <View style={styles.memberHeader}>
+                  <Text style={styles.memberEmail}>{member.user_email}</Text>
+                  {sharedGoalsCount[member.id] > 0 && (
+                    <View style={styles.goalsBadge}>
+                      <MaterialCommunityIcons name='target' size={12} color={Colors.primary} />
+                      <Text style={styles.goalsBadgeText}>{sharedGoalsCount[member.id]}</Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={styles.memberRole}>
                   {member.role} - {member.status === "pending" ? "Menunggu" : "Aktif"}
                 </Text>
@@ -330,10 +355,30 @@ const styles = StyleSheet.create({
   memberInfo: {
     flex: 1,
   },
+  memberHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   memberEmail: {
     fontFamily: FontFamily.bodyMedium,
     fontSize: FontSize.body,
     color: Colors.textPrimary,
+    flex: 1,
+  },
+  goalsBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.primaryLight,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  goalsBadgeText: {
+    fontFamily: FontFamily.bodyBold,
+    fontSize: 10,
+    color: Colors.primary,
   },
   memberRole: {
     fontFamily: FontFamily.bodyBold,

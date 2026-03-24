@@ -1,10 +1,11 @@
 import { supabase } from "../lib/supabase";
-import { getDatabase } from "./schema";
+import { getInitializedDatabase } from "./schema";
 import type { WalletMember } from "./walletQueries";
 import { fetchWalletMembers, removeWalletMember } from "./walletQueries";
 import { v4 as uuidv4 } from "uuid";
 import { isValidWalletId } from "../utils/walletInvite";
 import { useAuthStore } from "../store/useAuthStore";
+import { sendWalletInviteNotification } from "../utils/notificationService";
 
 type RemoteWalletMember = WalletMember & {
   updated_at: number;
@@ -107,7 +108,7 @@ function mapLocalWalletMember(member: RemoteWalletMember): WalletMember {
 }
 
 async function upsertLocalWalletMember(member: RemoteWalletMember): Promise<void> {
-  const db = await getDatabase();
+  const db = await getInitializedDatabase();
 
   await db.runAsync(
     `INSERT OR REPLACE INTO wallet_members (
@@ -126,7 +127,7 @@ async function upsertLocalWalletMember(member: RemoteWalletMember): Promise<void
 }
 
 async function replaceLocalWalletMembers(walletId: string, members: RemoteWalletMember[]): Promise<void> {
-  const db = await getDatabase();
+  const db = await getInitializedDatabase();
 
   await db.withTransactionAsync(async () => {
     await db.runAsync(
@@ -159,7 +160,7 @@ async function replaceLocalWalletMembersForWallets(
 ): Promise<void> {
   if (walletIds.length === 0) return;
 
-  const db = await getDatabase();
+  const db = await getInitializedDatabase();
 
   await db.withTransactionAsync(async () => {
     for (const walletId of walletIds) {
@@ -189,7 +190,7 @@ async function replaceLocalWalletMembersForWallets(
 }
 
 async function upsertLocalWallet(wallet: RemoteWallet): Promise<void> {
-  const db = await getDatabase();
+  const db = await getInitializedDatabase();
   const existingWallet = await db.getFirstAsync<{ sync_status: string }>(
     "SELECT sync_status FROM wallets WHERE id = ?",
     [wallet.id],
@@ -224,7 +225,7 @@ async function upsertLocalWallet(wallet: RemoteWallet): Promise<void> {
 async function upsertLocalTransactions(transactions: RemoteTransaction[]): Promise<void> {
   if (transactions.length === 0) return;
 
-  const db = await getDatabase();
+  const db = await getInitializedDatabase();
 
   await db.withTransactionAsync(async () => {
     for (const transaction of transactions) {
@@ -252,7 +253,7 @@ async function upsertLocalTransactions(transactions: RemoteTransaction[]): Promi
 async function upsertLocalBudgets(budgets: RemoteBudget[]): Promise<void> {
   if (budgets.length === 0) return;
 
-  const db = await getDatabase();
+  const db = await getInitializedDatabase();
 
   await db.withTransactionAsync(async () => {
     for (const budget of budgets) {
@@ -279,7 +280,7 @@ async function upsertLocalBudgets(budgets: RemoteBudget[]): Promise<void> {
 async function upsertLocalSavingGoals(goals: RemoteSavingGoal[]): Promise<void> {
   if (goals.length === 0) return;
 
-  const db = await getDatabase();
+  const db = await getInitializedDatabase();
 
   await db.withTransactionAsync(async () => {
     for (const goal of goals) {
@@ -317,7 +318,7 @@ async function upsertLocalSavingGoals(goals: RemoteSavingGoal[]): Promise<void> 
 async function upsertLocalSavingLogs(logs: RemoteSavingLog[]): Promise<void> {
   if (logs.length === 0) return;
 
-  const db = await getDatabase();
+  const db = await getInitializedDatabase();
 
   await db.withTransactionAsync(async () => {
     for (const log of logs) {
@@ -519,6 +520,13 @@ export async function inviteWalletMember(
   const member = data as RemoteWalletMember;
   await upsertLocalWalletMember(member);
 
+  // Auto-share active goals to new member
+  await autoShareWalletGoals(walletId, normalizedEmail, currentUserEmail);
+
+  // Send notification to the new member
+  // Note: This would typically be handled by a backend service or Supabase Realtime
+  // For now, we'll skip this as it requires the new user to be online
+
   return mapLocalWalletMember(member);
 }
 
@@ -607,7 +615,7 @@ export async function joinWalletByInvite(walletId: string): Promise<{
 
       await hydrateSharedWallet(walletId);
 
-      const db = await getDatabase();
+      const db = await getInitializedDatabase();
       const wallet = await db.getFirstAsync<RemoteWallet>("SELECT * FROM wallets WHERE id = ?", [walletId]);
       if (!wallet) {
         throw new Error("Gagal memuat dompet bersama.");
@@ -626,7 +634,7 @@ export async function joinWalletByInvite(walletId: string): Promise<{
   await hydrateSharedWallet(walletId);
   await upsertLocalWalletMember(remoteMember);
 
-  const db = await getDatabase();
+  const db = await getInitializedDatabase();
   const wallet = await db.getFirstAsync<RemoteWallet>("SELECT * FROM wallets WHERE id = ?", [walletId]);
   if (!wallet) {
     throw new Error("Gagal memuat dompet bersama.");
@@ -640,7 +648,7 @@ export async function joinWalletByInvite(walletId: string): Promise<{
 }
 
 export async function removeWalletMemberWithSync(memberId: string): Promise<void> {
-  const db = await getDatabase();
+  const db = await getInitializedDatabase();
   const localMember = await db.getFirstAsync<{ id: string; wallet_id: string; sync_status: string }>(
     "SELECT id, wallet_id, sync_status FROM wallet_members WHERE id = ?",
     [memberId],
@@ -663,4 +671,34 @@ export async function removeWalletMemberWithSync(memberId: string): Promise<void
   await db.runAsync("DELETE FROM wallet_members WHERE id = ?", [memberId]);
 }
 
+/**
+ * Auto-share goals to new wallet member
+ */
+async function autoShareWalletGoals(walletId: string, userEmail: string, sharedBy: string): Promise<void> {
+  const { error } = await supabase.rpc('auto_share_wallet_goals', {
+    p_wallet_id: walletId,
+    p_user_email: userEmail,
+    p_shared_by: sharedBy,
+  });
+
+  if (error) {
+    console.error('Failed to auto-share goals:', error);
+  }
+}
+
+/**
+ * Fetch shared goals for a member
+ */
+export async function fetchSharedGoalsForMember(walletId: string, userEmail: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('wallet_goals_shared')
+    .select('goal_id')
+    .eq('wallet_id', walletId)
+    .eq('user_email', userEmail);
+
+  if (error) throw error;
+  return (data ?? []).map(item => item.goal_id);
+}
+
 export { normalizeEmail as normalizeWalletMemberEmail };
+

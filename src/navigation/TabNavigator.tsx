@@ -21,6 +21,7 @@ import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
 import { TransactionStackNavigator } from './TransactionStackNavigator';
 import { WalletStackNavigator } from './WalletStackNavigator';
 import { ReportScreen } from '../screens/report/ReportScreen';
+import { NotificationScreen } from '../screens/notification/NotificationScreen';
 import { SettingsStackNavigator } from './SettingsStackNavigator';
 
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -134,6 +135,15 @@ export function TabNavigator() {
                 options={{
                     tabBarIcon: ({ focused, color }) => (
                         <TabIcon name={focused ? 'cog' : 'cog-outline'} label="Setelan" focused={focused} color={color} />
+                    ),
+                }}
+            />
+            <Tab.Screen
+                name="Notifications"
+                component={NotificationScreen}
+                options={{
+                    tabBarIcon: ({ focused, color }) => (
+                        <TabIcon name={focused ? 'bell' : 'bell-outline'} label="Notifikasi" focused={focused} color={color} />
                     ),
                 }}
             />

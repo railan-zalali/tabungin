@@ -19,6 +19,7 @@ export type TabParamList = {
     Transactions: NavigatorScreenParams<TransactionStackParamList>;
     Wallet: NavigatorScreenParams<WalletStackParamList>;
     Report: undefined;
+    Notifications: undefined;
     Settings: NavigatorScreenParams<SettingsStackParamList>;
 };
 
@@ -27,6 +28,7 @@ export type TransactionStackParamList = {
     TransactionList: undefined;
     AddTransaction: { editId?: string; type?: 'income' | 'expense' } | undefined;
     TransactionDetail: { transactionId: string };
+    RecurringTransaction: undefined;
 };
 
 // Saving Stack
@@ -48,6 +50,9 @@ export type WalletStackParamList = {
 export type SettingsStackParamList = {
     SettingsMain: undefined;
     Profile: undefined;
+    Notifications: undefined;
+    CategoryManagement: undefined;
+    ExportData: undefined;
     WalletList: undefined;
     AddWallet: { wallet?: any } | undefined;
     QRScanner: undefined;

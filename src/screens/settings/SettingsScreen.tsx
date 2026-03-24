@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { SettingsStackParamList } from '../../types/navigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -21,7 +22,9 @@ import { useThemeStore, useTheme } from '../../store/useThemeStore';
 import { deleteUserAccount } from '../../database/authQueries';
 import { useTransactionStore } from '../../store/useTransactionStore';
 import { useSavingStore } from '../../store/useSavingStore';
+import { useNotificationStore } from '../../store/useNotificationStore';
 import { exportBackupJSON } from '../../utils/exportUtils';
+import { exportToJSON, exportToCSV, exportToTXT } from '../../utils/exportData';
 
 interface SettingRowProps {
     icon: string;
@@ -56,12 +59,13 @@ function SettingRow({ icon, iconColor, title, subtitle, onPress, rightElement }:
 }
 
 export function SettingsScreen() {
-    const navigation = useNavigation<NativeStackNavigationProp<any>>();
+    const navigation = useNavigation<NativeStackNavigationProp<SettingsStackParamList>>();
     const insets = useSafeAreaInsets();
     const { user, hapticEnabled, setHapticEnabled, logout } = useAuthStore();
     const { mode, setMode, textSize, setTextSize } = useThemeStore();
     const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const { unreadCount } = useNotificationStore();
 
     const { transactions } = useTransactionStore();
     const { goals } = useSavingStore();
@@ -103,13 +107,13 @@ export function SettingsScreen() {
     const handleBackup = async () => {
         try {
             setIsExporting(true);
-            await exportBackupJSON({
+            const exportData = {
                 version: 1,
                 exportedAt: Date.now(),
                 transactions,
                 goals
-            });
-            Alert.alert('Sukses', 'Data berhasil diekspor.');
+            };
+            await exportToJSON(exportData);
         } catch (error) {
             Alert.alert('Error', 'Terjadi kesalahan saat membackup data.');
         } finally {
@@ -128,6 +132,14 @@ export function SettingsScreen() {
         { id: 'large', label: 'Besar' },
         { id: 'xlarge', label: 'X-Large' },
     ];
+
+    const navigateToBudget = () => {
+        (navigation.getParent()?.getParent() as any)?.navigate('Budget');
+    };
+
+    const navigateToRecurringTransactions = () => {
+        (navigation.getParent() as any)?.navigate('Transactions', { screen: 'RecurringTransaction' });
+    };
 
     return (
         <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
@@ -151,6 +163,27 @@ export function SettingsScreen() {
                         <Text style={[styles.profileEmail, { color: colors.textSecondary }]}>{user?.email || '-'}</Text>
                     </View>
                     <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+
+                {/* Notifikasi */}
+                <TouchableOpacity
+                    style={[styles.profileCard, Shadow.sm, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                    onPress={() => navigation.navigate('Notifications' as never)}
+                >
+                    <View style={[styles.avatar, { backgroundColor: colors.warning + '20' }]}>
+                        <MaterialCommunityIcons name="bell" size={24} color={colors.warning} />
+                    </View>
+                    <View style={styles.profileInfo}>
+                        <Text style={[styles.profileName, { color: colors.textPrimary }]}>Notifikasi</Text>
+                        <Text style={[styles.profileEmail, { color: colors.textSecondary }]}>
+                            {unreadCount > 0 ? `${unreadCount} notifikasi belum dibaca` : 'Semua notifikasi sudah dibaca'}
+                        </Text>
+                    </View>
+                    {unreadCount > 0 && (
+                        <View style={[styles.notificationBadge, { backgroundColor: colors.danger }]}>
+                            <Text style={styles.notificationBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                        </View>
+                    )}
                 </TouchableOpacity>
 
                 {/* Tampilan */}
@@ -241,7 +274,23 @@ export function SettingsScreen() {
                             iconColor={colors.success}
                             title="Budget Bulanan"
                             subtitle="Atur batas pengeluaran kategori"
-                            onPress={() => navigation.navigate('Budget')}
+                            onPress={navigateToBudget}
+                        />
+                        <View style={[styles.divider, { backgroundColor: colors.divider }]} />
+                        <SettingRow
+                            icon="autorenew"
+                            iconColor={colors.info}
+                            title="Transaksi Berulang"
+                            subtitle="Atur transaksi rutin otomatis"
+                            onPress={navigateToRecurringTransactions}
+                        />
+                        <View style={[styles.divider, { backgroundColor: colors.divider }]} />
+                        <SettingRow
+                            icon="tag-multiple"
+                            iconColor={colors.warning}
+                            title="Kelola Kategori"
+                            subtitle="Kustomisasi kategori transaksi"
+                            onPress={() => navigation.navigate('CategoryManagement')}
                         />
                     </View>
                 </View>
@@ -251,11 +300,11 @@ export function SettingsScreen() {
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Data</Text>
                     <View style={[styles.card, Shadow.sm, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                         <SettingRow
-                            icon="database-export"
-                            iconColor={colors.info}
-                            title="Backup Data"
-                            subtitle={isExporting ? "Mengekspor..." : "Ekspor data ke file JSON"}
-                            onPress={handleBackup}
+                            icon="export"
+                            iconColor={colors.primary}
+                            title="Ekspor Data"
+                            subtitle="Pilih format (JSON, CSV, TXT)"
+                            onPress={() => navigation.navigate('ExportData')}
                         />
                         <View style={[styles.divider, { backgroundColor: colors.divider }]} />
                         <SettingRow
@@ -337,6 +386,23 @@ const getStyles = (colors: any) => StyleSheet.create({
     profileInfo: { flex: 1 },
     profileName: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: colors.textPrimary },
     profileEmail: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary },
+    notificationBadge: {
+        position: 'absolute',
+        top: -4,
+        right: -4,
+        backgroundColor: colors.danger,
+        borderRadius: 10,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        minWidth: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    notificationBadgeText: {
+        fontFamily: FontFamily.bodyBold,
+        fontSize: 10,
+        color: '#FFFFFF',
+    },
     
     section: { gap: 12 },
     sectionTitle: { 

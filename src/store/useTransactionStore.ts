@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import type { Transaction, TransactionFilter, DailySummary, CategorySummary, MonthlySummary } from '../types/transaction';
 import {
     fetchTransactions,
+    fetchTransactionById,
     fetchRecentTransactions,
     insertTransaction,
     updateTransaction,
@@ -37,6 +38,7 @@ interface TransactionState {
     refreshSummary: () => Promise<void>;
     getCategorySummary: (type: 'expense' | 'income', start: number, end: number) => Promise<CategorySummary[]>;
     getMonthlyData: () => Promise<MonthlySummary[]>;
+    getTransactionById: (id: string) => Promise<Transaction | null>;
     
     // Realtime
     realtimeChannel: RealtimeChannel | null;
@@ -132,6 +134,12 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         const profileId = useProfileStore.getState().activeProfileId;
         const userEmail = useAuthStore.getState().user?.email;
         return fetchMonthlyData(profileId || undefined, userEmail || undefined);
+    },
+
+    getTransactionById: (id) => {
+        const profileId = useProfileStore.getState().activeProfileId;
+        const userEmail = useAuthStore.getState().user?.email;
+        return fetchTransactionById(id, profileId || undefined, userEmail || undefined);
     },
 
     realtimeChannel: null,

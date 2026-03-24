@@ -12,13 +12,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { Colors } from '../../constants/colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { Shadow } from '../../constants/theme';
 import { useTransactionStore } from '../../store/useTransactionStore';
+import { useCategoryStore } from '../../store/useCategoryStore';
+import { useTheme } from '../../store/useThemeStore';
 import type { CategorySummary, MonthlySummary } from '../../types/transaction';
-import { formatRupiah, formatRupiahShort, formatCurrency } from '../../utils/currency';
-import { getCategoryById } from '../../constants/categories';
+import { resolveCategoryByKey } from '../../utils/categoryResolver';
+import { formatCurrency } from '../../utils/currency';
 
 type PeriodFilter = 'month' | '3months' | '6months' | 'year';
 
@@ -36,14 +39,20 @@ function getPeriodDates(period: PeriodFilter): { start: number; end: number } {
     if (period === 'month') start.setDate(1);
     else if (period === '3months') start.setMonth(start.getMonth() - 3);
     else if (period === '6months') start.setMonth(start.getMonth() - 6);
-    else start.setMonth(0), start.setDate(1);
+    else {
+        start.setMonth(0);
+        start.setDate(1);
+    }
     start.setHours(0, 0, 0, 0);
     return { start: start.getTime(), end };
 }
 
 export function ReportScreen() {
     const insets = useSafeAreaInsets();
+    const { colors, isDark } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
     const { getCategorySummary, getMonthlyData } = useTransactionStore();
+    const { categories, loadCategories } = useCategoryStore();
     const [period, setPeriod] = useState<PeriodFilter>('month');
     const [expenseCategories, setExpenseCategories] = useState<CategorySummary[]>([]);
     const [incomeCategories, setIncomeCategories] = useState<CategorySummary[]>([]);
@@ -51,12 +60,20 @@ export function ReportScreen() {
     const [isLoading, setIsLoading] = useState(true);
     const [isExporting, setIsExporting] = useState(false);
 
-    const totalIncome = incomeCategories.reduce((s, c) => s + c.total, 0);
-    const totalExpense = expenseCategories.reduce((s, c) => s + c.total, 0);
+    const totalIncome = incomeCategories.reduce((sum, item) => sum + item.total, 0);
+    const totalExpense = expenseCategories.reduce((sum, item) => sum + item.total, 0);
+    const netBalance = totalIncome - totalExpense;
+    const maxMonthly = Math.max(...monthlyData.map((d) => Math.max(d.totalIncome, d.totalExpense)), 1);
 
     useEffect(() => {
         loadData();
     }, [period]);
+
+    useEffect(() => {
+        if (categories.length === 0) {
+            loadCategories();
+        }
+    }, [categories.length, loadCategories]);
 
     const loadData = async () => {
         setIsLoading(true);
@@ -88,24 +105,22 @@ export function ReportScreen() {
     };
 
     const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
-    const maxMonthly = Math.max(...monthlyData.map((d) => Math.max(d.totalIncome, d.totalExpense)), 1);
 
     return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
-            <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-            
+            <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
+
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>Laporan</Text>
-                <TouchableOpacity
-                    style={styles.exportBtn}
-                    onPress={handleExportPDF}
-                    disabled={isExporting}
-                >
+                <View>
+                    <Text style={styles.headerTitle}>Laporan</Text>
+                    <Text style={styles.headerSubtitle}>Insight ringkas untuk membaca ritme keuanganmu</Text>
+                </View>
+                <TouchableOpacity style={styles.exportBtn} onPress={handleExportPDF} disabled={isExporting}>
                     {isExporting ? (
-                        <ActivityIndicator size="small" color={Colors.primary} />
+                        <ActivityIndicator size="small" color={colors.primary} />
                     ) : (
                         <>
-                            <MaterialCommunityIcons name="file-pdf-box" size={20} color={Colors.primary} />
+                            <MaterialCommunityIcons name="file-pdf-box" size={20} color={colors.primary} />
                             <Text style={styles.exportText}>PDF</Text>
                         </>
                     )}
@@ -113,114 +128,160 @@ export function ReportScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                {/* Period Filter */}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.periodRow}>
-                    {PERIOD_OPTIONS.map((p) => (
-                        <TouchableOpacity
-                            key={p.id}
-                            style={[styles.periodChip, period === p.id && styles.periodChipActive]}
-                            onPress={() => setPeriod(p.id)}
-                        >
-                            <Text style={[styles.periodChipText, period === p.id && styles.periodChipTextActive]}>
-                                {p.label}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
+                <Animated.View entering={FadeInDown.delay(70).springify()}>
+                    <LinearGradient
+                        colors={[colors.primary, colors.primaryDark, colors.primary]}
+                        style={[styles.heroCard, Shadow.md]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                    >
+                        <View style={styles.heroGlow} />
+                        <Text style={styles.heroLabel}>Ringkasan Periode</Text>
+                        <Text style={styles.heroValue}>{formatCurrency(Math.abs(netBalance))}</Text>
+                        <Text style={styles.heroSubtext}>
+                            {netBalance >= 0 ? 'Surplus kas pada periode terpilih' : 'Defisit kas pada periode terpilih'}
+                        </Text>
+                        <View style={styles.heroChips}>
+                            <View style={styles.heroChip}>
+                                <MaterialCommunityIcons name="arrow-up-circle-outline" size={14} color="#FFFFFF" />
+                                <Text style={styles.heroChipText}>{formatCurrency(totalIncome)}</Text>
+                            </View>
+                            <View style={styles.heroChip}>
+                                <MaterialCommunityIcons name="arrow-down-circle-outline" size={14} color="#FFFFFF" />
+                                <Text style={styles.heroChipText}>{formatCurrency(totalExpense)}</Text>
+                            </View>
+                        </View>
+                    </LinearGradient>
+                </Animated.View>
+
+                <Animated.View entering={FadeInDown.delay(120).springify()} style={styles.periodBlock}>
+                    <Text style={styles.blockTitle}>Pilih Periode</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.periodRow}>
+                        {PERIOD_OPTIONS.map((item) => (
+                            <TouchableOpacity
+                                key={item.id}
+                                style={[styles.periodChip, period === item.id && styles.periodChipActive]}
+                                onPress={() => setPeriod(item.id)}
+                            >
+                                <Text style={[styles.periodChipText, period === item.id && styles.periodChipTextActive]}>
+                                    {item.label}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </Animated.View>
 
                 {isLoading ? (
-                    <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 60 }} />
+                    <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 60 }} />
                 ) : (
                     <>
-                        {/* Summary Card */}
-                        <View style={[styles.summaryCard, Shadow.sm]}>
+                        <Animated.View entering={FadeInUp.delay(180).springify()} style={[styles.summaryCard, Shadow.sm]}>
                             <View style={styles.summaryRow}>
                                 <View style={styles.summaryItem}>
                                     <View style={styles.summaryIconRow}>
-                                        <MaterialCommunityIcons name="arrow-up-circle" size={20} color={Colors.success} />
-                                        <Text style={[styles.summaryLabel, { color: Colors.success }]}>Pemasukan</Text>
+                                        <MaterialCommunityIcons name="arrow-up-circle" size={20} color={colors.success} />
+                                        <Text style={[styles.summaryLabel, { color: colors.success }]}>Pemasukan</Text>
                                     </View>
                                     <Text style={styles.summaryAmount}>{formatCurrency(totalIncome)}</Text>
                                 </View>
                                 <View style={styles.summaryDivider} />
                                 <View style={styles.summaryItem}>
                                     <View style={styles.summaryIconRow}>
-                                        <MaterialCommunityIcons name="arrow-down-circle" size={20} color={Colors.danger} />
-                                        <Text style={[styles.summaryLabel, { color: Colors.danger }]}>Pengeluaran</Text>
+                                        <MaterialCommunityIcons name="arrow-down-circle" size={20} color={colors.danger} />
+                                        <Text style={[styles.summaryLabel, { color: colors.danger }]}>Pengeluaran</Text>
                                     </View>
-                                    <Text style={[styles.summaryAmount, { color: Colors.danger }]}>{formatCurrency(totalExpense)}</Text>
+                                    <Text style={[styles.summaryAmount, { color: colors.danger }]}>{formatCurrency(totalExpense)}</Text>
                                 </View>
                             </View>
                             <View style={styles.summaryBalance}>
                                 <Text style={styles.balanceLabel}>Selisih</Text>
-                                <Text style={[styles.balanceAmount, { color: totalIncome - totalExpense >= 0 ? Colors.success : Colors.danger }]}>
-                                    {totalIncome - totalExpense >= 0 ? '+' : '-'} {formatCurrency(Math.abs(totalIncome - totalExpense))}
+                                <Text style={[styles.balanceAmount, { color: netBalance >= 0 ? colors.success : colors.danger }]}>
+                                    {netBalance >= 0 ? '+' : '-'} {formatCurrency(Math.abs(netBalance))}
                                 </Text>
                             </View>
-                        </View>
+                        </Animated.View>
 
-                        {/* Bar Chart Manual — 6 bulan terakhir */}
-                        <View style={[styles.chartCard, Shadow.sm]}>
-                            <Text style={styles.chartTitle}>Pemasukan vs Pengeluaran</Text>
+                        <Animated.View entering={FadeInUp.delay(240).springify()} style={[styles.chartCard, Shadow.sm]}>
+                            <View style={styles.cardHeader}>
+                                <Text style={styles.chartTitle}>Pemasukan vs Pengeluaran</Text>
+                                <Text style={styles.cardHint}>6 bulan terakhir</Text>
+                            </View>
                             <View style={styles.barChart}>
-                                {monthlyData.map((m, idx) => (
+                                {monthlyData.map((month, idx) => (
                                     <View key={idx} style={styles.barGroup}>
                                         <View style={styles.barsRow}>
                                             <View
-                                                style={[styles.bar, { height: Math.max((m.totalIncome / maxMonthly) * 100, 4), backgroundColor: Colors.success }]}
+                                                style={[
+                                                    styles.bar,
+                                                    { height: Math.max((month.totalIncome / maxMonthly) * 110, 6), backgroundColor: colors.success },
+                                                ]}
                                             />
                                             <View
-                                                style={[styles.bar, { height: Math.max((m.totalExpense / maxMonthly) * 100, 4), backgroundColor: Colors.danger }]}
+                                                style={[
+                                                    styles.bar,
+                                                    { height: Math.max((month.totalExpense / maxMonthly) * 110, 6), backgroundColor: colors.danger },
+                                                ]}
                                             />
                                         </View>
-                                        <Text style={styles.barLabel}>{MONTH_NAMES[m.month - 1]}</Text>
+                                        <Text style={styles.barLabel}>{MONTH_NAMES[month.month - 1]}</Text>
                                     </View>
                                 ))}
                             </View>
                             <View style={styles.legend}>
                                 <View style={styles.legendItem}>
-                                    <View style={[styles.legendDot, { backgroundColor: Colors.success }]} />
+                                    <View style={[styles.legendDot, { backgroundColor: colors.success }]} />
                                     <Text style={styles.legendText}>Pemasukan</Text>
                                 </View>
                                 <View style={styles.legendItem}>
-                                    <View style={[styles.legendDot, { backgroundColor: Colors.danger }]} />
+                                    <View style={[styles.legendDot, { backgroundColor: colors.danger }]} />
                                     <Text style={styles.legendText}>Pengeluaran</Text>
                                 </View>
                             </View>
-                        </View>
+                        </Animated.View>
 
-                        {/* Tabel Kategori Pengeluaran */}
                         {expenseCategories.length > 0 && (
-                            <View style={[styles.tableCard, Shadow.sm]}>
-                                <Text style={styles.chartTitle}>Breakdown Pengeluaran</Text>
+                            <Animated.View entering={FadeInUp.delay(300).springify()} style={[styles.tableCard, Shadow.sm]}>
+                                <View style={styles.cardHeader}>
+                                    <Text style={styles.chartTitle}>Breakdown Pengeluaran</Text>
+                                    <Text style={styles.cardHint}>Kategori dominan di periode ini</Text>
+                                </View>
+
                                 {expenseCategories.map((cat, index) => {
-                                    const categoryInfo = getCategoryById(cat.category);
+                                    const categoryInfo = resolveCategoryByKey(cat.category, categories);
                                     return (
                                         <View key={cat.category}>
                                             <View style={styles.tableRow}>
                                                 <View style={styles.catInfo}>
-                                                    <View style={[styles.catIconBox, { backgroundColor: `${categoryInfo?.color || Colors.textSecondary}20` }]}>
-                                                        <MaterialCommunityIcons name={(categoryInfo?.icon ?? 'tag') as any} size={16} color={categoryInfo?.color ?? Colors.textSecondary} />
+                                                    <View style={[styles.catIconBox, { backgroundColor: `${categoryInfo?.color || colors.textSecondary}20` }]}>
+                                                        <MaterialCommunityIcons
+                                                            name={(categoryInfo?.icon ?? 'tag') as any}
+                                                            size={16}
+                                                            color={categoryInfo?.color ?? colors.textSecondary}
+                                                        />
                                                     </View>
                                                     <Text style={styles.catName} numberOfLines={1}>{categoryInfo?.name ?? cat.category}</Text>
                                                 </View>
-                                                
+
                                                 <View style={styles.catRight}>
                                                     <Text style={styles.catAmount}>{formatCurrency(cat.total)}</Text>
                                                     <Text style={styles.catPercent}>{cat.percentage.toFixed(0)}%</Text>
                                                 </View>
                                             </View>
-                                            
-                                            {/* Progress Bar */}
+
                                             <View style={styles.catBarBg}>
-                                                <View style={[styles.catBarFill, { width: `${cat.percentage}%`, backgroundColor: categoryInfo?.color ?? Colors.primary }]} />
+                                                <View
+                                                    style={[
+                                                        styles.catBarFill,
+                                                        { width: `${cat.percentage}%`, backgroundColor: categoryInfo?.color ?? colors.primary },
+                                                    ]}
+                                                />
                                             </View>
-                                            
+
                                             {index < expenseCategories.length - 1 && <View style={styles.rowDivider} />}
                                         </View>
                                     );
                                 })}
-                            </View>
+                            </Animated.View>
                         )}
                     </>
                 )}
@@ -252,7 +313,7 @@ function generateHTMLReport(
       th { background: #F7F9FC; }
     </style></head>
     <body>
-      <h1>Laporan Keuangan — ${periodLabel}</h1>
+      <h1>Laporan Keuangan - ${periodLabel}</h1>
       <p>Digenerate oleh Tabungin • ${new Date().toLocaleDateString('id-ID')}</p>
       <div class="summary">
         <div class="item"><p>Pemasukan</p><h2 class="income">Rp ${totalIncome.toLocaleString('id-ID')}</h2></div>
@@ -274,109 +335,189 @@ const PERIOD_OPTIONS_MAP = {
     year: 'Tahun Ini',
 };
 
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background },
-    
+const getStyles = (colors: any) => StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 20,
         paddingVertical: 12,
-        backgroundColor: Colors.background,
+        gap: 12,
     },
-    headerTitle: { ...Typography.h2, color: Colors.textPrimary },
+    headerTitle: { ...Typography.h2, color: colors.textPrimary },
+    headerSubtitle: {
+        fontFamily: FontFamily.body,
+        fontSize: FontSize.caption,
+        color: colors.textSecondary,
+        marginTop: 2,
+    },
     exportBtn: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 8,
-        backgroundColor: Colors.primaryBg,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 16,
+        backgroundColor: `${colors.primaryBg}CC`,
+        borderWidth: 1,
+        borderColor: `${colors.primary}25`,
     },
     exportText: {
         fontFamily: FontFamily.bodyBold,
         fontSize: FontSize.caption,
-        color: Colors.primary,
+        color: colors.primary,
     },
-
     content: { padding: 20, gap: 20, paddingBottom: 100 },
-    
+    heroCard: {
+        borderRadius: 28,
+        padding: 22,
+        overflow: 'hidden',
+    },
+    heroGlow: {
+        position: 'absolute',
+        width: 170,
+        height: 170,
+        borderRadius: 85,
+        top: -55,
+        right: -26,
+        backgroundColor: 'rgba(255,255,255,0.12)',
+    },
+    heroLabel: {
+        fontFamily: FontFamily.bodyMedium,
+        fontSize: FontSize.caption,
+        color: 'rgba(255,255,255,0.8)',
+    },
+    heroValue: {
+        fontFamily: FontFamily.heading,
+        fontSize: FontSize.display,
+        color: '#FFFFFF',
+        marginTop: 8,
+    },
+    heroSubtext: {
+        fontFamily: FontFamily.body,
+        fontSize: FontSize.body,
+        color: 'rgba(255,255,255,0.84)',
+        marginTop: 6,
+    },
+    heroChips: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 10,
+        marginTop: 16,
+    },
+    heroChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 999,
+        backgroundColor: 'rgba(255,255,255,0.14)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.18)',
+    },
+    heroChipText: {
+        fontFamily: FontFamily.bodyMedium,
+        fontSize: FontSize.caption,
+        color: '#FFFFFF',
+    },
+    periodBlock: {
+        backgroundColor: `${colors.surface}D8`,
+        borderRadius: 22,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: `${colors.border}AA`,
+        ...Shadow.sm,
+    },
+    blockTitle: {
+        fontFamily: FontFamily.headingMedium,
+        fontSize: FontSize.body,
+        color: colors.textPrimary,
+        marginBottom: 12,
+    },
     periodRow: { flexDirection: 'row', gap: 8, paddingBottom: 4 },
     periodChip: {
         paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-        backgroundColor: Colors.surface,
+        paddingVertical: 9,
+        borderRadius: 999,
+        backgroundColor: `${colors.background}92`,
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: `${colors.border}AA`,
     },
     periodChipActive: {
-        backgroundColor: Colors.primaryLight,
-        borderColor: Colors.primaryLight,
+        backgroundColor: colors.primaryLight,
+        borderColor: `${colors.primary}35`,
     },
     periodChipText: {
         fontFamily: FontFamily.body,
         fontSize: FontSize.caption,
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
     },
     periodChipTextActive: {
-        color: Colors.primaryDark,
+        color: colors.primaryDark,
         fontFamily: FontFamily.bodyBold,
     },
-
     summaryCard: {
-        backgroundColor: Colors.surface,
-        borderRadius: 20,
+        backgroundColor: `${colors.surface}D8`,
+        borderRadius: 24,
         padding: 20,
         gap: 16,
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: `${colors.border}AA`,
     },
     summaryRow: { flexDirection: 'row', gap: 12 },
     summaryItem: { flex: 1, gap: 8 },
     summaryIconRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     summaryLabel: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.caption },
-    summaryAmount: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: Colors.textPrimary },
-    summaryDivider: { width: 1, backgroundColor: Colors.divider },
+    summaryAmount: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: colors.textPrimary },
+    summaryDivider: { width: 1, backgroundColor: colors.divider },
     summaryBalance: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingTop: 12,
         borderTopWidth: 1,
-        borderTopColor: Colors.divider,
+        borderTopColor: colors.divider,
     },
-    balanceLabel: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: Colors.textSecondary },
+    balanceLabel: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: colors.textSecondary },
     balanceAmount: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4 },
-
     chartCard: {
-        backgroundColor: Colors.surface,
-        borderRadius: 20,
+        backgroundColor: `${colors.surface}D8`,
+        borderRadius: 24,
         padding: 20,
         gap: 16,
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: `${colors.border}AA`,
     },
-    chartTitle: { ...Typography.h4, color: Colors.textPrimary },
-    barChart: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 140, paddingTop: 16 },
+    cardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 12,
+    },
+    chartTitle: { ...Typography.h4, color: colors.textPrimary },
+    cardHint: {
+        fontFamily: FontFamily.body,
+        fontSize: FontSize.caption,
+        color: colors.textSecondary,
+    },
+    barChart: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 150, paddingTop: 12 },
     barGroup: { flex: 1, alignItems: 'center', gap: 8 },
-    barsRow: { flexDirection: 'row', gap: 4, alignItems: 'flex-end', height: 110 },
+    barsRow: { flexDirection: 'row', gap: 5, alignItems: 'flex-end', height: 118 },
     bar: { width: 12, borderRadius: 6 },
-    barLabel: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.textSecondary },
+    barLabel: { fontFamily: FontFamily.body, fontSize: 10, color: colors.textSecondary },
     legend: { flexDirection: 'row', gap: 20, justifyContent: 'center' },
     legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     legendDot: { width: 8, height: 8, borderRadius: 4 },
-    legendText: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: Colors.textSecondary },
-
+    legendText: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary },
     tableCard: {
-        backgroundColor: Colors.surface,
-        borderRadius: 20,
+        backgroundColor: `${colors.surface}D8`,
+        borderRadius: 24,
         padding: 20,
         gap: 16,
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: `${colors.border}AA`,
     },
     tableRow: {
         flexDirection: 'row',
@@ -386,17 +527,17 @@ const styles = StyleSheet.create({
     },
     catInfo: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
     catIconBox: {
-        width: 32,
-        height: 32,
-        borderRadius: 10,
+        width: 34,
+        height: 34,
+        borderRadius: 12,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    catName: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.body, color: Colors.textPrimary, flex: 1 },
+    catName: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.body, color: colors.textPrimary, flex: 1 },
     catRight: { alignItems: 'flex-end' },
-    catAmount: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.caption, color: Colors.textPrimary },
-    catPercent: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.textSecondary },
-    catBarBg: { height: 6, backgroundColor: Colors.surfaceAlt, borderRadius: 3, overflow: 'hidden' },
-    catBarFill: { height: 6, borderRadius: 3 },
-    rowDivider: { height: 1, backgroundColor: Colors.divider, marginVertical: 12 },
+    catAmount: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.caption, color: colors.textPrimary },
+    catPercent: { fontFamily: FontFamily.body, fontSize: 10, color: colors.textSecondary },
+    catBarBg: { height: 7, backgroundColor: colors.surfaceAlt, borderRadius: 4, overflow: 'hidden' },
+    catBarFill: { height: 7, borderRadius: 4 },
+    rowDivider: { height: 1, backgroundColor: colors.divider, marginVertical: 12 },
 });

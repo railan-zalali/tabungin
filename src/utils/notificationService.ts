@@ -5,8 +5,11 @@ import { scheduleNotificationAsync } from 'expo-notifications/build/scheduleNoti
 import { cancelScheduledNotificationAsync } from 'expo-notifications/build/cancelScheduledNotificationAsync';
 import { getAllScheduledNotificationsAsync } from 'expo-notifications/build/getAllScheduledNotificationsAsync';
 import { SchedulableTriggerInputTypes } from 'expo-notifications/build/Notifications.types';
+import { v4 as uuidv4 } from 'uuid';
 
 import type { SavingGoal } from '../types/saving';
+import { supabase } from '../lib/supabase';
+import { useAuthStore } from '../store/useAuthStore';
 
 // Konfigurasi bagaimana notifikasi ditampilkan saat app foreground
 setNotificationHandler({
@@ -119,6 +122,9 @@ export async function sendGoalCompletedNotification(goal: SavingGoal): Promise<v
         },
         trigger: null,
     });
+
+    // Save to database
+    await saveNotificationToDatabase('goal_completed', `🎉 Target Tercapai!`, `Selamat! Kamu berhasil mencapai target ${goal.emoji} ${goal.name}!`, { goalId: goal.id });
 }
 
 /**
@@ -142,5 +148,52 @@ export async function sendBudgetWarningNotification(
         identifier: `budget_warning_${category}_${Date.now()}`,
         content: { title, body, sound: true },
         trigger: null,
+    });
+
+    // Save to database
+    await saveNotificationToDatabase('budget_warning', title, body, { category, categoryName, percentage });
+}
+
+/**
+ * Kirim notifikasi undangan dompet
+ */
+export async function sendWalletInviteNotification(walletName: string, sharedBy: string): Promise<void> {
+    const granted = await requestNotificationPermission();
+    if (!granted) return;
+
+    const title = '📥 Undangan Dompet Baru';
+    const body = `${sharedBy} mengundang kamu untuk bergabung ke dompet "${walletName}"`;
+
+    await scheduleNotificationAsync({
+        identifier: `wallet_invite_${Date.now()}`,
+        content: { title, body, sound: true },
+        trigger: null,
+    });
+
+    // Save to database
+    await saveNotificationToDatabase('wallet_invite', title, body, { walletName, sharedBy });
+}
+
+/**
+ * Helper untuk menyimpan notifikasi ke database
+ */
+async function saveNotificationToDatabase(
+    type: 'goal_reminder' | 'goal_completed' | 'budget_warning' | 'wallet_invite',
+    title: string,
+    body: string,
+    data?: any
+): Promise<void> {
+    const userId = useAuthStore.getState().user?.id;
+    if (!userId) return;
+
+    await supabase.from('notifications').insert({
+        id: uuidv4(),
+        user_id: userId,
+        type,
+        title,
+        body,
+        data: data || {},
+        is_read: false,
+        created_at: Date.now(),
     });
 }

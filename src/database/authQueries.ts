@@ -1,7 +1,7 @@
 // Query database untuk autentikasi pengguna — menggunakan password hashing (SHA-256)
 import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
-import { getDatabase } from './schema';
+import { getInitializedDatabase } from './schema';
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -38,7 +38,7 @@ export async function registerUser(
     email: string,
     password: string
 ): Promise<UserRecord> {
-    const db = await getDatabase();
+    const db = await getInitializedDatabase();
     const id = uuidv4();
     const password_hash = await hashPassword(password);
     const avatar_color = randomAvatarColor();
@@ -59,7 +59,7 @@ export async function registerUser(
  * Login pengguna — verifikasi password hash
  */
 export async function loginUser(email: string, password: string): Promise<UserRecord | null> {
-    const db = await getDatabase();
+    const db = await getInitializedDatabase();
     const password_hash = await hashPassword(password);
 
     const row = await db.getFirstAsync<UserRecord & { password_hash: string }>(
@@ -87,7 +87,7 @@ export async function updateUserProfile(
     id: string,
     data: Partial<Pick<UserRecord, 'name' | 'avatar_color'>>
 ): Promise<void> {
-    const db = await getDatabase();
+    const db = await getInitializedDatabase();
     const allowed: Record<string, string> = {};
     if (data.name !== undefined) allowed['name'] = data.name.trim();
     if (data.avatar_color !== undefined) allowed['avatar_color'] = data.avatar_color;
@@ -104,7 +104,7 @@ export async function changePassword(
     oldPassword: string,
     newPassword: string
 ): Promise<boolean> {
-    const db = await getDatabase();
+    const db = await getInitializedDatabase();
     const oldHash = await hashPassword(oldPassword);
     const row = await db.getFirstAsync<{ id: string }>(
         'SELECT id FROM users WHERE id = ? AND password_hash = ?',
@@ -120,7 +120,7 @@ export async function changePassword(
  * Cek apakah email sudah terdaftar
  */
 export async function isEmailRegistered(email: string): Promise<boolean> {
-    const db = await getDatabase();
+    const db = await getInitializedDatabase();
     const row = await db.getFirstAsync<{ count: number }>(
         'SELECT COUNT(*) as count FROM users WHERE email = ?',
         [email.toLowerCase().trim()]
@@ -178,3 +178,4 @@ export async function loadSession(): Promise<UserRecord | null> {
 export async function clearSession(): Promise<void> {
     await SecureStore.deleteItemAsync(SECURE_SESSION_KEY);
 }
+

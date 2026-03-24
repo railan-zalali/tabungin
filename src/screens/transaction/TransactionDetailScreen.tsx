@@ -8,17 +8,28 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { Shadow } from '../../constants/theme';
+import { useCategoryStore } from '../../store/useCategoryStore';
 import { useTransactionStore } from '../../store/useTransactionStore';
-import { getCategoryById } from '../../constants/categories';
+import { resolveCategoryByKey } from '../../utils/categoryResolver';
 import { formatRupiah } from '../../utils/currency';
 import { formatDateLong } from '../../utils/date';
 
 export function TransactionDetailScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<any>>();
     const route = useRoute<any>();
-    const { transactions, removeTransaction } = useTransactionStore();
-    const transaction = transactions.find((t) => t.id === route.params?.transactionId);
-    const category = transaction ? getCategoryById(transaction.category) : null;
+    const { transactions, recentTransactions, removeTransaction } = useTransactionStore();
+    const categories = useCategoryStore((state) => state.categories);
+    const loadCategories = useCategoryStore((state) => state.loadCategories);
+    const transactionId = route.params?.transactionId;
+    const transaction = transactions.find((t) => t.id === transactionId)
+        ?? recentTransactions.find((t) => t.id === transactionId);
+    const category = transaction ? resolveCategoryByKey(transaction.category, categories) : null;
+
+    useEffect(() => {
+        if (categories.length === 0) {
+            loadCategories();
+        }
+    }, [categories.length, loadCategories]);
 
     if (!transaction) {
         return (
@@ -29,6 +40,7 @@ export function TransactionDetailScreen() {
     }
 
     const isIncome = transaction.type === 'income';
+    const handleEdit = () => navigation.navigate('AddTransaction', { editId: transaction.id });
 
     const handleDelete = () => {
         Alert.alert('Hapus Transaksi', 'Yakin ingin menghapus transaksi ini?', [
@@ -53,6 +65,15 @@ export function TransactionDetailScreen() {
                     <MaterialCommunityIcons name="arrow-left" size={22} color={Colors.textPrimary} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle} allowFontScaling={true} accessibilityRole="header">Detail Transaksi</Text>
+                <TouchableOpacity
+                    onPress={handleEdit}
+                    style={styles.editBtn}
+                    accessible={true}
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit transaksi"
+                >
+                    <MaterialCommunityIcons name="pencil-outline" size={22} color={Colors.textPrimary} />
+                </TouchableOpacity>
                 <TouchableOpacity
                     onPress={handleDelete}
                     style={styles.deleteBtn}
@@ -107,6 +128,7 @@ const styles = StyleSheet.create({
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
     backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
     headerTitle: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: Colors.textPrimary },
+    editBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginLeft: 'auto' },
     deleteBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
     content: { padding: 20, gap: 16 },
     notFound: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: Colors.textSecondary, textAlign: 'center', padding: 40 },

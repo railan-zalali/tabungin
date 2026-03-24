@@ -5,7 +5,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import {
     useFonts,
     PlusJakartaSans_400Regular,
@@ -25,6 +25,7 @@ import { linking } from './src/navigation/LinkingConfiguration';
 export default function App() {
     const [dbReady, setDbReady] = useState(false);
     const [dbError, setDbError] = useState<string | null>(null);
+    const [dbInitAttempt, setDbInitAttempt] = useState(0);
 
     const [fontsLoaded, fontError] = useFonts({
         PlusJakartaSans_400Regular,
@@ -36,18 +37,36 @@ export default function App() {
     });
 
     useEffect(() => {
+        let isMounted = true;
+
         async function setupDatabase() {
             try {
+                setDbError(null);
                 await initDatabase();
-                setDbReady(true);
+                if (isMounted) {
+                    setDbReady(true);
+                }
             } catch (error) {
                 console.error('Gagal menginisialisasi database:', error);
-                setDbError('Gagal memuat database. Coba restart aplikasi.');
-                setDbReady(true); // tetap lanjutkan meski error
+                if (isMounted) {
+                    setDbReady(false);
+                    setDbError('Gagal memuat database. Coba lagi untuk melanjutkan.');
+                }
             }
         }
+
         setupDatabase();
-    }, []);
+
+        return () => {
+            isMounted = false;
+        };
+    }, [dbInitAttempt]);
+
+    const handleRetryDatabase = () => {
+        setDbReady(false);
+        setDbError(null);
+        setDbInitAttempt((current) => current + 1);
+    };
 
     if (!fontsLoaded && !fontError || !dbReady) {
         return (
@@ -59,7 +78,17 @@ export default function App() {
                 </View>
                 <ActivityIndicator size="large" color={Colors.primary} accessibilityLabel="Sedang memuat" />
                 {dbError && (
-                    <Text style={styles.errorText} allowFontScaling={false}>{dbError}</Text>
+                    <View style={styles.errorContainer}>
+                        <Text style={styles.errorText} allowFontScaling={false}>{dbError}</Text>
+                        <TouchableOpacity
+                            style={styles.retryButton}
+                            onPress={handleRetryDatabase}
+                            accessibilityRole="button"
+                            accessibilityLabel="Coba lagi memuat database"
+                        >
+                            <Text style={styles.retryButtonText} allowFontScaling={false}>Coba Lagi</Text>
+                        </TouchableOpacity>
+                    </View>
                 )}
                 {fontError && (
                     <Text style={styles.errorText} allowFontScaling={false}>Gagal memuat font.</Text>
@@ -106,5 +135,20 @@ const styles = StyleSheet.create({
         color: Colors.danger,
         textAlign: 'center',
         paddingHorizontal: 40,
+    },
+    errorContainer: {
+        alignItems: 'center',
+        gap: 12,
+    },
+    retryButton: {
+        backgroundColor: Colors.primary,
+        borderRadius: 12,
+        paddingHorizontal: 18,
+        paddingVertical: 10,
+    },
+    retryButtonText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '600',
     },
 });

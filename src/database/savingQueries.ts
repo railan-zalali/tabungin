@@ -1,5 +1,5 @@
 // Query database untuk tabel saving_goals dan saving_logs
-import { getDatabase } from './schema';
+import { getInitializedDatabase } from './schema';
 import type { SavingGoal, SavingLog } from '../types/saving';
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
@@ -18,12 +18,40 @@ function mapGoalRow(r: RawGoalRow): SavingGoal {
  * Ambil semua saving goals
  * Filter out pending_delete
  */
-export async function fetchSavingGoals(filter?: 'active' | 'completed' | 'all', profileId?: string): Promise<SavingGoal[]> {
-    const db = await getDatabase();
+export async function fetchSavingGoals(
+    filter?: 'active' | 'completed' | 'all',
+    profileId?: string,
+    userEmail?: string,
+): Promise<SavingGoal[]> {
+    const db = await getInitializedDatabase();
     let query = "SELECT * FROM saving_goals WHERE sync_status != 'pending_delete'";
     const params: (string | number)[] = [];
 
-    if (profileId) {
+    if (profileId && userEmail) {
+        query += ` AND (
+            profile_id = ?
+            OR wallet_id IN (
+                SELECT id
+                FROM wallets
+                WHERE sync_status != 'pending_delete'
+                  AND (
+                    profile_id = ?
+                    OR id IN (
+                        SELECT wallet_id
+                        FROM wallet_members
+                        WHERE lower(user_email) = lower(?)
+                          AND sync_status != 'pending_delete'
+                    )
+                  )
+            )
+            OR id IN (
+                SELECT goal_id
+                FROM wallet_goals_shared
+                WHERE lower(user_email) = lower(?)
+            )
+        )`;
+        params.push(profileId, profileId, userEmail, userEmail);
+    } else if (profileId) {
         query += " AND profile_id = ?";
         params.push(profileId);
     }
@@ -43,7 +71,7 @@ export async function fetchSavingGoals(filter?: 'active' | 'completed' | 'all', 
  * Ambil satu saving goal berdasarkan ID
  */
 export async function fetchSavingGoalById(id: string): Promise<SavingGoal | null> {
-    const db = await getDatabase();
+    const db = await getInitializedDatabase();
     const row = await db.getFirstAsync<RawGoalRow>(
         "SELECT * FROM saving_goals WHERE id = ? AND sync_status != 'pending_delete'",
         [id]
@@ -59,7 +87,7 @@ export async function fetchSavingGoalById(id: string): Promise<SavingGoal | null
 export async function insertSavingGoal(
     data: Omit<SavingGoal, 'id' | 'created_at'>
 ): Promise<SavingGoal> {
-    const db = await getDatabase();
+    const db = await getInitializedDatabase();
     const id = uuidv4();
     const created_at = Date.now();
     const updated_at = created_at;
@@ -97,7 +125,7 @@ export async function updateSavingGoal(
     id: string,
     data: Partial<Omit<SavingGoal, 'id' | 'created_at'>>
 ): Promise<void> {
-    const db = await getDatabase();
+    const db = await getInitializedDatabase();
     const mapped: Record<string, string | number | null> = {};
 
     for (const [key, value] of Object.entries(data)) {
@@ -123,7 +151,7 @@ export async function updateSavingGoal(
  * Gunakan soft delete pending_delete
  */
 export async function deleteSavingGoal(id: string): Promise<void> {
-    const db = await getDatabase();
+    const db = await getInitializedDatabase();
     
     const row = await db.getFirstAsync<{ sync_status: string }>('SELECT sync_status FROM saving_goals WHERE id = ?', [id]);
     
@@ -146,7 +174,7 @@ export async function deleteSavingGoal(id: string): Promise<void> {
  * Ambil semua log tabungan untuk goal tertentu
  */
 export async function fetchSavingLogs(goalId: string): Promise<SavingLog[]> {
-    const db = await getDatabase();
+    const db = await getInitializedDatabase();
     return await db.getAllAsync<SavingLog>(
         "SELECT * FROM saving_logs WHERE goal_id = ? AND sync_status != 'pending_delete' ORDER BY date DESC",
         [goalId]
@@ -160,7 +188,7 @@ export async function fetchSavingLogs(goalId: string): Promise<SavingLog[]> {
 export async function insertSavingLog(
     data: Omit<SavingLog, 'id' | 'created_at'>
 ): Promise<SavingLog> {
-    const db = await getDatabase();
+    const db = await getInitializedDatabase();
     const id = uuidv4();
     const created_at = Date.now();
     const updated_at = created_at;
@@ -188,3 +216,4 @@ export async function insertSavingLog(
 
     return { id, created_at, ...data };
 }
+

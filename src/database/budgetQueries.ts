@@ -1,5 +1,5 @@
 // Query database untuk tabel budgets (anggaran per kategori per bulan)
-import { getDatabase } from './schema';
+import { getInitializedDatabase } from './schema';
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -23,7 +23,7 @@ export interface BudgetWithSpent extends Budget {
  * Filter out pending_delete
  */
 export async function fetchBudgetsWithSpent(month: number, year: number): Promise<BudgetWithSpent[]> {
-    const db = await getDatabase();
+    const db = await getInitializedDatabase();
 
     // Hitung rentang tanggal bulan ini dalam ms
     const startDate = new Date(year, month - 1, 1).getTime();
@@ -58,7 +58,7 @@ export async function upsertBudget(
     month: number,
     year: number
 ): Promise<Budget> {
-    const db = await getDatabase();
+    const db = await getInitializedDatabase();
     const existing = await db.getFirstAsync<Budget>(
         "SELECT * FROM budgets WHERE category = ? AND month = ? AND year = ? AND sync_status != 'pending_delete'",
         [category, month, year]
@@ -88,7 +88,7 @@ export async function upsertBudget(
  * Hapus budget
  */
 export async function deleteBudget(id: string): Promise<void> {
-    const db = await getDatabase();
+    const db = await getInitializedDatabase();
     
     const row = await db.getFirstAsync<{ sync_status: string }>('SELECT sync_status FROM budgets WHERE id = ?', [id]);
     
@@ -110,7 +110,7 @@ export async function fetchBudgetSummary(month: number, year: number): Promise<{
     totalSpent: number;
     categoriesOver: number;
 }> {
-    const db = await getDatabase();
+    const db = await getInitializedDatabase();
     const startDate = new Date(year, month - 1, 1).getTime();
     const endDate = new Date(year, month, 0, 23, 59, 59, 999).getTime();
 
@@ -135,3 +135,4 @@ export async function fetchBudgetSummary(month: number, year: number): Promise<{
         categoriesOver,
     };
 }
+

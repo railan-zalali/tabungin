@@ -21,9 +21,10 @@ import { FontFamily, FontSize } from '../../constants/typography';
 import type { Transaction } from '../../types/transaction';
 import { formatRupiah } from '../../utils/currency';
 
-import { getCategoryById } from '../../constants/categories';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useCategoryStore } from '../../store/useCategoryStore';
 import { useTheme } from '../../store/useThemeStore';
+import { resolveCategoryByKey } from '../../utils/categoryResolver';
 
 interface TransactionItemProps {
     transaction: Transaction;
@@ -39,8 +40,9 @@ export function TransactionItem({ transaction, onDelete, onEdit, onPress }: Tran
     const styles = React.useMemo(() => getStyles(colors), [colors]);
     const translateX = useSharedValue(0);
     const hapticEnabled = useAuthStore((s) => s.hapticEnabled);
+    const categories = useCategoryStore((s) => s.categories);
 
-    const category = getCategoryById(transaction.category);
+    const category = resolveCategoryByKey(transaction.category, categories);
     const isIncome = transaction.type === 'income';
 
     const handleDelete = useCallback(() => {

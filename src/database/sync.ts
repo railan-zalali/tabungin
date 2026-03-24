@@ -1,4 +1,4 @@
-import { getDatabase } from "./schema";
+import { getInitializedDatabase } from "./schema";
 import { supabase } from "../lib/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { NetInfoState, useNetInfo } from "@react-native-community/netinfo";
@@ -157,7 +157,7 @@ async function reconcileLocalProfileWithSupabase(
   userId: string,
   userEmail: string,
 ): Promise<string> {
-  const db = await getDatabase();
+  const db = await getInitializedDatabase();
   const { useProfileStore } = await import('../store/useProfileStore');
 
   const now = Date.now();
@@ -227,7 +227,7 @@ async function reconcileLocalProfileWithSupabase(
  * CRITICAL: Profiles harus di-sync duluan agar wallets bisa refer ke profile_id
  */
 async function pushChanges() {
-  const db = await getDatabase();
+  const db = await getInitializedDatabase();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -450,7 +450,7 @@ function mapRecordFromSupabase(table: string, row: any): any {
  * PULL: Ambil perubahan dari Supabase
  */
 async function pullChanges() {
-  const db = await getDatabase();
+  const db = await getInitializedDatabase();
   const rawLastSync = await getLastSyncTime();
   // Pastikan lastSync adalah angka valid (bukan string atau NaN)
   const lastSync = Number(rawLastSync) || 0;
@@ -578,7 +578,7 @@ export async function syncDatabase() {
  * @returns boolean true jika ada perubahan data lokal, false jika tidak
  */
 export async function handleRealtimePayload(tableName: string, payload: any): Promise<boolean> {
-  const db = await getDatabase();
+  const db = await getInitializedDatabase();
   const tableDef = SYNC_TABLES.find((t) => t.tableName === tableName);
   // Optional support: if table_members was stripped but we still want realtime for it, we can bypass the tableDef check, 
   // but let's assume we won't sync wallet_members to sqlite anymore as it's online-only now.
@@ -640,3 +640,4 @@ export async function handleRealtimePayload(tableName: string, payload: any): Pr
   }
   return false;
 }
+

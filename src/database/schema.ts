@@ -4,6 +4,7 @@ import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 
 let db: SQLite.SQLiteDatabase | null = null;
+let dbInitPromise: Promise<void> | null = null;
 
 export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
     if (!db) {
@@ -14,7 +15,7 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 
 // ─── VERSI SCHEMA SAAT INI ─────────────────────────────────────────
 // Naikkan angka ini setiap kali ada perubahan schema database
-const CURRENT_DB_VERSION = 8;
+const CURRENT_DB_VERSION = 12;
 
 // ─── DAFTAR MIGRASI ───────────────────────────────────────────────
 // Key = nomor versi target, value = SQL yang dijalankan untuk upgrade ke versi itu
@@ -185,8 +186,187 @@ const MIGRATIONS: Record<number, string[]> = {
         `ALTER TABLE _wallet_members_new RENAME TO wallet_members;`,
         `CREATE INDEX IF NOT EXISTS idx_wallet_members_wallet ON wallet_members (wallet_id);`,
         `CREATE INDEX IF NOT EXISTS idx_wallet_members_email ON wallet_members (user_email);`,
+    ],
+    9: [
+        // Versi 9: Notifications Table
+        `CREATE TABLE IF NOT EXISTS notifications (
+            id TEXT PRIMARY KEY NOT NULL,
+            user_id TEXT NOT NULL,
+            type TEXT NOT NULL CHECK(type IN ('goal_reminder', 'goal_completed', 'budget_warning', 'wallet_invite')),
+            title TEXT NOT NULL,
+            body TEXT NOT NULL,
+            data TEXT,
+            is_read INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL,
+            sync_status TEXT DEFAULT 'synced'
+        );`,
+        `CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications (user_id);`,
+        `CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications (created_at DESC);`,
+        `CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications (user_id, is_read, created_at DESC);`,
+    ],
+    10: [
+        // Versi 10: Wallet Goals Sharing Table
+        `CREATE TABLE IF NOT EXISTS wallet_goals_shared (
+            id TEXT PRIMARY KEY,
+            goal_id TEXT NOT NULL,
+            wallet_id TEXT NOT NULL,
+            user_email TEXT NOT NULL,
+            shared_by TEXT NOT NULL,
+            shared_at INTEGER NOT NULL,
+            created_at INTEGER NOT NULL,
+            sync_status TEXT DEFAULT 'synced'
+        );`,
+        `CREATE INDEX IF NOT EXISTS idx_wallet_goals_shared_goal ON wallet_goals_shared (goal_id);`,
+        `CREATE INDEX IF NOT EXISTS idx_wallet_goals_shared_wallet_user ON wallet_goals_shared (wallet_id, user_email);`,
+    ],
+    11: [
+        // Versi 11: Recurring Transactions Table
+        `CREATE TABLE IF NOT EXISTS recurring_transactions (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            wallet_id TEXT,
+            category TEXT NOT NULL,
+            amount REAL NOT NULL,
+            type TEXT NOT NULL CHECK(type IN ('income', 'expense')),
+            note TEXT,
+            frequency TEXT NOT NULL CHECK(frequency IN ('daily', 'weekly', 'biweekly', 'monthly', 'yearly')),
+            day_of_month INTEGER,
+            day_of_week INTEGER,
+            start_date INTEGER NOT NULL,
+            end_date INTEGER,
+            next_occurrence INTEGER NOT NULL,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            last_generated_at INTEGER,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER,
+            sync_status TEXT DEFAULT 'synced'
+        );`,
+        `CREATE INDEX IF NOT EXISTS idx_recurring_user ON recurring_transactions (user_id);`,
+        `CREATE INDEX IF NOT EXISTS idx_recurring_wallet ON recurring_transactions (wallet_id);`,
+        `CREATE INDEX IF NOT EXISTS idx_recurring_next ON recurring_transactions (next_occurrence);`,
+        `CREATE INDEX IF NOT EXISTS idx_recurring_active ON recurring_transactions (user_id, is_active);`,
+    ],
+    12: [
+        // Versi 12: Transaction Categories Table
+        `CREATE TABLE IF NOT EXISTS transaction_categories (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL CHECK(type IN ('income', 'expense', 'both')),
+            icon TEXT NOT NULL DEFAULT 'tag',
+            color TEXT NOT NULL DEFAULT '#1DB954',
+            is_default INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER,
+            sync_status TEXT DEFAULT 'synced'
+        );`,
+        `CREATE INDEX IF NOT EXISTS idx_categories_user ON transaction_categories (user_id);`,
+        `CREATE INDEX IF NOT EXISTS idx_categories_type ON transaction_categories (user_id, type);`,
     ]
 };
+
+const SCHEMA_GUARDS: string[] = [
+    `CREATE TABLE IF NOT EXISTS wallets (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL DEFAULT 'general',
+        color TEXT NOT NULL DEFAULT '#1DB954',
+        balance REAL NOT NULL DEFAULT 0,
+        is_default INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER,
+        sync_status TEXT DEFAULT 'pending_create',
+        profile_id TEXT
+    );`,
+    `CREATE INDEX IF NOT EXISTS idx_wallets_profile ON wallets (profile_id);`,
+    `CREATE TABLE IF NOT EXISTS profiles (
+        id TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT,
+        name TEXT NOT NULL,
+        icon TEXT DEFAULT 'account',
+        color TEXT DEFAULT '#1DB954',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER,
+        sync_status TEXT DEFAULT 'pending_create'
+    );`,
+    `CREATE TABLE IF NOT EXISTS wallet_members (
+        id TEXT PRIMARY KEY NOT NULL,
+        wallet_id TEXT NOT NULL,
+        user_email TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'editor',
+        status TEXT NOT NULL DEFAULT 'pending',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER,
+        sync_status TEXT DEFAULT 'pending_create',
+        FOREIGN KEY (wallet_id) REFERENCES wallets(id) ON DELETE CASCADE
+    );`,
+    `CREATE INDEX IF NOT EXISTS idx_wallet_members_wallet ON wallet_members (wallet_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_wallet_members_email ON wallet_members (user_email);`,
+    `CREATE TABLE IF NOT EXISTS notifications (
+        id TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL,
+        type TEXT NOT NULL CHECK(type IN ('goal_reminder', 'goal_completed', 'budget_warning', 'wallet_invite')),
+        title TEXT NOT NULL,
+        body TEXT NOT NULL,
+        data TEXT,
+        is_read INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        sync_status TEXT DEFAULT 'synced'
+    );`,
+    `CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications (user_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications (created_at DESC);`,
+    `CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications (user_id, is_read, created_at DESC);`,
+    `CREATE TABLE IF NOT EXISTS wallet_goals_shared (
+        id TEXT PRIMARY KEY,
+        goal_id TEXT NOT NULL,
+        wallet_id TEXT NOT NULL,
+        user_email TEXT NOT NULL,
+        shared_by TEXT NOT NULL,
+        shared_at INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        sync_status TEXT DEFAULT 'synced'
+    );`,
+    `CREATE INDEX IF NOT EXISTS idx_wallet_goals_shared_goal ON wallet_goals_shared (goal_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_wallet_goals_shared_wallet_user ON wallet_goals_shared (wallet_id, user_email);`,
+    `CREATE TABLE IF NOT EXISTS recurring_transactions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        wallet_id TEXT,
+        category TEXT NOT NULL,
+        amount REAL NOT NULL,
+        type TEXT NOT NULL CHECK(type IN ('income', 'expense')),
+        note TEXT,
+        frequency TEXT NOT NULL CHECK(frequency IN ('daily', 'weekly', 'biweekly', 'monthly', 'yearly')),
+        day_of_month INTEGER,
+        day_of_week INTEGER,
+        start_date INTEGER NOT NULL,
+        end_date INTEGER,
+        next_occurrence INTEGER NOT NULL,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        last_generated_at INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER,
+        sync_status TEXT DEFAULT 'synced'
+    );`,
+    `CREATE INDEX IF NOT EXISTS idx_recurring_user ON recurring_transactions (user_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_recurring_wallet ON recurring_transactions (wallet_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_recurring_next ON recurring_transactions (next_occurrence);`,
+    `CREATE INDEX IF NOT EXISTS idx_recurring_active ON recurring_transactions (user_id, is_active);`,
+    `CREATE TABLE IF NOT EXISTS transaction_categories (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL CHECK(type IN ('income', 'expense', 'both')),
+        icon TEXT NOT NULL DEFAULT 'tag',
+        color TEXT NOT NULL DEFAULT '#1DB954',
+        is_default INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER,
+        sync_status TEXT DEFAULT 'synced'
+    );`,
+    `CREATE INDEX IF NOT EXISTS idx_categories_user ON transaction_categories (user_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_categories_type ON transaction_categories (user_id, type);`,
+];
 
 // ─── RUNNER MIGRASI ───────────────────────────────────────────────
 async function runMigrations(database: SQLite.SQLiteDatabase): Promise<void> {
@@ -210,7 +390,7 @@ async function runMigrations(database: SQLite.SQLiteDatabase): Promise<void> {
         console.log(`[DB Migration] Menjalankan migrasi v${v}...`);
         await database.withTransactionAsync(async () => {
             for (const sql of steps) {
-                await database.execAsync(sql);
+                await database.runAsync(sql);
             }
         });
         console.log(`[DB Migration] Migrasi v${v} selesai.`);
@@ -221,122 +401,276 @@ async function runMigrations(database: SQLite.SQLiteDatabase): Promise<void> {
     console.log(`[DB Migration] Database sekarang di versi ${CURRENT_DB_VERSION}`);
 }
 
+async function runSchemaGuards(database: SQLite.SQLiteDatabase): Promise<void> {
+    await database.withTransactionAsync(async () => {
+        // Pastikan tabel-tabel baru ada dan memiliki struktur yang benar
+        const newTableDefs: Record<string, { sql: string, requiredColumns: string[] }> = {
+            notifications: {
+                sql: `CREATE TABLE IF NOT EXISTS notifications (
+                    id TEXT PRIMARY KEY NOT NULL,
+                    user_id TEXT NOT NULL,
+                    type TEXT NOT NULL CHECK(type IN ('goal_reminder', 'goal_completed', 'budget_warning', 'wallet_invite')),
+                    title TEXT NOT NULL,
+                    body TEXT NOT NULL,
+                    data TEXT,
+                    is_read INTEGER NOT NULL DEFAULT 0,
+                    created_at INTEGER NOT NULL,
+                    sync_status TEXT DEFAULT 'synced'
+                );`,
+                requiredColumns: ['user_id', 'type', 'title', 'body', 'is_read', 'created_at']
+            },
+            wallet_goals_shared: {
+                sql: `CREATE TABLE IF NOT EXISTS wallet_goals_shared (
+                    id TEXT PRIMARY KEY,
+                    goal_id TEXT NOT NULL,
+                    wallet_id TEXT NOT NULL,
+                    user_email TEXT NOT NULL,
+                    shared_by TEXT NOT NULL,
+                    shared_at INTEGER NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    sync_status TEXT DEFAULT 'synced'
+                );`,
+                requiredColumns: ['goal_id', 'wallet_id', 'user_email', 'shared_by', 'shared_at']
+            },
+            recurring_transactions: {
+                sql: `CREATE TABLE IF NOT EXISTS recurring_transactions (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    wallet_id TEXT,
+                    category TEXT NOT NULL,
+                    amount REAL NOT NULL,
+                    type TEXT NOT NULL CHECK(type IN ('income', 'expense')),
+                    note TEXT,
+                    frequency TEXT NOT NULL CHECK(frequency IN ('daily', 'weekly', 'biweekly', 'monthly', 'yearly')),
+                    day_of_month INTEGER,
+                    day_of_week INTEGER,
+                    start_date INTEGER NOT NULL,
+                    end_date INTEGER,
+                    next_occurrence INTEGER NOT NULL,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    last_generated_at INTEGER,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER,
+                    sync_status TEXT DEFAULT 'synced'
+                );`,
+                requiredColumns: ['user_id', 'category', 'amount', 'type', 'frequency', 'next_occurrence', 'is_active']
+            },
+            transaction_categories: {
+                sql: `CREATE TABLE IF NOT EXISTS transaction_categories (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    type TEXT NOT NULL CHECK(type IN ('income', 'expense', 'both')),
+                    icon TEXT NOT NULL DEFAULT 'tag',
+                    color TEXT NOT NULL DEFAULT '#1DB954',
+                    is_default INTEGER NOT NULL DEFAULT 0,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER,
+                    sync_status TEXT DEFAULT 'synced'
+                );`,
+                requiredColumns: ['user_id', 'name', 'type', 'icon', 'color', 'is_default']
+            }
+        };
+
+        for (const [tableName, def] of Object.entries(newTableDefs)) {
+            try {
+                // Buat tabel jika belum ada
+                await database.runAsync(def.sql);
+
+                // Cek dan tambahkan kolom yang hilang
+                const columns = await database.getAllAsync<{name: string}>(`PRAGMA table_info(${tableName})`);
+                const columnNames = columns.map(c => c.name);
+
+                for (const colName of def.requiredColumns) {
+                    if (!columnNames.includes(colName)) {
+                        console.log(`[DB SchemaGuard] Menambahkan kolom ${colName} ke ${tableName}`);
+                        try {
+                            await database.runAsync(`ALTER TABLE ${tableName} ADD COLUMN ${colName} TEXT`);
+                        } catch (e) {
+                            // Kolom mungkin sudah ada atau ada error lain
+                            console.log(`[DB SchemaGuard] Note: ${e}`);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error(`[DB SchemaGuard] Gagal memproses tabel ${tableName}:`, e);
+            }
+        }
+
+        // Jalankan schema guards untuk tabel lain
+        for (const sql of SCHEMA_GUARDS) {
+            try {
+                await database.runAsync(sql);
+            } catch (e) {
+                console.log(`[DB SchemaGuard] Skip (mungkin sudah ada): ${sql.substring(0, 50)}...`);
+            }
+        }
+    });
+}
+
 // ─── INISIALISASI DATABASE ────────────────────────────────────────
 export async function initDatabase(): Promise<void> {
-    const database = await getDatabase();
+    if (!dbInitPromise) {
+        dbInitPromise = (async () => {
+            const database = await getDatabase();
 
-    // Aktifkan WAL mode dan foreign keys
-    await database.execAsync('PRAGMA journal_mode = WAL;');
-    await database.execAsync('PRAGMA foreign_keys = ON;');
+            // Aktifkan WAL mode dan foreign keys
+            await database.execAsync('PRAGMA journal_mode = WAL;');
+            await database.execAsync('PRAGMA foreign_keys = ON;');
 
-    // Jalankan migrasi schema
-    await runMigrations(database);
+            // Jalankan migrasi schema
+            await runMigrations(database);
 
-    // [SELF-HEALING] Pastikan kolom kritis ada (untuk mengatasi inkonsistensi versi migrasi)
-    const tablesToCheck = ['transactions', 'saving_goals', 'saving_logs', 'budgets'];
-    for (const table of tablesToCheck) {
-        try {
-            const columns = await database.getAllAsync<{name: string}>(`PRAGMA table_info(${table})`);
-            const columnNames = columns.map(c => c.name);
+            // [SELF-HEALING] Pastikan tabel/indeks fitur terbaru tetap tersedia meski versi database sudah terlanjur tinggi
+            await runSchemaGuards(database);
 
-            if (!columnNames.includes('sync_status')) {
-                console.log(`[DB Repair] Menambahkan sync_status ke ${table}`);
-                await database.execAsync(`ALTER TABLE ${table} ADD COLUMN sync_status TEXT DEFAULT 'pending_create'`);
-                await database.execAsync(`CREATE INDEX IF NOT EXISTS idx_${table}_sync ON ${table} (sync_status)`);
+            // [SELF-HEALING] Pastikan tabel baru tersedia (untuk mengatasi inkonsistensi versi migrasi)
+            const tablesToCheck = ['transactions', 'saving_goals', 'saving_logs', 'budgets'];
+            const newTables = ['notifications', 'wallet_goals_shared', 'recurring_transactions', 'transaction_categories'];
+
+            // Cek tabel-tabel yang perlu repair kolom
+            for (const table of tablesToCheck) {
+                try {
+                    const columns = await database.getAllAsync<{name: string}>(`PRAGMA table_info(${table})`);
+                    const columnNames = columns.map(c => c.name);
+
+                    if (!columnNames.includes('sync_status')) {
+                        console.log(`[DB Repair] Menambahkan sync_status ke ${table}`);
+                        await database.execAsync(`ALTER TABLE ${table} ADD COLUMN sync_status TEXT DEFAULT 'pending_create'`);
+                        await database.execAsync(`CREATE INDEX IF NOT EXISTS idx_${table}_sync ON ${table} (sync_status)`);
+                    }
+
+                    if (!columnNames.includes('updated_at')) {
+                        console.log(`[DB Repair] Menambahkan updated_at ke ${table}`);
+                        await database.execAsync(`ALTER TABLE ${table} ADD COLUMN updated_at INTEGER`);
+                    }
+
+                    // Cek wallet_id (kecuali saving_logs yang tidak butuh)
+                    if (table !== 'saving_logs' && !columnNames.includes('wallet_id')) {
+                        console.log(`[DB Repair] Menambahkan wallet_id ke ${table}`);
+                        await database.execAsync(`ALTER TABLE ${table} ADD COLUMN wallet_id TEXT`);
+                        await database.execAsync(`CREATE INDEX IF NOT EXISTS idx_${table}_wallet ON ${table} (wallet_id)`);
+                    }
+                } catch (e) {
+                    console.error(`[DB Repair] Gagal memeriksa tabel ${table}:`, e);
+                }
             }
-            
-            if (!columnNames.includes('updated_at')) {
-                console.log(`[DB Repair] Menambahkan updated_at ke ${table}`);
-                await database.execAsync(`ALTER TABLE ${table} ADD COLUMN updated_at INTEGER`);
+
+            // Cek tabel-tabel baru yang harus ada
+            for (const table of newTables) {
+                try {
+                    const tableExists = await database.getFirstAsync<{ name: string }>(
+                        `SELECT name FROM sqlite_master WHERE type='table' AND name=?`,
+                        [table]
+                    );
+
+                    if (!tableExists) {
+                        console.log(`[DB Repair] Tabel ${table} tidak ditemukan, akan dibuat oleh SCHEMA_GUARDS`);
+                    } else {
+                        const columns = await database.getAllAsync<{name: string}>(`PRAGMA table_info(${table})`);
+                        const columnNames = columns.map(c => c.name);
+
+                        // Cek user_id untuk tabel yang butuh
+                        if (['notifications', 'recurring_transactions', 'transaction_categories'].includes(table)) {
+                            if (!columnNames.includes('user_id')) {
+                                console.log(`[DB Repair] Menambahkan user_id ke ${table}`);
+                                await database.execAsync(`ALTER TABLE ${table} ADD COLUMN user_id TEXT`);
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error(`[DB Repair] Gagal memeriksa tabel baru ${table}:`, e);
+                }
             }
 
-            // Cek wallet_id (kecuali saving_logs yang tidak butuh)
-            if (table !== 'saving_logs' && !columnNames.includes('wallet_id')) {
-                console.log(`[DB Repair] Menambahkan wallet_id ke ${table}`);
-                await database.execAsync(`ALTER TABLE ${table} ADD COLUMN wallet_id TEXT`);
-                await database.execAsync(`CREATE INDEX IF NOT EXISTS idx_${table}_wallet ON ${table} (wallet_id)`);
+            // Inisialisasi Default Wallet jika belum ada (untuk migrasi ke v5)
+            const walletCount = await database.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM wallets');
+            if (walletCount && walletCount.count === 0) {
+                const defaultWalletId = uuidv4();
+                const now = Date.now();
+                
+                console.log('[DB Init] Membuat Default Wallet & Migrasi Data Lama...');
+                
+                await database.withTransactionAsync(async () => {
+                    // Buat Dompet Utama
+                    await database.runAsync(
+                        `INSERT INTO wallets (id, name, type, color, is_default, created_at, updated_at, sync_status)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                        [defaultWalletId, 'Dompet Utama', 'cash', '#1DB954', 1, now, now, 'pending_create']
+                    );
+                    
+                    // Assign semua data lama ke dompet ini
+                    await database.runAsync(
+                        `UPDATE transactions SET wallet_id = ?, sync_status = 'pending_update', updated_at = ? WHERE wallet_id IS NULL`,
+                        [defaultWalletId, now]
+                    );
+                    await database.runAsync(
+                        `UPDATE saving_goals SET wallet_id = ?, sync_status = 'pending_update', updated_at = ? WHERE wallet_id IS NULL`,
+                        [defaultWalletId, now]
+                    );
+                    await database.runAsync(
+                        `UPDATE budgets SET wallet_id = ?, sync_status = 'pending_update', updated_at = ? WHERE wallet_id IS NULL`,
+                        [defaultWalletId, now]
+                    );
+                });
             }
-        } catch (e) {
-            console.error(`[DB Repair] Gagal memeriksa tabel ${table}:`, e);
-        }
-    }
 
-    // Inisialisasi Default Wallet jika belum ada (untuk migrasi ke v5)
-    const walletCount = await database.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM wallets');
-    if (walletCount && walletCount.count === 0) {
-        const defaultWalletId = uuidv4();
-        const now = Date.now();
-        
-        console.log('[DB Init] Membuat Default Wallet & Migrasi Data Lama...');
-        
-        await database.withTransactionAsync(async () => {
-            // Buat Dompet Utama
-            await database.runAsync(
-                `INSERT INTO wallets (id, name, type, color, is_default, created_at, updated_at, sync_status)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                [defaultWalletId, 'Dompet Utama', 'cash', '#1DB954', 1, now, now, 'pending_create']
-            );
-            
-            // Assign semua data lama ke dompet ini
-            await database.runAsync(
-                `UPDATE transactions SET wallet_id = ?, sync_status = 'pending_update', updated_at = ? WHERE wallet_id IS NULL`,
-                [defaultWalletId, now]
-            );
-            await database.runAsync(
-                `UPDATE saving_goals SET wallet_id = ?, sync_status = 'pending_update', updated_at = ? WHERE wallet_id IS NULL`,
-                [defaultWalletId, now]
-            );
-            await database.runAsync(
-                `UPDATE budgets SET wallet_id = ?, sync_status = 'pending_update', updated_at = ? WHERE wallet_id IS NULL`,
-                [defaultWalletId, now]
-            );
+            // Inisialisasi Default Profile jika belum ada (untuk migrasi ke v6)
+            const profileCount = await database.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM profiles');
+            if (profileCount && profileCount.count === 0) {
+                const defaultProfileId = uuidv4();
+                const now = Date.now();
+                
+                console.log('[DB Init] Membuat Default Profile & Migrasi Data Lama...');
+                
+                await database.withTransactionAsync(async () => {
+                    // Buat Profil Utama
+                    await database.runAsync(
+                        `INSERT INTO profiles (id, name, icon, color, created_at, updated_at, sync_status)
+                         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                        [defaultProfileId, 'Pribadi', 'account', '#1DB954', now, now, 'pending_create']
+                    );
+                    
+                    // Assign semua data lama ke profil ini
+                    await database.runAsync(
+                        `UPDATE wallets SET profile_id = ?, sync_status = 'pending_update', updated_at = ? WHERE profile_id IS NULL`,
+                        [defaultProfileId, now]
+                    );
+                    await database.runAsync(
+                        `UPDATE transactions SET profile_id = ?, sync_status = 'pending_update', updated_at = ? WHERE profile_id IS NULL`,
+                        [defaultProfileId, now]
+                    );
+                    await database.runAsync(
+                        `UPDATE budgets SET profile_id = ?, sync_status = 'pending_update', updated_at = ? WHERE profile_id IS NULL`,
+                        [defaultProfileId, now]
+                    );
+                    await database.runAsync(
+                        `UPDATE saving_goals SET profile_id = ?, sync_status = 'pending_update', updated_at = ? WHERE profile_id IS NULL`,
+                        [defaultProfileId, now]
+                    );
+                });
+            }
+
+            // Seed data dummy hanya jika belum ada data sama sekali DAN ini adalah mode debug/development
+            // Untuk production, kita disable auto-seeding agar data user bersih
+            // const result = await database.getFirstAsync<{ count: number }>(
+            //    'SELECT COUNT(*) as count FROM transactions'
+            // );
+            // if (result && result.count === 0) {
+            //    await seedDummyData(database);
+            // }
+        })().catch((error) => {
+            dbInitPromise = null;
+            throw error;
         });
     }
 
-    // Inisialisasi Default Profile jika belum ada (untuk migrasi ke v6)
-    const profileCount = await database.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM profiles');
-    if (profileCount && profileCount.count === 0) {
-        const defaultProfileId = uuidv4();
-        const now = Date.now();
-        
-        console.log('[DB Init] Membuat Default Profile & Migrasi Data Lama...');
-        
-        await database.withTransactionAsync(async () => {
-            // Buat Profil Utama
-            await database.runAsync(
-                `INSERT INTO profiles (id, name, icon, color, created_at, updated_at, sync_status)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [defaultProfileId, 'Pribadi', 'account', '#1DB954', now, now, 'pending_create']
-            );
-            
-            // Assign semua data lama ke profil ini
-            await database.runAsync(
-                `UPDATE wallets SET profile_id = ?, sync_status = 'pending_update', updated_at = ? WHERE profile_id IS NULL`,
-                [defaultProfileId, now]
-            );
-            await database.runAsync(
-                `UPDATE transactions SET profile_id = ?, sync_status = 'pending_update', updated_at = ? WHERE profile_id IS NULL`,
-                [defaultProfileId, now]
-            );
-            await database.runAsync(
-                `UPDATE budgets SET profile_id = ?, sync_status = 'pending_update', updated_at = ? WHERE profile_id IS NULL`,
-                [defaultProfileId, now]
-            );
-            await database.runAsync(
-                `UPDATE saving_goals SET profile_id = ?, sync_status = 'pending_update', updated_at = ? WHERE profile_id IS NULL`,
-                [defaultProfileId, now]
-            );
-        });
-    }
+    await dbInitPromise;
+}
 
-    // Seed data dummy hanya jika belum ada data sama sekali DAN ini adalah mode debug/development
-    // Untuk production, kita disable auto-seeding agar data user bersih
-    // const result = await database.getFirstAsync<{ count: number }>(
-    //    'SELECT COUNT(*) as count FROM transactions'
-    // );
-    // if (result && result.count === 0) {
-    //    await seedDummyData(database);
-    // }
+export async function getInitializedDatabase(): Promise<SQLite.SQLiteDatabase> {
+    await initDatabase();
+    return getDatabase();
 }
 
 // ─── CLEAR DATA ───────────────────────────────────────────────────
@@ -345,19 +679,23 @@ export async function initDatabase(): Promise<void> {
  * Ini penting untuk keamanan agar data tidak dapat diakses oleh pengguna lain di perangkat yang sama.
  */
 export async function clearAllData(): Promise<void> {
-    const database = await getDatabase();
+    const database = await getInitializedDatabase();
     
     await database.withTransactionAsync(async () => {
-        await database.execAsync('DELETE FROM transactions');
-        await database.execAsync('DELETE FROM saving_logs'); // Harus sebelum saving_goals karena FK
-        await database.execAsync('DELETE FROM saving_goals');
-        await database.execAsync('DELETE FROM budgets');
-        await database.execAsync('DELETE FROM wallet_members');
-        await database.execAsync('DELETE FROM wallets');
-        await database.execAsync('DELETE FROM profiles');
+        await database.runAsync('DELETE FROM notifications');
+        await database.runAsync('DELETE FROM recurring_transactions');
+        await database.runAsync('DELETE FROM transaction_categories');
+        await database.runAsync('DELETE FROM wallet_goals_shared');
+        await database.runAsync('DELETE FROM transactions');
+        await database.runAsync('DELETE FROM saving_logs'); // Harus sebelum saving_goals karena FK
+        await database.runAsync('DELETE FROM saving_goals');
+        await database.runAsync('DELETE FROM budgets');
+        await database.runAsync('DELETE FROM wallet_members');
+        await database.runAsync('DELETE FROM wallets');
+        await database.runAsync('DELETE FROM profiles');
         // Jangan hapus tabel users jika masih dipakai untuk cache, tapi karena auth sudah via Supabase, aman untuk dihapus atau diabaikan.
         // Untuk amannya, kita hapus juga users lokal
-        await database.execAsync('DELETE FROM users');
+        await database.runAsync('DELETE FROM users');
     });
 }
 

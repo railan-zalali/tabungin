@@ -17,6 +17,7 @@ import {
     sendGoalCompletedNotification,
 } from '../utils/notificationService';
 import { useProfileStore } from './useProfileStore';
+import { useAuthStore } from './useAuthStore';
 
 interface SavingState {
     goals: SavingGoal[];
@@ -51,7 +52,8 @@ export const useSavingStore = create<SavingState>((set, get) => ({
         set({ isLoading: true });
         try {
             const profileId = useProfileStore.getState().activeProfileId;
-            const all = await fetchSavingGoals('all', profileId || undefined);
+            const userEmail = useAuthStore.getState().user?.email;
+            const all = await fetchSavingGoals('all', profileId || undefined, userEmail || undefined);
             set({
                 goals: all,
                 activeGoals: all.filter((g) => !g.is_completed),

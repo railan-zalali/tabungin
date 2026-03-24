@@ -1,4 +1,4 @@
-import { getDatabase } from './schema';
+import { getInitializedDatabase } from './schema';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface Profile {
@@ -13,12 +13,12 @@ export interface Profile {
 }
 
 export async function fetchProfiles(): Promise<Profile[]> {
-    const db = await getDatabase();
+    const db = await getInitializedDatabase();
     return await db.getAllAsync<Profile>('SELECT * FROM profiles WHERE sync_status != ? ORDER BY created_at ASC', ['pending_delete']);
 }
 
 export async function insertProfile(name: string, icon: string = 'account', color: string = '#1DB954'): Promise<Profile> {
-    const db = await getDatabase();
+    const db = await getInitializedDatabase();
     const id = uuidv4();
     const now = Date.now();
     
@@ -32,7 +32,7 @@ export async function insertProfile(name: string, icon: string = 'account', colo
 }
 
 export async function updateProfile(id: string, data: Partial<Profile>): Promise<void> {
-    const db = await getDatabase();
+    const db = await getInitializedDatabase();
     const now = Date.now();
     
     const fields: string[] = [];
@@ -56,7 +56,7 @@ export async function updateProfile(id: string, data: Partial<Profile>): Promise
 }
 
 export async function deleteProfile(id: string): Promise<void> {
-    const db = await getDatabase();
+    const db = await getInitializedDatabase();
     const now = Date.now();
     
     // Soft delete
@@ -65,3 +65,4 @@ export async function deleteProfile(id: string): Promise<void> {
         [now, id]
     );
 }
+

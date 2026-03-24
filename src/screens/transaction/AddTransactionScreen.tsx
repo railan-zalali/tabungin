@@ -10,11 +10,13 @@ import {
   Platform,
   Alert,
   StatusBar,
+  ActivityIndicator,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "../../constants/colors";
 import { FontFamily, FontSize, Typography } from "../../constants/typography";
@@ -31,11 +33,13 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { formatDateLong } from "../../utils/date";
 
 export function AddTransactionScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<any>>();
+    const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const route = useRoute<any>();
   const insets = useSafeAreaInsets();
-  const { addTransaction, isLoading } = useTransactionStore();
+  const { addTransaction, editTransaction, getTransactionById, isLoading } = useTransactionStore();
   const { wallets, loadWallets } = useWalletStore();
+  const editId = route.params?.editId as string | undefined;
+  const isEditMode = Boolean(editId);
 
   const [txType, setTxType] = useState<TransactionType>(route.params?.type ?? "expense");
   const [amountInput, setAmountInput] = useState("");
@@ -44,6 +48,7 @@ export function AddTransactionScreen() {
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedWalletId, setSelectedWalletId] = useState<string>("");
+  const [isPrefilling, setIsPrefilling] = useState(false);
 
   const [amountError, setAmountError] = useState<string | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
@@ -60,7 +65,45 @@ export function AddTransactionScreen() {
     }
   }, [wallets]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadTransactionForEdit = async () => {
+      if (!editId) return;
+
+      setIsPrefilling(true);
+      try {
+        const transaction = await getTransactionById(editId);
+        if (!transaction) {
+          Alert.alert("Transaksi tidak ditemukan", "Data transaksi sudah tidak tersedia.");
+          navigation.goBack();
+          return;
+        }
+
+        if (!isMounted) return;
+
+        setTxType(transaction.type);
+        setAmountInput(formatInputRupiah(String(transaction.amount)));
+        setCategory(transaction.category);
+        setNote(transaction.note ?? "");
+        setDate(new Date(transaction.date));
+        setSelectedWalletId(transaction.wallet_id ?? "");
+      } finally {
+        if (isMounted) {
+          setIsPrefilling(false);
+        }
+      }
+    };
+
+    loadTransactionForEdit();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [editId, getTransactionById, navigation]);
+
   const amount = parseRupiah(amountInput);
+  const selectedWallet = wallets.find((wallet) => wallet.id === selectedWalletId);
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
@@ -90,14 +133,25 @@ export function AddTransactionScreen() {
       return;
     }
 
-    await addTransaction({
-      type: txType,
-      amount,
-      category,
-      note: note.trim() || null,
-      date: date.getTime(),
-      wallet_id: selectedWalletId,
-    });
+    if (isEditMode && editId) {
+      await editTransaction(editId, {
+        type: txType,
+        amount,
+        category,
+        note: note.trim() || null,
+        date: date.getTime(),
+        wallet_id: selectedWalletId,
+      });
+    } else {
+      await addTransaction({
+        type: txType,
+        amount,
+        category,
+        note: note.trim() || null,
+        date: date.getTime(),
+        wallet_id: selectedWalletId,
+      });
+    }
 
     loadWallets(); // Refresh balance
 
@@ -112,6 +166,8 @@ export function AddTransactionScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.bgOrbTop} />
+      <View style={styles.bgOrbBottom} />
       <StatusBar barStyle='dark-content' backgroundColor='transparent' translucent />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -126,67 +182,111 @@ export function AddTransactionScreen() {
           >
             <MaterialCommunityIcons name='close' size={24} color={Colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Tambah Transaksi</Text>
+          <Text style={styles.headerTitle}>{isEditMode ? "Edit Transaksi" : "Tambah Transaksi"}</Text>
           <View style={{ width: 44 }} />
         </View>
 
+        {isPrefilling ? (
+          <View style={styles.loadingState}>
+            <ActivityIndicator size='large' color={Colors.primary} />
+            <Text style={styles.loadingText}>Memuat transaksi...</Text>
+          </View>
+        ) : (
         <ScrollView
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps='handled'
           showsVerticalScrollIndicator={false}
         >
-          {/* Toggle Pemasukan / Pengeluaran */}
-          <View style={styles.typeToggleContainer}>
-            {(["income", "expense"] as TransactionType[]).map((t) => (
-              <TouchableOpacity
-                key={t}
+          <LinearGradient
+            colors={["rgba(255,255,255,0.92)", `${Colors.primaryLight}`, "rgba(255,255,255,0.88)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroCard}
+          >
+            <View style={styles.heroShine} />
+            <View style={styles.heroTopRow}>
+              <View>
+                <Text style={styles.heroLabel}>Ringkasan Transaksi</Text>
+                <Text style={styles.heroTitle}>
+                  {txType === "income" ? "Catat pemasukan baru" : "Catat pengeluaran baru"}
+                </Text>
+              </View>
+              <View
                 style={[
-                  styles.typeBtn,
-                  txType === t && (t === "income" ? styles.typeBtnIncome : styles.typeBtnExpense),
+                  styles.heroIconWrap,
+                  { backgroundColor: txType === "income" ? Colors.success : Colors.danger },
                 ]}
-                onPress={() => {
-                  setTxType(t);
-                  setCategory("");
-                  setAmountError(null);
-                }}
               >
                 <MaterialCommunityIcons
-                  name={t === "income" ? "arrow-up-circle" : "arrow-down-circle"}
-                  size={20}
-                  color={txType === t ? Colors.textInverse : Colors.textSecondary}
+                  name={txType === "income" ? "arrow-up-circle-outline" : "arrow-down-circle-outline"}
+                  size={26}
+                  color="#FFF"
                 />
-                <Text style={[styles.typeBtnText, txType === t && { color: Colors.textInverse }]}>
-                  {t === "income" ? "Pemasukan" : "Pengeluaran"}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Input Nominal */}
-          <View style={styles.amountSection}>
-            <Text style={styles.fieldLabel}>Nominal</Text>
-            <View style={[styles.amountContainer, amountError ? styles.amountError : null]}>
-              <Text style={styles.currencyPrefix}>Rp</Text>
-              <TextInput
-                style={[styles.amountInput, { fontSize: amountInput.length > 10 ? 24 : 32 }]}
-                value={amountInput}
-                onChangeText={handleAmountChange}
-                keyboardType='numeric'
-                placeholder='0'
-                placeholderTextColor={Colors.textDisabled}
-                autoFocus={true}
-              />
-            </View>
-            {amountError && (
-              <View style={styles.errorRow}>
-                <MaterialCommunityIcons name='alert-circle' size={14} color={Colors.danger} />
-                <Text style={styles.errorText}>{amountError}</Text>
               </View>
-            )}
-          </View>
+            </View>
+
+            <View style={styles.typeToggleContainer}>
+              {(["income", "expense"] as TransactionType[]).map((t) => (
+                <TouchableOpacity
+                  key={t}
+                  style={[
+                    styles.typeBtn,
+                    txType === t && (t === "income" ? styles.typeBtnIncome : styles.typeBtnExpense),
+                  ]}
+                  onPress={() => {
+                    setTxType(t);
+                    setCategory("");
+                    setAmountError(null);
+                  }}
+                >
+                  <MaterialCommunityIcons
+                    name={t === "income" ? "arrow-up-circle" : "arrow-down-circle"}
+                    size={20}
+                    color={txType === t ? Colors.textInverse : Colors.textSecondary}
+                  />
+                  <Text style={[styles.typeBtnText, txType === t && { color: Colors.textInverse }]}>
+                    {t === "income" ? "Pemasukan" : "Pengeluaran"}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.amountSection}>
+              <Text style={styles.fieldLabel}>Nominal</Text>
+              <View style={[styles.amountContainer, amountError ? styles.amountError : null]}>
+                <Text style={styles.currencyPrefix}>Rp</Text>
+                <TextInput
+                  style={[styles.amountInput, { fontSize: amountInput.length > 10 ? 24 : 32 }]}
+                  value={amountInput}
+                  onChangeText={handleAmountChange}
+                  keyboardType='numeric'
+                  placeholder='0'
+                  placeholderTextColor={Colors.textDisabled}
+                  autoFocus={true}
+                />
+              </View>
+              <View style={styles.heroMetaRow}>
+                <View style={styles.heroMetaChip}>
+                  <MaterialCommunityIcons name="wallet-outline" size={14} color={Colors.textSecondary} />
+                  <Text style={styles.heroMetaText}>{selectedWallet?.name ?? "Pilih dompet"}</Text>
+                </View>
+                <View style={styles.heroMetaChip}>
+                  <MaterialCommunityIcons name="calendar-blank-outline" size={14} color={Colors.textSecondary} />
+                  <Text style={styles.heroMetaText}>{formatDateLong(date.getTime())}</Text>
+                </View>
+              </View>
+            </View>
+          </LinearGradient>
+
+          {amountError && (
+            <View style={styles.errorRow}>
+              <MaterialCommunityIcons name='alert-circle' size={14} color={Colors.danger} />
+              <Text style={styles.errorText}>{amountError}</Text>
+            </View>
+          )}
 
           {/* Date Picker */}
-          <View style={styles.fieldSection}>
+          <View style={styles.glassSection}>
             <Text style={styles.fieldLabel}>Tanggal</Text>
             <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
               <MaterialCommunityIcons name='calendar' size={20} color={Colors.textPrimary} />
@@ -204,7 +304,7 @@ export function AddTransactionScreen() {
           </View>
 
           {/* Wallet Picker */}
-          <View style={styles.fieldSection}>
+          <View style={styles.glassSection}>
             <Text style={styles.fieldLabel}>Dompet</Text>
             <ScrollView
               horizontal
@@ -252,7 +352,7 @@ export function AddTransactionScreen() {
           </View>
 
           {/* Category Picker */}
-          <View style={styles.fieldSection}>
+          <View style={styles.glassSection}>
             <View style={styles.labelRow}>
               <Text style={styles.fieldLabel}>Kategori</Text>
               {categoryError && <Text style={styles.errorTextInline}>{categoryError}</Text>}
@@ -268,7 +368,7 @@ export function AddTransactionScreen() {
           </View>
 
           {/* Catatan */}
-          <View style={styles.fieldSection}>
+          <View style={styles.glassSection}>
             <Text style={styles.fieldLabel}>Catatan (opsional)</Text>
             <TextInput
               style={styles.noteInput}
@@ -281,11 +381,12 @@ export function AddTransactionScreen() {
             />
           </View>
         </ScrollView>
+        )}
 
         {/* Footer Button */}
         <View style={styles.footer}>
           <Button
-            label='Simpan Transaksi'
+            label={isEditMode ? 'Simpan Perubahan' : 'Simpan Transaksi'}
             onPress={handleSave}
             variant='primary'
             size='lg'
@@ -301,6 +402,24 @@ export function AddTransactionScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   flex: { flex: 1 },
+  bgOrbTop: {
+    position: "absolute",
+    top: -80,
+    right: -20,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: "rgba(22, 163, 74, 0.10)",
+  },
+  bgOrbBottom: {
+    position: "absolute",
+    bottom: 140,
+    left: -50,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: "rgba(59, 130, 246, 0.08)",
+  },
 
   header: {
     flexDirection: "row",
@@ -314,16 +433,61 @@ const styles = StyleSheet.create({
   closeBtn: { padding: 4 },
   headerTitle: { ...Typography.h3, color: Colors.textPrimary },
 
-  content: { padding: 20, gap: 24, paddingBottom: 40 },
+  content: { padding: 20, gap: 18, paddingBottom: 40 },
+  heroCard: {
+    borderRadius: 28,
+    padding: 20,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.7)",
+    ...Shadow.md,
+  },
+  heroShine: {
+    position: "absolute",
+    top: -36,
+    right: -18,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: "rgba(255,255,255,0.35)",
+  },
+  heroTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 16,
+    marginBottom: 18,
+  },
+  heroLabel: {
+    fontFamily: FontFamily.bodyMedium,
+    fontSize: FontSize.caption,
+    color: Colors.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  heroTitle: {
+    fontFamily: FontFamily.headingMedium,
+    fontSize: FontSize.h3,
+    color: Colors.textPrimary,
+    marginTop: 6,
+  },
+  heroIconWrap: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    ...Shadow.sm,
+  },
 
   typeToggleContainer: {
     flexDirection: "row",
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.65)",
+    borderRadius: 18,
     padding: 4,
     gap: 4,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: "rgba(255,255,255,0.7)",
   },
   typeBtn: {
     flex: 1,
@@ -344,6 +508,15 @@ const styles = StyleSheet.create({
 
   amountSection: { gap: 8 },
   fieldSection: { gap: 12 },
+  glassSection: {
+    gap: 12,
+    backgroundColor: "rgba(255,255,255,0.78)",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "rgba(229,231,235,0.9)",
+    padding: 18,
+    ...Shadow.sm,
+  },
   fieldLabel: {
     fontFamily: FontFamily.bodyBold,
     fontSize: FontSize.caption,
@@ -355,14 +528,36 @@ const styles = StyleSheet.create({
   amountContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.76)",
+    borderRadius: 20,
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderWidth: 1,
     borderColor: Colors.border,
     gap: 12,
     ...Shadow.sm,
+  },
+  heroMetaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 8,
+  },
+  heroMetaChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.58)",
+    borderWidth: 1,
+    borderColor: "rgba(229,231,235,0.9)",
+  },
+  heroMetaText: {
+    fontFamily: FontFamily.bodyMedium,
+    fontSize: FontSize.caption,
+    color: Colors.textSecondary,
   },
   amountError: { borderColor: Colors.danger, borderWidth: 1 },
   currencyPrefix: {
@@ -389,7 +584,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 100,
     borderWidth: 1,
-    backgroundColor: Colors.surface,
+    backgroundColor: "rgba(255,255,255,0.72)",
   },
   walletBtnActive: { backgroundColor: Colors.surface, borderWidth: 1.5 },
   walletIconBg: {
@@ -418,9 +613,9 @@ const styles = StyleSheet.create({
   dateBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.surface,
+    backgroundColor: "rgba(255,255,255,0.72)",
     padding: 16,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: Colors.border,
     gap: 12,
@@ -432,8 +627,8 @@ const styles = StyleSheet.create({
   },
 
   noteInput: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.72)",
+    borderRadius: 18,
     padding: 16,
     fontFamily: FontFamily.body,
     fontSize: FontSize.body,
@@ -449,6 +644,18 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
-    backgroundColor: Colors.surface,
+    backgroundColor: "rgba(255,255,255,0.88)",
+  },
+  loadingState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    padding: 24,
+  },
+  loadingText: {
+    fontFamily: FontFamily.body,
+    fontSize: FontSize.body,
+    color: Colors.textSecondary,
   },
 });

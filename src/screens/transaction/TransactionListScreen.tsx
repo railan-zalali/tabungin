@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FontFamily, FontSize, Typography } from "../../constants/typography";
 import { Shadow } from "../../constants/theme";
 import { useTransactionStore } from "../../store/useTransactionStore";
+import { useCategoryStore } from "../../store/useCategoryStore";
 import { useTheme } from "../../store/useThemeStore";
 import type { Transaction } from "../../types/transaction";
 import { formatCurrency } from "../../utils/currency";
@@ -32,6 +33,8 @@ export function TransactionListScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const insets = useSafeAreaInsets();
   const { transactions, isLoading, loadTransactions, removeTransaction } = useTransactionStore();
+  const loadCategories = useCategoryStore((state) => state.loadCategories);
+  const categoryCount = useCategoryStore((state) => state.categories.length);
   const { colors } = useTheme();
   const styles = React.useMemo(() => getStyles(colors), [colors]);
 
@@ -65,6 +68,12 @@ export function TransactionListScreen() {
       load();
     }
   }, [filterType, filterPeriod, load]);
+
+  useEffect(() => {
+    if (categoryCount === 0) {
+      loadCategories();
+    }
+  }, [categoryCount, loadCategories]);
 
   const onRefresh = async () => {
     setRefreshing(true);

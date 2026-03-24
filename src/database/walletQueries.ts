@@ -1,4 +1,4 @@
-import { getDatabase } from "./schema";
+import { getInitializedDatabase } from "./schema";
 import "react-native-get-random-values";
 import { v4 as uuidv4 } from "uuid";
 
@@ -21,7 +21,7 @@ export interface Wallet {
  */
 export async function fetchWallets(profileId?: string, userEmail?: string): Promise<Wallet[]> {
   try {
-    const db = await getDatabase();
+    const db = await getInitializedDatabase();
     let query = "SELECT * FROM wallets WHERE sync_status != 'pending_delete'";
     const params: any[] = [];
 
@@ -57,7 +57,7 @@ export async function fetchWallets(profileId?: string, userEmail?: string): Prom
 export async function insertWallet(
   data: Omit<Wallet, "id" | "created_at" | "balance"> & { balance?: number },
 ): Promise<Wallet> {
-  const db = await getDatabase();
+  const db = await getInitializedDatabase();
   const id = uuidv4();
   const created_at = Date.now();
   const updated_at = created_at;
@@ -131,7 +131,7 @@ export async function updateWallet(
   id: string,
   data: Partial<Omit<Wallet, "id" | "created_at">>,
 ): Promise<void> {
-  const db = await getDatabase();
+  const db = await getInitializedDatabase();
   const updated_at = Date.now();
 
   try {
@@ -201,7 +201,7 @@ export async function updateWallet(
  * Hapus dompet (Soft Delete)
  */
 export async function deleteWallet(id: string): Promise<void> {
-  const db = await getDatabase();
+  const db = await getInitializedDatabase();
   const updated_at = Date.now();
 
   try {
@@ -239,7 +239,7 @@ export async function deleteWallet(id: string): Promise<void> {
  */
 export async function fetchTotalBalance(profileId?: string, userEmail?: string): Promise<number> {
   try {
-    const db = await getDatabase();
+    const db = await getInitializedDatabase();
     let query =
       "SELECT COALESCE(SUM(balance), 0) as total FROM wallets WHERE sync_status != 'pending_delete'";
     const params: any[] = [];
@@ -274,7 +274,7 @@ export interface WalletMember {
  */
 export async function fetchWalletMembers(walletId: string): Promise<WalletMember[]> {
   try {
-    const db = await getDatabase();
+    const db = await getInitializedDatabase();
     const rows = await db.getAllAsync<any>(
       "SELECT * FROM wallet_members WHERE wallet_id = ? AND sync_status != 'pending_delete' ORDER BY created_at DESC",
       [walletId],
@@ -295,7 +295,7 @@ export async function addWalletMember(
   email: string,
   role: "owner" | "editor" | "viewer" = "editor",
 ): Promise<WalletMember> {
-  const db = await getDatabase();
+  const db = await getInitializedDatabase();
   const id = uuidv4();
   const created_at = Date.now();
   const updated_at = created_at;
@@ -331,7 +331,7 @@ export async function addWalletMember(
  * Hapus anggota dari dompet
  */
 export async function removeWalletMember(memberId: string): Promise<void> {
-  const db = await getDatabase();
+  const db = await getInitializedDatabase();
   const updated_at = Date.now();
 
   const row = await db.getFirstAsync<{ sync_status: string }>(
@@ -348,3 +348,4 @@ export async function removeWalletMember(memberId: string): Promise<void> {
     );
   }
 }
+
