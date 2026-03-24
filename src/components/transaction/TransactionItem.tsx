@@ -20,6 +20,7 @@ import * as Haptics from 'expo-haptics';
 import { FontFamily, FontSize } from '../../constants/typography';
 import type { Transaction } from '../../types/transaction';
 import { formatRupiah } from '../../utils/currency';
+import { BorderRadius } from '../../constants/theme';
 
 import { useAuthStore } from '../../store/useAuthStore';
 import { useCategoryStore } from '../../store/useCategoryStore';
@@ -139,7 +140,15 @@ export function TransactionItem({ transaction, onDelete, onEdit, onPress }: Tran
                         </View>
 
                         {/* Amount dengan warna + teks prefix — WCAG triple redundancy */}
-                        <View style={styles.amountContainer}>
+                        <View
+                            style={[
+                                styles.amountContainer,
+                                {
+                                    backgroundColor: isIncome ? colors.successBg : colors.dangerBg,
+                                    borderColor: isIncome ? `${colors.success}1F` : `${colors.danger}1F`,
+                                },
+                            ]}
+                        >
                             <Text
                                 style={[styles.amount, { color: isIncome ? colors.success : colors.danger }]}
                                 allowFontScaling={true}
@@ -161,7 +170,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     wrapper: {
         position: 'relative',
         overflow: 'hidden',
-        borderRadius: 0,
+        borderRadius: BorderRadius['3xl'],
     },
     deleteBackground: {
         position: 'absolute',
@@ -172,7 +181,7 @@ const getStyles = (colors: any) => StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         flexDirection: 'row',
-        paddingHorizontal: 20,
+        paddingHorizontal: 24,
         gap: 8,
     },
     deleteText: {
@@ -181,24 +190,26 @@ const getStyles = (colors: any) => StyleSheet.create({
         fontSize: FontSize.caption,
     },
     container: {
-        backgroundColor: colors.surface,
+        backgroundColor: colors.surfaceCard,
     },
     inner: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
         paddingHorizontal: 16,
-        paddingVertical: 14,
-        minHeight: 72,
+        paddingVertical: 16,
+        minHeight: 76,
     },
     iconContainer: {
-        width: 44,
-        height: 44,
-        borderRadius: 12,
+        width: 48,
+        height: 48,
+        borderRadius: BorderRadius.xl,
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: `${colors.glassStroke}`,
     },
-    info: { flex: 1, gap: 3 },
+    info: { flex: 1, gap: 4 },
     categoryName: {
         fontFamily: FontFamily.bodyMedium,
         fontSize: FontSize.body,
@@ -209,7 +220,13 @@ const getStyles = (colors: any) => StyleSheet.create({
         fontSize: FontSize.caption,
         color: colors.textSecondary,
     },
-    amountContainer: { alignItems: 'flex-end' },
+    amountContainer: {
+        alignItems: 'flex-end',
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        borderRadius: BorderRadius.lg,
+        borderWidth: 1,
+    },
     amount: {
         fontFamily: FontFamily.bodyBold,
         fontSize: FontSize.body,

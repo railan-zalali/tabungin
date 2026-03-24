@@ -12,14 +12,18 @@ import Animated, {
     useSharedValue,
     useAnimatedStyle,
     withSpring,
+    withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useTheme } from '../../store/useThemeStore';
+import { BorderRadius, Shadow } from '../../constants/theme';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 type ButtonSize = 'sm' | 'md' | 'lg';
+type ButtonSurface = 'solid' | 'glass';
+type ButtonEmphasis = 'high' | 'medium';
 
 interface ButtonProps {
     onPress: () => void;
@@ -34,6 +38,8 @@ interface ButtonProps {
     textStyle?: TextStyle;
     accessibilityHint?: string;
     fullWidth?: boolean;
+    surface?: ButtonSurface;
+    emphasis?: ButtonEmphasis;
 }
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -51,23 +57,33 @@ export function Button({
     textStyle,
     accessibilityHint,
     fullWidth = false,
+    surface = 'solid',
+    emphasis = 'high',
 }: ButtonProps) {
     const scale = useSharedValue(1);
+    const glowOpacity = useSharedValue(variant === 'primary' ? 1 : 0);
     const hapticEnabled = useAuthStore((s) => s.hapticEnabled);
-    const { colors } = useTheme();
+    const { colors, motion } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
 
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [{ scale: scale.value }],
+        opacity: disabled || loading ? 0.48 : 1,
+    }));
+
+    const glowStyle = useAnimatedStyle(() => ({
+        opacity: glowOpacity.value,
     }));
 
     const handlePressIn = useCallback(() => {
-        scale.value = withSpring(0.95, { damping: 15, stiffness: 300 });
-    }, []);
+        scale.value = withSpring(0.97, motion.spring.soft);
+        glowOpacity.value = withTiming(0.88, { duration: motion.duration.fast });
+    }, [glowOpacity, motion.duration.fast, motion.spring.soft, scale]);
 
     const handlePressOut = useCallback(() => {
-        scale.value = withSpring(1, { damping: 15, stiffness: 300 });
-    }, []);
+        scale.value = withSpring(1, motion.spring.snappy);
+        glowOpacity.value = withTiming(variant === 'primary' ? 1 : 0, { duration: motion.duration.normal });
+    }, [glowOpacity, motion.duration.normal, motion.spring.snappy, scale, variant]);
 
     const handlePress = useCallback(() => {
         if (hapticEnabled) {
@@ -80,8 +96,9 @@ export function Button({
         styles.base,
         styles[variant],
         styles[size],
+        surface === 'glass' && styles.glass,
+        emphasis === 'medium' && styles.mediumEmphasis,
         fullWidth && styles.fullWidth,
-        disabled && styles.disabled,
         style,
     ];
 
@@ -105,6 +122,7 @@ export function Button({
             accessibilityHint={accessibilityHint}
             accessibilityState={{ disabled: disabled || loading, busy: loading }}
         >
+            {variant === 'primary' && <Animated.View pointerEvents="none" style={[styles.primaryGlow, glowStyle]} />}
             {loading ? (
                 <ActivityIndicator
                     color={variant === 'primary' ? colors.textInverse : colors.primary}
@@ -126,41 +144,76 @@ export function Button({
 
 const getStyles = (colors: any) => StyleSheet.create({
     base: {
+        overflow: 'hidden',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-        minHeight: 48,
+        minHeight: 50,
         minWidth: 48,
-        borderRadius: 12,
+        borderRadius: BorderRadius.xl,
+        borderWidth: 1,
+        borderColor: 'transparent',
     },
     fullWidth: { width: '100%' },
-    disabled: { opacity: 0.5 },
+    mediumEmphasis: {
+        ...Shadow.sm,
+    },
+    glass: {
+        backgroundColor: colors.surfaceGlass,
+        borderColor: colors.glassStroke,
+    },
 
-    // Variants
-    primary: { backgroundColor: colors.primary },
-    secondary: { backgroundColor: colors.secondary },
-    outline: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: colors.primary },
+    primary: {
+        backgroundColor: colors.primary,
+        borderColor: `${colors.primaryDark}55`,
+        ...Shadow.md,
+    },
+    secondary: {
+        backgroundColor: colors.surfaceCard,
+        borderColor: colors.border,
+    },
+    outline: {
+        backgroundColor: 'transparent',
+        borderWidth: 1.2,
+        borderColor: `${colors.primary}55`,
+    },
     ghost: { backgroundColor: 'transparent' },
-    danger: { backgroundColor: colors.danger },
+    danger: {
+        backgroundColor: colors.danger,
+        borderColor: `${colors.danger}66`,
+        ...Shadow.sm,
+    },
 
-    // Text variants
     primaryText: { color: colors.textInverse },
     secondaryText: { color: colors.textPrimary },
     outlineText: { color: colors.primary },
     ghostText: { color: colors.primary },
     dangerText: { color: colors.textInverse },
 
-    // Sizes
-    sm: { paddingHorizontal: 12, paddingVertical: 8, minHeight: 36, borderRadius: 8 },
-    md: { paddingHorizontal: 20, paddingVertical: 14 },
-    lg: { paddingHorizontal: 28, paddingVertical: 18, borderRadius: 14 },
+    sm: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        minHeight: 38,
+        borderRadius: BorderRadius.lg,
+    },
+    md: { paddingHorizontal: 18, paddingVertical: 14 },
+    lg: {
+        paddingHorizontal: 24,
+        paddingVertical: 18,
+        borderRadius: BorderRadius['2xl'],
+    },
 
     labelBase: {
         fontFamily: FontFamily.bodyBold,
         fontSize: FontSize.body,
+        letterSpacing: 0.1,
     },
     smText: { fontSize: 13 },
     mdText: { fontSize: FontSize.body },
     lgText: { fontSize: FontSize.h4 },
+    primaryGlow: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+    },
 });

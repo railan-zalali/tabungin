@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
-import { Shadow } from '../../constants/theme';
+import { BorderRadius, Shadow } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useThemeStore, useTheme } from '../../store/useThemeStore';
 import { deleteUserAccount } from '../../database/authQueries';
@@ -143,6 +143,7 @@ export function SettingsScreen() {
 
     return (
         <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+            <View style={styles.bgAuraTop} pointerEvents="none" />
             <StatusBar barStyle={mode === 'dark' ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
             
             <View style={[styles.header, { backgroundColor: colors.background }]}>
@@ -355,6 +356,16 @@ export function SettingsScreen() {
 
 const getStyles = (colors: any) => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
+    bgAuraTop: {
+        position: 'absolute',
+        top: -110,
+        right: -30,
+        width: 240,
+        height: 240,
+        borderRadius: BorderRadius.full,
+        backgroundColor: colors.primaryLight,
+        opacity: 0.5,
+    },
     
     header: { 
         paddingHorizontal: 20, 
@@ -369,16 +380,16 @@ const getStyles = (colors: any) => StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 16,
-        backgroundColor: colors.surface,
-        borderRadius: 20,
+        backgroundColor: colors.surfaceGlass,
+        borderRadius: BorderRadius['4xl'],
         padding: 20,
         borderWidth: 1,
-        borderColor: colors.border,
+        borderColor: colors.glassStroke,
     },
     avatar: { 
         width: 60, 
         height: 60, 
-        borderRadius: 30, 
+        borderRadius: BorderRadius.full, 
         alignItems: 'center', 
         justifyContent: 'center' 
     },
@@ -391,7 +402,7 @@ const getStyles = (colors: any) => StyleSheet.create({
         top: -4,
         right: -4,
         backgroundColor: colors.danger,
-        borderRadius: 10,
+        borderRadius: BorderRadius.full,
         paddingHorizontal: 6,
         paddingVertical: 2,
         minWidth: 20,
@@ -415,11 +426,11 @@ const getStyles = (colors: any) => StyleSheet.create({
     },
     
     card: { 
-        backgroundColor: colors.surface, 
-        borderRadius: 16, 
+        backgroundColor: colors.surfaceGlass, 
+        borderRadius: BorderRadius['3xl'], 
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: colors.border,
+        borderColor: colors.glassStroke,
     },
     row: { 
         flexDirection: 'row', 
@@ -432,7 +443,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     rowIcon: { 
         width: 44, 
         height: 44, 
-        borderRadius: 12, 
+        borderRadius: BorderRadius.lg, 
         alignItems: 'center', 
         justifyContent: 'center' 
     },
@@ -459,12 +470,12 @@ const getStyles = (colors: any) => StyleSheet.create({
     },
     textSizeBtn: { 
         flex: 1, 
-        paddingVertical: 8, 
+        paddingVertical: 10, 
         alignItems: 'center', 
-        borderRadius: 10, 
+        borderRadius: BorderRadius.lg, 
         borderWidth: 1, 
         borderColor: colors.border, 
-        backgroundColor: colors.surface 
+        backgroundColor: colors.surfaceCard 
     },
     textSizeBtnActive: { 
         backgroundColor: colors.primaryBg, 
@@ -487,7 +498,7 @@ const getStyles = (colors: any) => StyleSheet.create({
         gap: 10,
         padding: 16,
         backgroundColor: colors.dangerBg,
-        borderRadius: 16,
+        borderRadius: BorderRadius['3xl'],
         minHeight: 56,
         borderWidth: 1,
         borderColor: colors.dangerBg,

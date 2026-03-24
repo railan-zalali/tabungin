@@ -15,7 +15,7 @@ import * as Sharing from 'expo-sharing';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
-import { Shadow } from '../../constants/theme';
+import { BorderRadius, Shadow } from '../../constants/theme';
 import { useTransactionStore } from '../../store/useTransactionStore';
 import { useCategoryStore } from '../../store/useCategoryStore';
 import { useTheme } from '../../store/useThemeStore';
@@ -49,7 +49,7 @@ function getPeriodDates(period: PeriodFilter): { start: number; end: number } {
 
 export function ReportScreen() {
     const insets = useSafeAreaInsets();
-    const { colors, isDark } = useTheme();
+    const { colors, gradients, isDark } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
     const { getCategorySummary, getMonthlyData } = useTransactionStore();
     const { categories, loadCategories } = useCategoryStore();
@@ -108,6 +108,7 @@ export function ReportScreen() {
 
     return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
+            <View style={styles.bgAuraTop} pointerEvents="none" />
             <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
             <View style={styles.header}>
@@ -130,7 +131,7 @@ export function ReportScreen() {
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <Animated.View entering={FadeInDown.delay(70).springify()}>
                     <LinearGradient
-                        colors={[colors.primary, colors.primaryDark, colors.primary]}
+                        colors={gradients.hero as unknown as [string, string, ...string[]]}
                         style={[styles.heroCard, Shadow.md]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
@@ -337,6 +338,16 @@ const PERIOD_OPTIONS_MAP = {
 
 const getStyles = (colors: any) => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
+    bgAuraTop: {
+        position: 'absolute',
+        top: -120,
+        right: -34,
+        width: 260,
+        height: 260,
+        borderRadius: BorderRadius.full,
+        backgroundColor: colors.primaryLight,
+        opacity: 0.48,
+    },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -358,10 +369,11 @@ const getStyles = (colors: any) => StyleSheet.create({
         gap: 6,
         paddingHorizontal: 14,
         paddingVertical: 10,
-        borderRadius: 16,
-        backgroundColor: `${colors.primaryBg}CC`,
+        borderRadius: BorderRadius.xl,
+        backgroundColor: colors.surfaceGlass,
         borderWidth: 1,
-        borderColor: `${colors.primary}25`,
+        borderColor: colors.glassStroke,
+        ...Shadow.sm,
     },
     exportText: {
         fontFamily: FontFamily.bodyBold,
@@ -370,9 +382,11 @@ const getStyles = (colors: any) => StyleSheet.create({
     },
     content: { padding: 20, gap: 20, paddingBottom: 100 },
     heroCard: {
-        borderRadius: 28,
+        borderRadius: BorderRadius['5xl'],
         padding: 22,
         overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.16)',
     },
     heroGlow: {
         position: 'absolute',
@@ -423,11 +437,11 @@ const getStyles = (colors: any) => StyleSheet.create({
         color: '#FFFFFF',
     },
     periodBlock: {
-        backgroundColor: `${colors.surface}D8`,
-        borderRadius: 22,
+        backgroundColor: colors.surfaceGlass,
+        borderRadius: BorderRadius['4xl'],
         padding: 16,
         borderWidth: 1,
-        borderColor: `${colors.border}AA`,
+        borderColor: colors.glassStroke,
         ...Shadow.sm,
     },
     blockTitle: {
@@ -440,14 +454,14 @@ const getStyles = (colors: any) => StyleSheet.create({
     periodChip: {
         paddingHorizontal: 16,
         paddingVertical: 9,
-        borderRadius: 999,
-        backgroundColor: `${colors.background}92`,
+        borderRadius: BorderRadius.full,
+        backgroundColor: colors.surfaceCard,
         borderWidth: 1,
         borderColor: `${colors.border}AA`,
     },
     periodChipActive: {
-        backgroundColor: colors.primaryLight,
-        borderColor: `${colors.primary}35`,
+        backgroundColor: colors.background,
+        borderColor: `${colors.primary}25`,
     },
     periodChipText: {
         fontFamily: FontFamily.body,
@@ -459,12 +473,12 @@ const getStyles = (colors: any) => StyleSheet.create({
         fontFamily: FontFamily.bodyBold,
     },
     summaryCard: {
-        backgroundColor: `${colors.surface}D8`,
-        borderRadius: 24,
+        backgroundColor: colors.surfaceGlass,
+        borderRadius: BorderRadius['4xl'],
         padding: 20,
         gap: 16,
         borderWidth: 1,
-        borderColor: `${colors.border}AA`,
+        borderColor: colors.glassStroke,
     },
     summaryRow: { flexDirection: 'row', gap: 12 },
     summaryItem: { flex: 1, gap: 8 },
@@ -483,12 +497,12 @@ const getStyles = (colors: any) => StyleSheet.create({
     balanceLabel: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: colors.textSecondary },
     balanceAmount: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4 },
     chartCard: {
-        backgroundColor: `${colors.surface}D8`,
-        borderRadius: 24,
+        backgroundColor: colors.surfaceGlass,
+        borderRadius: BorderRadius['4xl'],
         padding: 20,
         gap: 16,
         borderWidth: 1,
-        borderColor: `${colors.border}AA`,
+        borderColor: colors.glassStroke,
     },
     cardHeader: {
         flexDirection: 'row',
@@ -505,19 +519,19 @@ const getStyles = (colors: any) => StyleSheet.create({
     barChart: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 150, paddingTop: 12 },
     barGroup: { flex: 1, alignItems: 'center', gap: 8 },
     barsRow: { flexDirection: 'row', gap: 5, alignItems: 'flex-end', height: 118 },
-    bar: { width: 12, borderRadius: 6 },
+    bar: { width: 12, borderRadius: BorderRadius.sm },
     barLabel: { fontFamily: FontFamily.body, fontSize: 10, color: colors.textSecondary },
     legend: { flexDirection: 'row', gap: 20, justifyContent: 'center' },
     legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     legendDot: { width: 8, height: 8, borderRadius: 4 },
     legendText: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary },
     tableCard: {
-        backgroundColor: `${colors.surface}D8`,
-        borderRadius: 24,
+        backgroundColor: colors.surfaceGlass,
+        borderRadius: BorderRadius['4xl'],
         padding: 20,
         gap: 16,
         borderWidth: 1,
-        borderColor: `${colors.border}AA`,
+        borderColor: colors.glassStroke,
     },
     tableRow: {
         flexDirection: 'row',
@@ -529,7 +543,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     catIconBox: {
         width: 34,
         height: 34,
-        borderRadius: 12,
+        borderRadius: BorderRadius.lg,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -537,7 +551,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     catRight: { alignItems: 'flex-end' },
     catAmount: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.caption, color: colors.textPrimary },
     catPercent: { fontFamily: FontFamily.body, fontSize: 10, color: colors.textSecondary },
-    catBarBg: { height: 7, backgroundColor: colors.surfaceAlt, borderRadius: 4, overflow: 'hidden' },
-    catBarFill: { height: 7, borderRadius: 4 },
+    catBarBg: { height: 7, backgroundColor: colors.surfaceInset, borderRadius: BorderRadius.sm, overflow: 'hidden' },
+    catBarFill: { height: 7, borderRadius: BorderRadius.sm },
     rowDivider: { height: 1, backgroundColor: colors.divider, marginVertical: 12 },
 });

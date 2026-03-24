@@ -1,6 +1,6 @@
 // Komponen Card dengan fade + slide-up entrance animation
 import React, { useEffect } from 'react';
-import { StyleSheet, View, ViewStyle } from 'react-native';
+import { StyleSheet, ViewStyle } from 'react-native';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
@@ -9,16 +9,17 @@ import Animated, {
     Easing,
 } from 'react-native-reanimated';
 import { useTheme } from '../../store/useThemeStore';
-import { Shadow } from '../../constants/theme';
+import { BorderRadius, Shadow } from '../../constants/theme';
 
 interface CardProps {
     children: React.ReactNode;
     style?: ViewStyle;
     elevated?: boolean;
-    variant?: 'default' | 'flat' | 'outlined';
+    variant?: 'default' | 'flat' | 'outlined' | 'glass';
     animationDelay?: number;
     onPress?: () => void;
     accessibilityLabel?: string;
+    interactive?: boolean;
 }
 
 export function Card({
@@ -27,6 +28,7 @@ export function Card({
     elevated = false,
     variant = 'default',
     animationDelay = 0,
+    interactive = false,
 }: CardProps) {
     const opacity = useSharedValue(0);
     const translateY = useSharedValue(20);
@@ -53,9 +55,12 @@ export function Card({
         <Animated.View
             style={[
                 styles.base,
+                variant === 'flat' && styles.flat,
                 variant === 'outlined' && styles.outlined,
-                elevated && Shadow.md,
-                !elevated && variant === 'default' && Shadow.sm,
+                variant === 'glass' && styles.glass,
+                elevated && Shadow.lg,
+                !elevated && variant !== 'flat' && Shadow.sm,
+                interactive && styles.interactive,
                 style,
                 animatedStyle,
             ]}
@@ -67,17 +72,27 @@ export function Card({
 
 const getStyles = (colors: any) => StyleSheet.create({
     base: {
-        backgroundColor: colors.surface,
-        borderRadius: 12,
-        padding: 16,
+        backgroundColor: colors.surfaceCard,
+        borderRadius: BorderRadius['3xl'],
+        padding: 18,
         overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: `${colors.border}B0`,
     },
     flat: {
-        backgroundColor: colors.background,
+        backgroundColor: colors.surfaceAlt,
+        borderColor: 'transparent',
     },
     outlined: {
         backgroundColor: colors.surface,
         borderWidth: 1,
-        borderColor: colors.border,
+        borderColor: colors.borderStrong,
+    },
+    glass: {
+        backgroundColor: colors.surfaceGlass,
+        borderColor: colors.glassStroke,
+    },
+    interactive: {
+        shadowOpacity: 0.08,
     },
 });

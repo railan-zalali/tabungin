@@ -87,7 +87,7 @@ function TabBarButton({
     isFocused: boolean;
     onPress: () => void;
 }) {
-    const { colors } = useTheme();
+    const { colors, motion } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
     const meta = TAB_META[routeName];
     const accentColor = resolveAccentColor(colors, meta.accent);
@@ -96,10 +96,10 @@ function TabBarButton({
     const glow = useSharedValue(isFocused ? 1 : 0);
 
     React.useEffect(() => {
-        scale.value = withSpring(isFocused ? 1 : 0.96, { damping: 14, stiffness: 220 });
-        lift.value = withSpring(isFocused ? -4 : 0, { damping: 16, stiffness: 180 });
-        glow.value = withTiming(isFocused ? 1 : 0, { duration: 220 });
-    }, [glow, isFocused, lift, scale]);
+        scale.value = withSpring(isFocused ? 1 : 0.97, motion.spring.snappy);
+        lift.value = withSpring(isFocused ? -5 : 0, motion.spring.lift);
+        glow.value = withTiming(isFocused ? 1 : 0, { duration: motion.duration.normal });
+    }, [glow, isFocused, lift, motion.duration.normal, motion.spring.lift, motion.spring.snappy, scale]);
 
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [{ translateY: lift.value }, { scale: scale.value }],
@@ -125,7 +125,7 @@ function TabBarButton({
             <Animated.View style={[styles.tabButton, animatedStyle]}>
                 {isFocused && (
                     <LinearGradient
-                        colors={[`${accentColor}24`, `${colors.surface}F4`]}
+                        colors={[`${accentColor}20`, colors.surfaceCard]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={styles.activeGlow}
@@ -163,15 +163,13 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         <View pointerEvents="box-none" style={styles.tabBarOuter}>
             <View style={[styles.tabBarShell, { paddingBottom: Math.max(insets.bottom, 10) }]}>
                 <LinearGradient
-                    colors={[`${colors.surface}F4`, `${colors.surface}EC`]}
+                    colors={[colors.surfaceCard, colors.surfaceGlass]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.tabBar}
                 >
                     {state.routes.map((route, index) => {
                         const isFocused = state.index === index;
-                        const { options } = descriptors[route.key];
-
                         const onPress = () => {
                             const event = navigation.emit({
                                 type: 'tabPress',
@@ -223,6 +221,7 @@ export function TabNavigator() {
             screenOptions={{
                 headerShown: false,
                 tabBarShowLabel: false,
+                tabBarHideOnKeyboard: true,
             }}
         >
             <Tab.Screen name="Dashboard" component={DashboardScreen} />
@@ -251,15 +250,16 @@ const getStyles = (colors: any) =>
             justifyContent: 'space-between',
             paddingHorizontal: 10,
             paddingTop: 12,
+            paddingBottom: 4,
             borderRadius: BorderRadius['5xl'],
             borderWidth: 1,
-            borderColor: `${colors.border}CC`,
-            ...Shadow.lg,
-            shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: Platform.OS === 'ios' ? 0.12 : 0.18,
-            shadowRadius: 24,
-            elevation: 12,
-            backgroundColor: colors.surface,
+            borderColor: colors.glassStroke,
+            ...Shadow.xl,
+            shadowOffset: { width: 0, height: 14 },
+            shadowOpacity: Platform.OS === 'ios' ? 0.18 : 0.24,
+            shadowRadius: 28,
+            elevation: 16,
+            backgroundColor: colors.surfaceGlass,
         },
         pressable: {
             flex: 1,
@@ -289,8 +289,8 @@ const getStyles = (colors: any) =>
             borderBottomRightRadius: BorderRadius.sm,
         },
         iconWrap: {
-            width: 38,
-            height: 38,
+            width: 40,
+            height: 40,
             borderRadius: BorderRadius['2xl'],
             alignItems: 'center',
             justifyContent: 'center',
@@ -299,6 +299,7 @@ const getStyles = (colors: any) =>
             fontFamily: FontFamily.bodyMedium,
             fontSize: 11,
             textAlign: 'center',
+            letterSpacing: 0.15,
         },
         tabLabelFocused: {
             fontFamily: FontFamily.bodyBold,

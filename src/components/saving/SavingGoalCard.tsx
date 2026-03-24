@@ -4,7 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { FontFamily, FontSize } from '../../constants/typography';
-import { Shadow } from '../../constants/theme';
+import { BorderRadius, Shadow } from '../../constants/theme';
 import type { SavingGoal } from '../../types/saving';
 import { formatRupiah, formatRupiahShort } from '../../utils/currency';
 import { daysFromNow } from '../../utils/date';
@@ -51,7 +51,7 @@ export function SavingGoalCard({ goal, onPress, onAddSaving, animationDelay = 0 
                 activeOpacity={0.92}
             >
                 <LinearGradient
-                    colors={[`${goal.color}18`, `${colors.surface}F3`, `${colors.surface}E3`]}
+                    colors={[`${goal.color}14`, colors.surfaceCard, colors.surfaceGlass]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.glassOverlay}
@@ -165,13 +165,13 @@ export function SavingGoalCard({ goal, onPress, onAddSaving, animationDelay = 0 
 
 const getStyles = (colors: any) => StyleSheet.create({
     card: {
-        backgroundColor: colors.surface,
-        borderRadius: 22,
-        padding: 16,
+        backgroundColor: colors.surfaceCard,
+        borderRadius: BorderRadius['4xl'],
+        padding: 18,
         gap: 14,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: `${colors.textInverse}55`,
+        borderColor: `${colors.border}AA`,
     },
     glassOverlay: {
         ...StyleSheet.absoluteFillObject,
@@ -180,7 +180,7 @@ const getStyles = (colors: any) => StyleSheet.create({
         position: 'absolute',
         width: 116,
         height: 116,
-        borderRadius: 58,
+        borderRadius: BorderRadius.full,
         top: -36,
         right: -14,
     },
@@ -196,14 +196,14 @@ const getStyles = (colors: any) => StyleSheet.create({
         alignSelf: 'flex-start',
         paddingHorizontal: 10,
         paddingVertical: 6,
-        borderRadius: 999,
-        backgroundColor: `${colors.surface}CC`,
+        borderRadius: BorderRadius.full,
+        backgroundColor: colors.surfaceGlass,
         borderWidth: 1,
-        borderColor: `${colors.border}AA`,
+        borderColor: colors.glassStroke,
         maxWidth: '100%',
     },
     sharedChip: {
-        backgroundColor: `${colors.infoLight}C0`,
+        backgroundColor: colors.infoBg,
         borderColor: `${colors.info}30`,
     },
     contextChipText: {
@@ -215,11 +215,11 @@ const getStyles = (colors: any) => StyleSheet.create({
     emojiContainer: {
         width: 52,
         height: 52,
-        borderRadius: 18,
+        borderRadius: BorderRadius['2xl'],
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
-        borderColor: `${colors.textInverse}44`,
+        borderColor: `${colors.glassStroke}`,
     },
     emoji: { fontSize: 26 },
     headerInfo: { flex: 1, gap: 4 },
@@ -233,13 +233,30 @@ const getStyles = (colors: any) => StyleSheet.create({
         fontSize: FontSize.caption,
         color: colors.textSecondary,
     },
-    completedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    completedBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        alignSelf: 'flex-start',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: BorderRadius.full,
+        backgroundColor: colors.successBg,
+    },
     completedText: {
         fontFamily: FontFamily.bodyMedium,
         fontSize: FontSize.caption,
         color: colors.success,
     },
-    daysContainer: { alignItems: 'center' },
+    daysContainer: {
+        alignItems: 'center',
+        minWidth: 54,
+        paddingVertical: 8,
+        borderRadius: BorderRadius.xl,
+        backgroundColor: colors.surfaceGlass,
+        borderWidth: 1,
+        borderColor: colors.glassStroke,
+    },
     daysNumber: {
         fontFamily: FontFamily.heading,
         fontSize: 20,
@@ -251,7 +268,7 @@ const getStyles = (colors: any) => StyleSheet.create({
         color: colors.textSecondary,
     },
     progressSection: { gap: 8 },
-    amountRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    amountRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
     currentAmount: {
         fontFamily: FontFamily.body,
         fontSize: FontSize.caption,
@@ -267,10 +284,10 @@ const getStyles = (colors: any) => StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 6,
-        paddingVertical: 10,
-        borderRadius: 14,
+        paddingVertical: 12,
+        borderRadius: BorderRadius.xl,
         borderWidth: 1,
-        minHeight: 48,
+        minHeight: 50,
     },
     addBtnText: {
         fontFamily: FontFamily.bodyMedium,

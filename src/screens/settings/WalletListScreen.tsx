@@ -15,9 +15,8 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Colors } from "../../constants/colors";
 import { FontFamily, FontSize, Typography } from "../../constants/typography";
-import { Shadow } from "../../constants/theme";
+import { BorderRadius, Shadow } from "../../constants/theme";
 import { useWalletStore } from "../../store/useWalletStore";
 import { formatCurrency } from "../../utils/currency";
 import { EmptyState } from "../../components/common/EmptyState";
@@ -29,6 +28,7 @@ export function WalletListScreen() {
   const insets = useSafeAreaInsets();
   const { wallets, loadWallets, removeWallet, isLoading, error } = useWalletStore();
   const { colors, mode } = useTheme();
+  const styles = React.useMemo(() => getStyles(colors), [colors]);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -133,6 +133,7 @@ export function WalletListScreen() {
     <View
       style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}
     >
+      <View style={styles.bgAuraTop} pointerEvents="none" />
       <StatusBar
         barStyle={mode === "dark" ? "light-content" : "dark-content"}
         backgroundColor='transparent'
@@ -216,44 +217,66 @@ export function WalletListScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+const getStyles = (colors: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  bgAuraTop: {
+    position: "absolute",
+    top: -100,
+    right: -30,
+    width: 240,
+    height: 240,
+    borderRadius: BorderRadius.full,
+    backgroundColor: colors.primaryLight,
+    opacity: 0.55,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
+    borderBottomColor: colors.divider,
   },
-  backBtn: { padding: 4 },
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.xl,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceGlass,
+    borderWidth: 1,
+    borderColor: colors.glassStroke,
+  },
   addBtn: {
-    padding: 8,
-    borderRadius: 8,
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.xl,
     alignItems: "center",
     justifyContent: "center",
   },
   title: {
     ...Typography.h2,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
 
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   list: { padding: 20, gap: 16, paddingBottom: 100 },
 
   cardContainer: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
+    backgroundColor: colors.surfaceGlass,
+    borderRadius: BorderRadius["4xl"],
     marginBottom: 4,
     position: "relative",
+    borderWidth: 1,
+    borderColor: colors.glassStroke,
   },
   cardContent: {
-    padding: 16,
+    padding: 18,
     borderLeftWidth: 4,
-    borderLeftColor: Colors.primary,
-    borderRadius: 16,
+    borderLeftColor: colors.primary,
+    borderRadius: BorderRadius["4xl"],
   },
   cardHeader: {
     flexDirection: "row",
@@ -270,20 +293,20 @@ const styles = StyleSheet.create({
   iconBox: {
     width: 48,
     height: 48,
-    borderRadius: 12,
+    borderRadius: BorderRadius.xl,
     alignItems: "center",
     justifyContent: "center",
   },
   walletName: {
     fontFamily: FontFamily.headingMedium,
     fontSize: FontSize.body,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     marginBottom: 2,
   },
   walletType: {
     fontFamily: FontFamily.body,
     fontSize: 10,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     letterSpacing: 0.5,
   },
 
@@ -291,10 +314,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: Colors.success,
+    backgroundColor: colors.success,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 100,
+    borderRadius: BorderRadius.full,
     marginLeft: 8,
   },
   defaultText: {
@@ -309,19 +332,26 @@ const styles = StyleSheet.create({
   balanceLabel: {
     fontFamily: FontFamily.body,
     fontSize: FontSize.caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 4,
   },
   balanceValue: {
     fontFamily: FontFamily.heading,
     fontSize: FontSize.h3,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
 
   deleteBtn: {
     position: "absolute",
     bottom: 16,
     right: 16,
-    padding: 8,
+    width: 36,
+    height: 36,
+    borderRadius: BorderRadius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceCard,
+    borderWidth: 1,
+    borderColor: `${colors.border}90`,
   },
 });

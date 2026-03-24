@@ -15,7 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInDown, FadeInUp, ZoomIn } from "react-native-reanimated";
 import { FontFamily, FontSize, Typography } from "../../constants/typography";
-import { Shadow } from "../../constants/theme";
+import { BorderRadius, Shadow } from "../../constants/theme";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useTransactionStore } from "../../store/useTransactionStore";
 import { useSavingStore } from "../../store/useSavingStore";
@@ -40,7 +40,7 @@ export function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const { loadProfiles } = useProfileStore();
-  const { colors, mode } = useTheme();
+  const { colors, gradients, mode } = useTheme();
   const styles = React.useMemo(() => getStyles(colors), [colors]);
 
   const {
@@ -126,6 +126,8 @@ export function DashboardScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.bgAuraTop} pointerEvents="none" />
+      <View style={styles.bgAuraBottom} pointerEvents="none" />
       <StatusBar
         barStyle={mode === "dark" ? "light-content" : "dark-content"}
         backgroundColor="transparent"
@@ -170,7 +172,7 @@ export function DashboardScreen() {
 
         <Animated.View entering={FadeInUp.delay(100).springify()}>
           <LinearGradient
-            colors={[colors.primary, colors.primaryDark, colors.primary]}
+            colors={gradients.hero as unknown as [string, string, ...string[]]}
             style={styles.balanceCard}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
@@ -256,7 +258,7 @@ export function DashboardScreen() {
                 accessibilityRole="button"
               >
                 <LinearGradient
-                  colors={[`${action.color}10`, `${colors.surface}F4`]}
+                  colors={[`${action.color}10`, colors.surfaceCard]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.quickActionGlass}
@@ -388,6 +390,26 @@ export function DashboardScreen() {
 const getStyles = (colors: any) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
+    bgAuraTop: {
+      position: "absolute",
+      top: -110,
+      right: -40,
+      width: 250,
+      height: 250,
+      borderRadius: BorderRadius.full,
+      backgroundColor: colors.primaryLight,
+      opacity: 0.65,
+    },
+    bgAuraBottom: {
+      position: "absolute",
+      bottom: 140,
+      left: -70,
+      width: 220,
+      height: 220,
+      borderRadius: BorderRadius.full,
+      backgroundColor: colors.infoLight,
+      opacity: 0.24,
+    },
     scrollContent: { gap: 24, paddingBottom: 40 },
     header: {
       flexDirection: "row",
@@ -414,11 +436,11 @@ const getStyles = (colors: any) =>
       height: 48,
       alignItems: "center",
       justifyContent: "center",
-      borderRadius: 18,
-      backgroundColor: `${colors.surface}D8`,
+      borderRadius: BorderRadius["2xl"],
+      backgroundColor: colors.surfaceGlass,
       ...Shadow.sm,
       borderWidth: 1,
-      borderColor: `${colors.border}B0`,
+      borderColor: colors.glassStroke,
     },
     notifBadge: {
       position: "absolute",
@@ -439,16 +461,18 @@ const getStyles = (colors: any) =>
     },
     balanceCard: {
       marginHorizontal: 20,
-      borderRadius: 28,
+      borderRadius: BorderRadius["5xl"],
       padding: 24,
       overflow: "hidden",
-      ...Shadow.lg,
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.16)",
+      ...Shadow.xl,
     },
     balanceGlowTop: {
       position: "absolute",
       width: 180,
       height: 180,
-      borderRadius: 90,
+      borderRadius: BorderRadius.full,
       top: -70,
       right: -24,
       backgroundColor: "rgba(255,255,255,0.12)",
@@ -457,7 +481,7 @@ const getStyles = (colors: any) =>
       position: "absolute",
       width: 120,
       height: 120,
-      borderRadius: 60,
+      borderRadius: BorderRadius.full,
       bottom: -40,
       left: -20,
       backgroundColor: "rgba(255,255,255,0.08)",
@@ -483,7 +507,7 @@ const getStyles = (colors: any) =>
     balanceIconWrap: {
       width: 58,
       height: 58,
-      borderRadius: 18,
+      borderRadius: BorderRadius["2xl"],
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: "rgba(255,255,255,0.14)",
@@ -502,7 +526,7 @@ const getStyles = (colors: any) =>
       gap: 6,
       paddingHorizontal: 12,
       paddingVertical: 8,
-      borderRadius: 999,
+      borderRadius: BorderRadius.full,
       backgroundColor: "rgba(255,255,255,0.14)",
       borderWidth: 1,
       borderColor: "rgba(255,255,255,0.16)",
@@ -520,7 +544,7 @@ const getStyles = (colors: any) =>
     iconBg: {
       width: 24,
       height: 24,
-      borderRadius: 12,
+      borderRadius: BorderRadius.full,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: "rgba(255,255,255,0.2)",
@@ -538,8 +562,8 @@ const getStyles = (colors: any) =>
       justifyContent: "center",
       backgroundColor: "rgba(255,255,255,0.15)",
       marginTop: 20,
-      paddingVertical: 12,
-      borderRadius: 14,
+      paddingVertical: 13,
+      borderRadius: BorderRadius.xl,
       gap: 4,
       borderWidth: 1,
       borderColor: "rgba(255,255,255,0.18)",
@@ -555,13 +579,13 @@ const getStyles = (colors: any) =>
       flex: 1,
       alignItems: "center",
       padding: 16,
-      borderRadius: 20,
+      borderRadius: BorderRadius["3xl"],
       gap: 12,
       ...Shadow.sm,
       borderWidth: 1,
-      borderColor: `${colors.border}AA`,
+      borderColor: colors.glassStroke,
       overflow: "hidden",
-      backgroundColor: `${colors.surface}D8`,
+      backgroundColor: colors.surfaceGlass,
     },
     quickActionGlass: {
       ...StyleSheet.absoluteFillObject,
@@ -604,21 +628,21 @@ const getStyles = (colors: any) =>
     },
     goalListWrap: { paddingHorizontal: 20, gap: 12 },
     glassSectionCard: {
-      backgroundColor: `${colors.surface}D8`,
-      borderRadius: 24,
+      backgroundColor: colors.surfaceGlass,
+      borderRadius: BorderRadius["4xl"],
       borderWidth: 1,
-      borderColor: `${colors.border}AA`,
+      borderColor: colors.glassStroke,
       padding: 8,
       ...Shadow.sm,
     },
     transactionList: {
-      backgroundColor: `${colors.surface}D8`,
+      backgroundColor: colors.surfaceGlass,
       marginHorizontal: 20,
-      borderRadius: 24,
+      borderRadius: BorderRadius["4xl"],
       padding: 8,
       ...Shadow.sm,
       borderWidth: 1,
-      borderColor: `${colors.border}AA`,
+      borderColor: colors.glassStroke,
       overflow: "hidden",
     },
     separator: { height: 1, backgroundColor: colors.divider, marginLeft: 64, marginRight: 16 },

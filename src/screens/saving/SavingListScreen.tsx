@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
-import { Shadow } from '../../constants/theme';
+import { BorderRadius, Shadow } from '../../constants/theme';
 import { useSavingStore } from '../../store/useSavingStore';
 import { SavingGoalCard } from '../../components/saving/SavingGoalCard';
 import { SavingGoalCardSkeleton } from '../../components/common/SkeletonLoader';
@@ -71,6 +71,7 @@ export function SavingListScreen() {
 
     return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
+            <View style={styles.bgAuraTop} pointerEvents="none" />
             <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
             <View style={styles.header}>
@@ -202,6 +203,16 @@ export function SavingListScreen() {
 
 const getStyles = (colors: any) => StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
+    bgAuraTop: {
+        position: 'absolute',
+        top: -120,
+        right: -30,
+        width: 250,
+        height: 250,
+        borderRadius: BorderRadius.full,
+        backgroundColor: colors.primaryLight,
+        opacity: 0.52,
+    },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -214,10 +225,10 @@ const getStyles = (colors: any) => StyleSheet.create({
         height: 44,
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: 14,
-        backgroundColor: `${colors.surface}D9`,
+        borderRadius: BorderRadius.xl,
+        backgroundColor: colors.surfaceGlass,
         borderWidth: 1,
-        borderColor: `${colors.border}AA`,
+        borderColor: colors.glassStroke,
     },
     headerCenter: { flex: 1 },
     headerTitle: { ...Typography.h2, color: colors.textPrimary },
@@ -230,25 +241,27 @@ const getStyles = (colors: any) => StyleSheet.create({
     addBtn: {
         width: 44,
         height: 44,
-        borderRadius: 14,
+        borderRadius: BorderRadius.xl,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: colors.primary,
-        ...Shadow.sm,
+        ...Shadow.md,
     },
     content: { paddingBottom: 108, gap: 18 },
     summaryCard: {
         marginHorizontal: 20,
-        borderRadius: 28,
+        borderRadius: BorderRadius['5xl'],
         padding: 22,
         overflow: 'hidden',
         gap: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.16)',
     },
     summaryGlowTop: {
         position: 'absolute',
         width: 170,
         height: 170,
-        borderRadius: 85,
+        borderRadius: BorderRadius.full,
         top: -52,
         right: -30,
         backgroundColor: 'rgba(255,255,255,0.12)',
@@ -257,7 +270,7 @@ const getStyles = (colors: any) => StyleSheet.create({
         position: 'absolute',
         width: 120,
         height: 120,
-        borderRadius: 60,
+        borderRadius: BorderRadius.full,
         bottom: -48,
         left: -24,
         backgroundColor: 'rgba(255,255,255,0.08)',
@@ -281,7 +294,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     summaryIcon: {
         width: 56,
         height: 56,
-        borderRadius: 18,
+        borderRadius: BorderRadius['2xl'],
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: 'rgba(255,255,255,0.14)',
@@ -306,7 +319,7 @@ const getStyles = (colors: any) => StyleSheet.create({
         gap: 6,
         paddingHorizontal: 12,
         paddingVertical: 8,
-        borderRadius: 999,
+        borderRadius: BorderRadius.full,
         backgroundColor: 'rgba(255,255,255,0.14)',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.16)',
@@ -319,10 +332,10 @@ const getStyles = (colors: any) => StyleSheet.create({
     filterBlock: {
         marginHorizontal: 20,
         padding: 16,
-        borderRadius: 22,
-        backgroundColor: `${colors.surface}D8`,
+        borderRadius: BorderRadius['4xl'],
+        backgroundColor: colors.surfaceGlass,
         borderWidth: 1,
-        borderColor: `${colors.border}B0`,
+        borderColor: colors.glassStroke,
         ...Shadow.sm,
     },
     filterBlockHeader: { marginBottom: 14 },
@@ -339,8 +352,8 @@ const getStyles = (colors: any) => StyleSheet.create({
     },
     filterRow: {
         flexDirection: 'row',
-        backgroundColor: `${colors.background}A6`,
-        borderRadius: 16,
+        backgroundColor: colors.surfaceCard,
+        borderRadius: BorderRadius.xl,
         padding: 4,
         borderWidth: 1,
         borderColor: `${colors.border}99`,
@@ -349,10 +362,10 @@ const getStyles = (colors: any) => StyleSheet.create({
         flex: 1,
         paddingVertical: 10,
         alignItems: 'center',
-        borderRadius: 12,
+        borderRadius: BorderRadius.lg,
     },
     filterTabActive: {
-        backgroundColor: colors.surface,
+        backgroundColor: colors.background,
     },
     filterTabText: {
         fontFamily: FontFamily.bodyMedium,

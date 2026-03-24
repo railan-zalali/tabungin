@@ -15,7 +15,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FontFamily, FontSize, Typography } from "../../constants/typography";
-import { Shadow } from "../../constants/theme";
+import { BorderRadius, Shadow } from "../../constants/theme";
 import { useTransactionStore } from "../../store/useTransactionStore";
 import { useCategoryStore } from "../../store/useCategoryStore";
 import { useTheme } from "../../store/useThemeStore";
@@ -119,6 +119,7 @@ export function TransactionListScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.bgAuraTop} pointerEvents="none" />
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor='transparent' translucent />
 
       {/* Header */}
@@ -276,6 +277,16 @@ export function TransactionListScreen() {
 
 const getStyles = (colors: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  bgAuraTop: {
+    position: "absolute",
+    top: -90,
+    right: -20,
+    width: 220,
+    height: 220,
+    borderRadius: BorderRadius.full,
+    backgroundColor: colors.primaryLight,
+    opacity: 0.5,
+  },
 
   header: {
     flexDirection: "row",
@@ -285,31 +296,50 @@ const getStyles = (colors: any) => StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: colors.background,
   },
-  backBtn: { padding: 4 },
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.xl,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceGlass,
+    borderWidth: 1,
+    borderColor: colors.glassStroke,
+  },
   headerTitle: { ...Typography.h2, color: colors.textPrimary },
   addBtn: {
-    padding: 4,
-    backgroundColor: colors.primaryLight,
-    borderRadius: 8,
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primaryBg,
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
+    borderColor: `${colors.primary}28`,
   },
 
   filterContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    backgroundColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-    gap: 12,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    padding: 16,
+    backgroundColor: colors.surfaceGlass,
+    borderWidth: 1,
+    borderColor: colors.glassStroke,
+    borderRadius: BorderRadius["4xl"],
+    gap: 14,
+    ...Shadow.sm,
   },
 
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.surfaceAlt,
-    borderRadius: 12,
+    backgroundColor: colors.surfaceCard,
+    borderRadius: BorderRadius["2xl"],
     paddingHorizontal: 12,
-    height: 44,
+    height: 48,
     gap: 8,
+    borderWidth: 1,
+    borderColor: `${colors.border}AA`,
   },
   searchInput: {
     flex: 1,
@@ -320,17 +350,17 @@ const getStyles = (colors: any) => StyleSheet.create({
 
   typeFilterRow: {
     flexDirection: "row",
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 2,
+    backgroundColor: colors.surfaceCard,
+    borderRadius: BorderRadius["2xl"],
+    padding: 4,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: `${colors.border}AA`,
   },
   typeFilterTab: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 10,
     alignItems: "center",
-    borderRadius: 10,
+    borderRadius: BorderRadius.lg,
   },
   typeFilterTabActive: {
     backgroundColor: colors.surfaceAlt,
@@ -350,16 +380,16 @@ const getStyles = (colors: any) => StyleSheet.create({
     gap: 8,
   },
   periodChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: `${colors.border}AA`,
+    backgroundColor: colors.surfaceCard,
   },
   periodChipActive: {
-    backgroundColor: colors.primaryLight,
-    borderColor: colors.primaryLight,
+    backgroundColor: colors.primaryBg,
+    borderColor: `${colors.primary}26`,
   },
   periodText: {
     fontFamily: FontFamily.body,
@@ -371,7 +401,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     color: colors.primaryDark,
   },
 
-  listContainer: { padding: 20 },
+  listContainer: { padding: 20, gap: 12 },
   emptyContainer: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
   listContent: { padding: 20, paddingBottom: 100 },
 
@@ -379,10 +409,12 @@ const getStyles = (colors: any) => StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: BorderRadius.xl,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: `${colors.border}88`,
   },
   sectionTitle: {
     fontFamily: FontFamily.bodyBold,
@@ -407,12 +439,12 @@ const getStyles = (colors: any) => StyleSheet.create({
   },
 
   itemWrapper: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
+    backgroundColor: colors.surfaceGlass,
+    borderRadius: BorderRadius["3xl"],
     overflow: "hidden",
     ...Shadow.sm,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.glassStroke,
     marginBottom: -1, // Overlap borders for list look
   },
   separator: {

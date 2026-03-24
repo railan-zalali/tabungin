@@ -1,74 +1,102 @@
 // Palet warna utama Tabungin
 // Berdasarkan UI/UX Revision Plan (Tailwind-like tokens)
 export const Colors = {
-    // Primary (Green)
-    primary: '#16A34A', // Green 600
-    primaryDark: '#15803D', // Green 700
-    primaryLight: '#DCFCE7', // Green 100
-    primaryBg: '#F0FDF4', // Green 50
+    // Brand anchor
+    primary: '#1E8C5C',
+    primaryDark: '#156746',
+    primaryLight: '#DDF2E5',
+    primaryBg: '#F4FBF6',
 
-    // Neutral (Grayscale)
-    neutral900: '#111827', // Text Primary
-    neutral700: '#374151', // Text Secondary
-    neutral500: '#6B7280', // Text Disabled / Icon
-    neutral300: '#9CA3AF', // Border
-    neutral100: '#E5E7EB', // Divider
-    neutral50: '#F9FAFB',  // Background Alt
+    // Premium calm neutrals
+    neutral950: '#0F1714',
+    neutral900: '#17211D',
+    neutral800: '#2A3732',
+    neutral700: '#42514A',
+    neutral600: '#5A6A63',
+    neutral500: '#74847C',
+    neutral400: '#A9B7B0',
+    neutral300: '#C8D2CD',
+    neutral200: '#DEE6E1',
+    neutral100: '#EDF2EE',
+    neutral50: '#F6F8F5',
 
     // Semantic / Status
-    success: '#16A34A',
-    successBg: '#DCFCE7',
-    warning: '#F59E0B',
-    warningBg: '#FEF3C7',
-    danger: '#DC2626',
-    dangerBg: '#FEE2E2',
-    info: '#2563EB',
-    infoBg: '#DBEAFE',
+    success: '#1D8A5B',
+    successBg: '#DFF3E7',
+    warning: '#C58A1E',
+    warningBg: '#F8EED6',
+    danger: '#C95A63',
+    dangerBg: '#F8E2E5',
+    info: '#3A79C9',
+    infoBg: '#DEEAFB',
 
-    // Background & Surface
-    background: '#FFFFFF', // Clean White
-    surface: '#FFFFFF',
-    surfaceAlt: '#F3F4F6', // Light Gray for cards/sections
+    // Background & surface
+    background: '#F4F7F2',
+    backgroundAlt: '#ECF1EB',
+    backgroundCanvas: '#E7ECE7',
+    surface: '#FCFEFB',
+    surfaceAlt: '#EEF3ED',
+    surfaceElevated: '#FFFFFF',
+    surfaceCard: 'rgba(255,255,255,0.92)',
+    surfaceGlass: 'rgba(252,254,251,0.78)',
+    surfaceInset: '#E7ECE7',
+    surfaceMuted: '#E1E8E3',
 
-    // Text Aliases
-    textPrimary: '#111827',
-    textSecondary: '#374151',
-    textTertiary: '#6B7280',
+    // Text hierarchy
+    textPrimary: '#17211D',
+    textSecondary: '#5A6A63',
+    textTertiary: '#7A8B83',
     textInverse: '#FFFFFF',
+    textDisabled: '#A5B2AB',
 
-    // Border & Divider Aliases
-    border: '#E5E7EB',
-    divider: '#F3F4F6',
+    // Border & divider
+    border: '#D6DFD9',
+    borderStrong: '#B7C3BC',
+    divider: '#E7ECE7',
 
-    // Overlay
-    overlay: 'rgba(0, 0, 0, 0.5)',
+    // Overlay & transparency
+    overlay: 'rgba(15, 23, 20, 0.5)',
+    overlayLight: 'rgba(15, 23, 20, 0.18)',
     
-    // Transparent
     transparent: 'transparent',
 
-    // --- ALIASES TO FIX TYPESCRIPT MIGRATION ERRORS ---
-    textDisabled: '#9CA3AF',
-    surfaceElevated: '#FFFFFF',
-    dangerLight: '#FEE2E2',
-    successLight: '#DCFCE7',
-    warningLight: '#FEF3C7',
-    infoLight: '#DBEAFE',
-    overlayLight: 'rgba(0, 0, 0, 0.3)',
+    // Semantic surfaces
+    dangerLight: '#F6D5D9',
+    successLight: '#CDEBD8',
+    warningLight: '#F3E3B9',
+    infoLight: '#D2E2FB',
 
-    // --- LEGACY COMPATIBILITY ---
-    // Keep these to prevent breaking existing components while migrating
-    secondary: '#F5A623', // Deprecated: Use 'warning' or specific color
+    // Legacy compatibility
+    secondary: '#D6A13A',
     secondaryLight: '#FEF3DC',
     
-    // Dark mode tokens (Legacy)
+    // Dark mode tokens
     dark: {
-        background: '#0F172A',
-        surface: '#1E293B',
-        surfaceElevated: '#334155',
-        textPrimary: '#F8FAFC',
-        textSecondary: '#94A3B8',
-        border: '#334155',
-        divider: '#1E293B',
+        background: '#0C1613',
+        backgroundAlt: '#11201C',
+        backgroundCanvas: '#162721',
+        surface: '#13211D',
+        surfaceAlt: '#1D2D27',
+        surfaceElevated: '#22332D',
+        surfaceCard: '#1A2924',
+        surfaceGlass: 'rgba(19,33,29,0.82)',
+        surfaceInset: '#0E1A17',
+        surfaceMuted: '#1A2A24',
+        textPrimary: '#F2F7F3',
+        textSecondary: '#A1B3AA',
+        textTertiary: '#7F9289',
+        textDisabled: '#667871',
+        border: '#283A34',
+        borderStrong: '#365048',
+        divider: '#1B2A25',
+        overlay: 'rgba(5, 10, 8, 0.74)',
+        overlayLight: 'rgba(5, 10, 8, 0.3)',
+        primaryLight: 'rgba(30, 140, 92, 0.22)',
+        primaryBg: 'rgba(30, 140, 92, 0.14)',
+        successBg: 'rgba(29, 138, 91, 0.18)',
+        warningBg: 'rgba(197, 138, 30, 0.18)',
+        dangerBg: 'rgba(201, 90, 99, 0.18)',
+        infoBg: 'rgba(58, 121, 201, 0.18)',
     },
 } as const;
 
