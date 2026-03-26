@@ -14,8 +14,9 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { FontFamily, FontSize, Typography } from "../../constants/typography";
-import { BorderRadius, Shadow } from "../../constants/theme";
+import { BorderRadius } from "../../constants/theme";
 import { useTransactionStore } from "../../store/useTransactionStore";
 import { useCategoryStore } from "../../store/useCategoryStore";
 import { useTheme } from "../../store/useThemeStore";
@@ -117,6 +118,15 @@ export function TransactionListScreen() {
     { id: "all", label: "Semua" },
   ];
 
+  const totalAmount = useMemo(
+    () =>
+      transactions.reduce((sum, tx) => {
+        const signed = tx.type === "income" ? tx.amount : -tx.amount;
+        return sum + signed;
+      }, 0),
+    [transactions]
+  );
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.bgAuraTop} pointerEvents="none" />
@@ -142,6 +152,17 @@ export function TransactionListScreen() {
 
       {/* Search & Filters */}
       <View style={styles.filterContainer}>
+        <View style={styles.filterHeader}>
+          <View>
+            <Text style={styles.filterTitle}>Cari dan Saring</Text>
+            <Text style={styles.filterHint}>Fokus ke transaksi yang paling penting dulu.</Text>
+          </View>
+          <View style={styles.filterBadge}>
+            <MaterialCommunityIcons name="filter-variant" size={14} color={colors.primary} />
+            <Text style={styles.filterBadgeText}>{grouped.length} hari</Text>
+          </View>
+        </View>
+
         {/* Search Bar */}
         <View style={styles.searchBar}>
           <MaterialCommunityIcons name='magnify' size={20} color={colors.textSecondary} />
@@ -197,6 +218,30 @@ export function TransactionListScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        <LinearGradient
+          colors={[colors.surfaceElevated, colors.surfaceAlt]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.summaryStrip}
+        >
+          <View style={styles.summaryStripItem}>
+            <Text style={styles.summaryStripLabel}>Transaksi</Text>
+            <Text style={styles.summaryStripValue}>{transactions.length}</Text>
+          </View>
+          <View style={styles.summaryStripDivider} />
+          <View style={styles.summaryStripItem}>
+            <Text style={styles.summaryStripLabel}>Net</Text>
+            <Text style={[styles.summaryStripValue, { color: totalAmount >= 0 ? colors.success : colors.danger }]}>
+              {formatCurrency(Math.abs(totalAmount))}
+            </Text>
+          </View>
+          <View style={styles.summaryStripDivider} />
+          <View style={styles.summaryStripItem}>
+            <Text style={styles.summaryStripLabel}>Mode</Text>
+            <Text style={styles.summaryStripValue}>{filterPeriod === "all" ? "Semua" : filterPeriod}</Text>
+          </View>
+        </LinearGradient>
 
         {/* Period Filter */}
         <View style={styles.periodFilterRow}>
@@ -322,24 +367,61 @@ const getStyles = (colors: any) => StyleSheet.create({
     marginHorizontal: 20,
     marginBottom: 12,
     padding: 16,
-    backgroundColor: colors.surfaceGlass,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: colors.glassStroke,
+    borderColor: colors.border,
     borderRadius: BorderRadius["4xl"],
     gap: 14,
-    ...Shadow.sm,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 4,
+  },
+  filterHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  filterTitle: {
+    ...Typography.h4,
+    color: colors.textPrimary,
+  },
+  filterHint: {
+    fontFamily: FontFamily.body,
+    fontSize: FontSize.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  filterBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-start",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.full,
+    backgroundColor: colors.primaryBg,
+    borderWidth: 1,
+    borderColor: `${colors.primary}25`,
+  },
+  filterBadgeText: {
+    fontFamily: FontFamily.bodyBold,
+    fontSize: FontSize.caption,
+    color: colors.primary,
   },
 
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.surfaceCard,
+    backgroundColor: colors.surface,
     borderRadius: BorderRadius["2xl"],
     paddingHorizontal: 12,
     height: 48,
     gap: 8,
     borderWidth: 1,
-    borderColor: `${colors.border}AA`,
+    borderColor: colors.border,
   },
   searchInput: {
     flex: 1,
@@ -350,11 +432,11 @@ const getStyles = (colors: any) => StyleSheet.create({
 
   typeFilterRow: {
     flexDirection: "row",
-    backgroundColor: colors.surfaceCard,
+    backgroundColor: colors.surfaceAlt,
     borderRadius: BorderRadius["2xl"],
     padding: 4,
     borderWidth: 1,
-    borderColor: `${colors.border}AA`,
+    borderColor: colors.border,
   },
   typeFilterTab: {
     flex: 1,
@@ -384,8 +466,8 @@ const getStyles = (colors: any) => StyleSheet.create({
     paddingVertical: 8,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: `${colors.border}AA`,
-    backgroundColor: colors.surfaceCard,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceElevated,
   },
   periodChipActive: {
     backgroundColor: colors.primaryBg,
@@ -401,6 +483,41 @@ const getStyles = (colors: any) => StyleSheet.create({
     color: colors.primaryDark,
   },
 
+  summaryStrip: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: BorderRadius["3xl"],
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  summaryStripItem: {
+    flex: 1,
+    alignItems: "center",
+    gap: 4,
+  },
+  summaryStripDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: colors.divider,
+  },
+  summaryStripLabel: {
+    fontFamily: FontFamily.body,
+    fontSize: FontSize.caption,
+    color: colors.textSecondary,
+  },
+  summaryStripValue: {
+    fontFamily: FontFamily.bodyBold,
+    fontSize: FontSize.body,
+    color: colors.textPrimary,
+  },
+
   listContainer: { padding: 20, gap: 12 },
   emptyContainer: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
   listContent: { padding: 20, paddingBottom: 100 },
@@ -414,7 +531,8 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderRadius: BorderRadius.xl,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: `${colors.border}88`,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceElevated,
   },
   sectionTitle: {
     fontFamily: FontFamily.bodyBold,
@@ -439,12 +557,16 @@ const getStyles = (colors: any) => StyleSheet.create({
   },
 
   itemWrapper: {
-    backgroundColor: colors.surfaceGlass,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: BorderRadius["3xl"],
     overflow: "hidden",
-    ...Shadow.sm,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 2,
     borderWidth: 1,
-    borderColor: colors.glassStroke,
+    borderColor: colors.border,
     marginBottom: -1, // Overlap borders for list look
   },
   separator: {

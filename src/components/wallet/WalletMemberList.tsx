@@ -15,7 +15,7 @@ import {
 import QRCode from "react-native-qrcode-svg";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { FontFamily, FontSize } from "../../constants/typography";
-import { BorderRadius, Shadow } from "../../constants/theme";
+import { BorderRadius } from "../../constants/theme";
 import { useTheme } from "../../store/useThemeStore";
 import type { WalletMember } from "../../database/walletQueries";
 import {
@@ -225,7 +225,7 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
                 disabled={inviteLoading}
               >
                 {inviteLoading ? (
-                  <ActivityIndicator color='#FFF' size='small' />
+                  <ActivityIndicator color={colors.textInverse} size='small' />
                 ) : (
                   <Text style={styles.confirmBtnText}>Kirim Undangan</Text>
                 )}
@@ -258,7 +258,7 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
                     value={inviteUrl}
                     size={280}
                     color="#000000"
-                    backgroundColor="#FFFFFF"
+                    backgroundColor={colors.surfaceElevated}
                   />
                 </View>
 
@@ -317,9 +317,9 @@ const getStyles = (colors: any) => StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: BorderRadius.full,
-    backgroundColor: colors.surfaceGlass,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: colors.glassStroke,
+    borderColor: colors.border,
   },
   inviteBtnText: {
     fontFamily: FontFamily.bodyBold,
@@ -331,9 +331,9 @@ const getStyles = (colors: any) => StyleSheet.create({
     fontSize: FontSize.caption,
     color: colors.textTertiary,
     fontStyle: "italic",
-    backgroundColor: colors.surfaceGlass,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: colors.glassStroke,
+    borderColor: colors.border,
     borderRadius: BorderRadius.xl,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -344,13 +344,17 @@ const getStyles = (colors: any) => StyleSheet.create({
   memberItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.surfaceGlass,
+    backgroundColor: colors.surfaceElevated,
     padding: 16,
     borderRadius: BorderRadius['3xl'],
     borderWidth: 1,
-    borderColor: colors.glassStroke,
+    borderColor: colors.border,
     gap: 12,
-    ...Shadow.sm,
+    shadowColor: colors.shadowColor,
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 1,
   },
   memberAvatar: {
     width: 42,
@@ -420,15 +424,19 @@ const getStyles = (colors: any) => StyleSheet.create({
     paddingVertical: 40,
   },
   modalContent: {
-    backgroundColor: colors.surfaceCard,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: BorderRadius['4xl'],
     padding: 24,
     width: "100%",
     maxWidth: 400,
     alignSelf: "center",
     borderWidth: 1,
-    borderColor: colors.glassStroke,
-    ...Shadow.lg,
+    borderColor: colors.border,
+    shadowColor: colors.shadowColor,
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 3,
   },
   modalTitle: {
     fontFamily: FontFamily.heading,
@@ -452,7 +460,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: FontSize.body,
     color: colors.textPrimary,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfaceElevated,
   },
   modalActions: {
     flexDirection: "row",
@@ -464,9 +472,9 @@ const getStyles = (colors: any) => StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: BorderRadius.lg,
-    backgroundColor: colors.surfaceGlass,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: colors.glassStroke,
+    borderColor: colors.border,
   },
   cancelBtnText: {
     fontFamily: FontFamily.bodyBold,
@@ -480,12 +488,16 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderRadius: BorderRadius.lg,
     minWidth: 100,
     alignItems: "center",
-    ...Shadow.sm,
+    shadowColor: colors.shadowColor,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 1,
   },
   confirmBtnText: {
     fontFamily: FontFamily.bodyBold,
     fontSize: FontSize.body,
-    color: "#FFF",
+    color: colors.textInverse,
   },
   qrContainer: {
     width: "100%",
@@ -494,9 +506,13 @@ const getStyles = (colors: any) => StyleSheet.create({
   },
   qrPreview: {
     padding: 20,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.surfaceElevated,
     borderRadius: BorderRadius['3xl'],
-    ...Shadow.md,
+    shadowColor: colors.shadowColor,
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 2,
   },
   qrActions: {
     flexDirection: "row",
@@ -513,10 +529,10 @@ const getStyles = (colors: any) => StyleSheet.create({
     gap: 8,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: colors.surfaceGlass,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: BorderRadius.xl,
     borderWidth: 1,
-    borderColor: colors.glassStroke,
+    borderColor: colors.border,
   },
   qrActionText: {
     fontFamily: FontFamily.bodyBold,
@@ -545,11 +561,15 @@ const getStyles = (colors: any) => StyleSheet.create({
     paddingVertical: 16,
     borderRadius: BorderRadius.xl,
     alignItems: "center",
-    ...Shadow.sm,
+    shadowColor: colors.shadowColor,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 1,
   },
   closeButtonText: {
     fontFamily: FontFamily.bodyBold,
     fontSize: FontSize.body,
-    color: "#FFFFFF",
+    color: colors.textInverse,
   },
 });

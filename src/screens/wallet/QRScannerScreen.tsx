@@ -1,17 +1,22 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Image } from "react-native";
-import { CameraView, Camera } from "expo-camera";
-import * as ImagePicker from "expo-image-picker";
-import { useNavigation } from "@react-navigation/native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Colors } from "../../constants/colors";
-import { FontFamily, FontSize } from "../../constants/typography";
-import { parseWalletInvite } from "../../utils/walletInvite";
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Image, StatusBar } from 'react-native';
+import { CameraView, Camera } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
+import { useNavigation } from '@react-navigation/native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../../store/useThemeStore';
+import { BorderRadius } from '../../constants/theme';
+import { FontFamily, FontSize } from '../../constants/typography';
+import { Button } from '../../components/common/Button';
+import { parseWalletInvite } from '../../utils/walletInvite';
 
 export function QRScannerScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
+  const styles = React.useMemo(() => getStyles(colors), [colors]);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [isPickingImage, setIsPickingImage] = useState(false);
@@ -20,7 +25,7 @@ export function QRScannerScreen() {
   useEffect(() => {
     const getCameraPermissions = async () => {
       const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === "granted");
+      setHasPermission(status === 'granted');
     };
 
     getCameraPermissions();
@@ -31,12 +36,12 @@ export function QRScannerScreen() {
 
     const walletId = parseWalletInvite(rawValue);
     if (walletId) {
-      navigation.replace("JoinWallet", { walletId });
+      navigation.replace('JoinWallet', { walletId });
       return;
     }
 
-    Alert.alert("QR Tidak Valid", "Kode QR ini bukan undangan dompet Tabungin yang valid.", [
-      { text: "Coba Lagi", onPress: () => setScanned(false) },
+    Alert.alert('QR tidak valid', 'Kode QR ini bukan undangan dompet Tabungin yang valid.', [
+      { text: 'Coba Lagi', onPress: () => setScanned(false) },
     ]);
   };
 
@@ -54,9 +59,9 @@ export function QRScannerScreen() {
 
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert("Akses Galeri Diperlukan", "Izinkan akses galeri untuk memilih gambar QR undangan.", [
+        Alert.alert('Akses galeri diperlukan', 'Izinkan akses galeri untuk memilih gambar QR undangan.', [
           {
-            text: "OK",
+            text: 'OK',
             onPress: () => setScanned(false),
           },
         ]);
@@ -64,7 +69,7 @@ export function QRScannerScreen() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
+        mediaTypes: ['images'],
         allowsEditing: false,
         quality: 1,
       });
@@ -77,16 +82,16 @@ export function QRScannerScreen() {
       const asset = result.assets[0];
       setSelectedImage({
         uri: asset.uri,
-        fileName: asset.fileName || "qr-gallery-image.jpg",
+        fileName: asset.fileName || 'qr-gallery-image.jpg',
       });
 
-      const barcodes = await Camera.scanFromURLAsync(asset.uri, ["qr"]);
+      const barcodes = await Camera.scanFromURLAsync(asset.uri, ['qr']);
       const qrResult = barcodes.find((barcode) => barcode.data);
 
       if (!qrResult?.data) {
-        Alert.alert("QR Tidak Ditemukan", "Gambar yang dipilih tidak berisi QR undangan yang bisa dibaca.", [
+        Alert.alert('QR tidak ditemukan', 'Gambar yang dipilih tidak berisi QR undangan yang bisa dibaca.', [
           {
-            text: "Pilih Lagi",
+            text: 'Pilih Lagi',
             onPress: () => setScanned(false),
           },
         ]);
@@ -95,10 +100,10 @@ export function QRScannerScreen() {
 
       handleInvitePayload(qrResult.data);
     } catch (error) {
-      console.error("[QRScanner] Failed to scan image from gallery:", error);
-      Alert.alert("Gagal Membaca Gambar", "Terjadi kendala saat memproses gambar dari galeri.", [
+      console.error('[QRScanner] Failed to scan image from gallery:', error);
+      Alert.alert('Gagal membaca gambar', 'Terjadi kendala saat memproses gambar dari galeri.', [
         {
-          text: "Coba Lagi",
+          text: 'Coba Lagi',
           onPress: () => setScanned(false),
         },
       ]);
@@ -110,245 +115,272 @@ export function QRScannerScreen() {
   if (hasPermission === null) {
     return <View style={styles.container} />;
   }
+
   if (hasPermission === false) {
     return (
       <View style={[styles.container, styles.center]}>
-        <Text style={styles.text}>Akses kamera diperlukan untuk memindai QR code.</Text>
-        <TouchableOpacity style={styles.galleryBtn} onPress={handlePickFromGallery} disabled={isPickingImage}>
-          {isPickingImage ? (
-            <ActivityIndicator color="#FFF" />
-          ) : (
-            <>
-              <MaterialCommunityIcons name="image-multiple-outline" size={20} color="#FFF" />
-              <Text style={styles.galleryBtnText}>Pilih QR dari Galeri</Text>
-            </>
-          )}
-        </TouchableOpacity>
-        {selectedImage ? (
-          <View style={styles.selectedImageCardFallback}>
-            <Image source={{ uri: selectedImage.uri }} style={styles.selectedImageThumbFallback} />
-            <View style={styles.selectedImageMeta}>
-              <Text style={styles.selectedImageLabel}>Gambar terakhir dipilih</Text>
-              <Text style={styles.selectedImageName} numberOfLines={1}>
-                {selectedImage.fileName}
-              </Text>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
+        <LinearGradient
+          colors={[colors.primary, colors.primaryDark, colors.primary]}
+          style={styles.permissionCard}
+        >
+          <MaterialCommunityIcons name="qrcode-scan" size={64} color={colors.textInverse} />
+          <Text style={styles.permissionTitle}>Akses kamera diperlukan</Text>
+          <Text style={styles.permissionText}>Izinkan kamera agar kamu bisa memindai QR undangan dompet.</Text>
+          <Button
+            label="Pilih QR dari Galeri"
+            onPress={handlePickFromGallery}
+            variant="secondary"
+            fullWidth
+          />
+          {selectedImage ? (
+            <View style={styles.selectedImageCardFallback}>
+              <Image source={{ uri: selectedImage.uri }} style={styles.selectedImageThumbFallback} />
+              <View style={styles.selectedImageMeta}>
+                <Text style={styles.selectedImageLabel}>Gambar terakhir dipilih</Text>
+                <Text style={styles.selectedImageName} numberOfLines={1}>
+                  {selectedImage.fileName}
+                </Text>
+              </View>
             </View>
-          </View>
-        ) : null}
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Text style={styles.backBtnText}>Kembali</Text>
-        </TouchableOpacity>
+          ) : null}
+          <Button label="Kembali" onPress={() => navigation.goBack()} variant="ghost" fullWidth />
+        </LinearGradient>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       <CameraView
         style={StyleSheet.absoluteFillObject}
         facing="back"
         onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
         barcodeScannerSettings={{
-          barcodeTypes: ["qr"],
+          barcodeTypes: ['qr'],
         }}
       />
-      <View style={[styles.overlay, { paddingTop: insets.top }]}>
+      <View style={[styles.overlay, { paddingTop: insets.top }]} pointerEvents="box-none">
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
-            <MaterialCommunityIcons name="close" size={28} color="#FFF" />
+            <MaterialCommunityIcons name="close" size={24} color={colors.textInverse} />
           </TouchableOpacity>
           <Text style={styles.title}>Scan QR Undangan</Text>
           <View style={{ width: 44 }} />
         </View>
 
-        <View style={styles.scannerBoxContainer}>
-          <View style={styles.scannerBox} />
-          <Text style={styles.instruction}>Arahkan kamera ke QR code undangan</Text>
-          <TouchableOpacity
-            style={[styles.galleryCta, isPickingImage && styles.galleryCtaDisabled]}
-            onPress={handlePickFromGallery}
-            disabled={isPickingImage}
+        <View style={styles.scannerStage}>
+          <View style={styles.scannerFrameWrap}>
+            <View style={styles.frameGlow} />
+            <View style={styles.scannerBox} />
+          </View>
+
+          <LinearGradient
+            colors={['rgba(6, 12, 20, 0.10)', 'rgba(6, 12, 20, 0.68)', 'rgba(6, 12, 20, 0.92)']}
+            style={styles.bottomSheet}
           >
-            {isPickingImage ? (
-              <ActivityIndicator color={Colors.textPrimary} />
-            ) : (
-              <>
-                <MaterialCommunityIcons name="image-search-outline" size={22} color={Colors.textPrimary} />
-                <Text style={styles.galleryCtaText}>Pilih dari Galeri</Text>
-              </>
-            )}
-          </TouchableOpacity>
-          <Text style={styles.galleryHint}>Cocok untuk scan screenshot atau foto QR yang sudah tersimpan</Text>
-          {selectedImage ? (
-            <View style={styles.selectedImageCard}>
-              <Image source={{ uri: selectedImage.uri }} style={styles.selectedImageThumb} />
-              <View style={styles.selectedImageMeta}>
-                <View style={styles.selectedImageBadge}>
-                  <MaterialCommunityIcons name="image-check-outline" size={14} color={Colors.primary} />
-                  <Text style={styles.selectedImageBadgeText}>Siap Diproses</Text>
+            <Text style={styles.instruction}>Arahkan kamera ke QR code undangan</Text>
+            <Text style={styles.galleryHint}>Cocok untuk scan screenshot atau foto QR yang sudah tersimpan.</Text>
+
+            <Button
+              label={isPickingImage ? 'Memproses gambar...' : 'Pilih dari Galeri'}
+              onPress={handlePickFromGallery}
+              variant="secondary"
+              loading={isPickingImage}
+              fullWidth
+            />
+
+            {selectedImage ? (
+              <View style={styles.selectedImageCard}>
+                <Image source={{ uri: selectedImage.uri }} style={styles.selectedImageThumb} />
+                <View style={styles.selectedImageMeta}>
+                  <View style={styles.selectedImageBadge}>
+                    <MaterialCommunityIcons name="image-check-outline" size={14} color={colors.primary} />
+                    <Text style={styles.selectedImageBadgeText}>Siap diproses</Text>
+                  </View>
+                  <Text style={styles.selectedImageLabel}>Gambar QR terpilih</Text>
+                  <Text style={styles.selectedImageName} numberOfLines={1}>
+                    {selectedImage.fileName}
+                  </Text>
                 </View>
-                <Text style={styles.selectedImageLabel}>Gambar QR terpilih</Text>
-                <Text style={styles.selectedImageName} numberOfLines={1}>
-                  {selectedImage.fileName}
-                </Text>
-                <TouchableOpacity
-                  onPress={handlePickFromGallery}
-                  disabled={isPickingImage}
-                  style={styles.changeImageBtn}
-                >
-                  <Text style={styles.changeImageBtnText}>Ganti Gambar</Text>
-                </TouchableOpacity>
               </View>
-            </View>
-          ) : null}
+            ) : null}
+          </LinearGradient>
         </View>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#000" },
-  center: { justifyContent: "center", alignItems: "center", padding: 24 },
-  text: { color: "#FFF", textAlign: "center", marginBottom: 24, fontFamily: FontFamily.body },
-  backBtn: { backgroundColor: Colors.primary, padding: 16, borderRadius: 12 },
-  backBtnText: { color: "#FFF", fontFamily: FontFamily.bodyBold },
-  galleryBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderRadius: 16,
-    marginBottom: 16,
-    minWidth: 220,
-    justifyContent: "center",
+const getStyles = (colors: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#000' },
+  center: { justifyContent: 'center', alignItems: 'center', padding: 20 },
+  overlay: {
+    flex: 1,
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(3, 8, 14, 0.26)',
   },
-  galleryBtnText: { color: "#FFF", fontFamily: FontFamily.bodyBold },
-  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "space-between" },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
-  iconBtn: { padding: 8 },
-  title: { color: "#FFF", fontFamily: FontFamily.heading, fontSize: FontSize.h3 },
-  scannerBoxContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  iconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.xl,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    color: colors.textInverse,
+    fontFamily: FontFamily.heading,
+    fontSize: FontSize.h3,
+  },
+  scannerStage: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 18,
+  },
+  scannerFrameWrap: {
+    width: '100%',
+    maxWidth: 320,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+  },
+  frameGlow: {
+    position: 'absolute',
+    width: 260,
+    height: 260,
+    borderRadius: BorderRadius.full,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+  },
   scannerBox: {
     width: 250,
     height: 250,
     borderWidth: 2,
-    borderColor: Colors.primary,
-    borderRadius: 24,
-    backgroundColor: "transparent",
+    borderColor: colors.primary,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
-  instruction: { color: "#FFF", marginTop: 24, fontFamily: FontFamily.body, fontSize: FontSize.body },
-  galleryCta: {
-    marginTop: 24,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: "#F4F0E8",
-    paddingHorizontal: 22,
-    paddingVertical: 16,
-    borderRadius: 20,
+  bottomSheet: {
+    width: '100%',
+    borderRadius: 28,
+    padding: 18,
+    gap: 12,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.28)",
+    borderColor: 'rgba(255,255,255,0.12)',
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    elevation: 6,
   },
-  galleryCtaDisabled: {
-    opacity: 0.75,
-  },
-  galleryCtaText: {
-    color: Colors.textPrimary,
-    fontFamily: FontFamily.bodyBold,
+  instruction: {
+    color: colors.textInverse,
+    fontFamily: FontFamily.headingMedium,
     fontSize: FontSize.body,
   },
   galleryHint: {
-    marginTop: 12,
-    color: "rgba(255,255,255,0.82)",
+    color: 'rgba(255,255,255,0.8)',
     fontFamily: FontFamily.body,
     fontSize: FontSize.caption,
-    textAlign: "center",
-    maxWidth: 280,
     lineHeight: 18,
   },
-  selectedImageCard: {
-    marginTop: 18,
-    width: 300,
-    backgroundColor: "rgba(255,255,255,0.96)",
-    borderRadius: 24,
-    padding: 14,
-    flexDirection: "row",
+  permissionCard: {
+    width: '100%',
+    borderRadius: 32,
+    padding: 22,
+    alignItems: 'center',
     gap: 14,
-    alignItems: "center",
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    elevation: 6,
+  },
+  permissionTitle: {
+    fontFamily: FontFamily.heading,
+    fontSize: FontSize.h3,
+    color: colors.textInverse,
+    textAlign: 'center',
+  },
+  permissionText: {
+    fontFamily: FontFamily.body,
+    fontSize: FontSize.body,
+    color: 'rgba(255,255,255,0.86)',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  selectedImageCard: {
+    width: '100%',
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderRadius: 24,
+    padding: 12,
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
   },
   selectedImageCardFallback: {
-    width: "100%",
-    maxWidth: 320,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderRadius: 18,
+    width: '100%',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 20,
     padding: 12,
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: 12,
-    alignItems: "center",
-    marginBottom: 16,
+    alignItems: 'center',
   },
   selectedImageThumb: {
     width: 72,
     height: 72,
     borderRadius: 18,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceElevated,
   },
   selectedImageThumbFallback: {
     width: 56,
     height: 56,
     borderRadius: 14,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: colors.surfaceElevated,
   },
   selectedImageMeta: {
     flex: 1,
     gap: 4,
   },
   selectedImageBadge: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.primaryBg,
+    backgroundColor: colors.primaryBg,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
     marginBottom: 2,
   },
   selectedImageBadgeText: {
-    color: Colors.primary,
+    color: colors.primary,
     fontFamily: FontFamily.bodyBold,
     fontSize: FontSize.caption,
   },
   selectedImageLabel: {
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontFamily: FontFamily.bodyMedium,
     fontSize: FontSize.caption,
   },
   selectedImageName: {
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     fontFamily: FontFamily.headingMedium,
     fontSize: FontSize.body,
-  },
-  changeImageBtn: {
-    marginTop: 4,
-    alignSelf: "flex-start",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: Colors.surfaceAlt,
-  },
-  changeImageBtnText: {
-    color: Colors.textPrimary,
-    fontFamily: FontFamily.bodyBold,
-    fontSize: FontSize.caption,
   },
 });

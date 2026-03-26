@@ -8,7 +8,6 @@ import {
   Modal,
   Alert,
   ActivityIndicator,
-  Platform,
   StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -16,11 +15,15 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { useTheme } from '../../store/useThemeStore';
 import { useTransactionStore } from '../../store/useTransactionStore';
 import { useSavingStore } from '../../store/useSavingStore';
+import { Button } from '../../components/common/Button';
+import { EmptyState } from '../../components/common/EmptyState';
+import { BorderRadius } from '../../constants/theme';
 import {
   exportToJSON,
   exportToCSV,
@@ -72,7 +75,7 @@ export function ExportDataScreen() {
     {
       id: 'all' as ExportScope,
       title: 'Semua Data',
-      description: 'Transaksi dan Target Tabungan',
+      description: 'Transaksi dan target tabungan',
       icon: 'database-export',
     },
     {
@@ -133,16 +136,18 @@ export function ExportDataScreen() {
     }
   };
 
+  const selectedScopeLabel = selectedScope === 'all' ? 'Semua data' : selectedScope === 'transactions' ? 'Transaksi' : 'Target tabungan';
+
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
       <StatusBar
         barStyle={mode === 'dark' ? 'light-content' : 'dark-content'}
-        backgroundColor='transparent'
+        backgroundColor="transparent"
         translucent
       />
+      <View style={styles.bgAuraTop} pointerEvents="none" />
 
-      {/* Header */}
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+      <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
@@ -151,33 +156,61 @@ export function ExportDataScreen() {
           <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: colors.textPrimary }]}>Ekspor Data</Text>
-        <View style={{ width: 40 }} />
+        <View style={styles.headerSpacer} />
       </View>
 
-      {/* Content */}
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Export Scope Selection */}
-        <Animated.View entering={FadeInDown.delay(100).springify()}>
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-            Pilih Data yang Diekspor
-          </Text>
-          <View style={[styles.scopeContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <Animated.View entering={FadeInDown.delay(60).springify()}>
+          <LinearGradient
+            colors={[colors.primary, colors.primaryDark, colors.primary]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroCard}
+          >
+            <View style={styles.heroGlow} />
+            <View style={styles.heroTopRow}>
+              <View style={styles.heroIcon}>
+                <MaterialCommunityIcons name="database-export" size={24} color={colors.textInverse} />
+              </View>
+              <View style={styles.heroCopy}>
+                <Text style={styles.heroTitle}>Ekspor yang cepat dipahami</Text>
+                <Text style={styles.heroSubtitle}>
+                  Pilih cakupan data lalu tentukan format yang paling cocok untuk backup atau analisis.
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.heroStats}>
+              <View style={styles.heroStat}>
+                <Text style={styles.heroStatValue}>{transactions.length}</Text>
+                <Text style={styles.heroStatLabel}>Transaksi</Text>
+              </View>
+              <View style={styles.heroStat}>
+                <Text style={styles.heroStatValue}>{goals.length}</Text>
+                <Text style={styles.heroStatLabel}>Target</Text>
+              </View>
+              <View style={styles.heroStat}>
+                <Text style={styles.heroStatValue}>{selectedScopeLabel}</Text>
+                <Text style={styles.heroStatLabel}>Cakupan</Text>
+              </View>
+            </View>
+          </LinearGradient>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(120).springify()} style={styles.sectionBlock}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Pilih Data yang Diekspor</Text>
+          <View style={styles.optionList}>
             {scopeOptions.map((option, index) => (
-              <Animated.View
-                key={option.id}
-                entering={FadeInUp.delay(index * 100).springify()}
-              >
+              <Animated.View key={option.id} entering={FadeInUp.delay(index * 70).springify()}>
                 <TouchableOpacity
                   style={[
                     styles.scopeOption,
+                    { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
                     selectedScope === option.id && [styles.scopeOptionActive, { backgroundColor: colors.primaryBg, borderColor: colors.primary }],
                   ]}
                   onPress={() => setSelectedScope(option.id)}
                 >
-                  <View style={[styles.scopeIcon, { backgroundColor: colors.primaryLight }]}>
+                  <View style={[styles.scopeIcon, { backgroundColor: colors.primaryBg }]}>
                     <MaterialCommunityIcons name={option.icon as any} size={24} color={colors.primary} />
                   </View>
                   <View style={styles.scopeInfo}>
@@ -195,23 +228,13 @@ export function ExportDataScreen() {
           </View>
         </Animated.View>
 
-        {/* Export Format Selection */}
-        <Animated.View entering={FadeInDown.delay(200).springify()}>
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-            Pilih Format Ekspor
-          </Text>
+        <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.sectionBlock}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Pilih Format Ekspor</Text>
           <View style={styles.formatGrid}>
             {exportOptions.map((option, index) => (
-              <Animated.View
-                key={option.id}
-                entering={FadeInUp.delay(index * 100).springify()}
-                style={{ flex: 1, maxWidth: '100%' }}
-              >
+              <Animated.View key={option.id} entering={FadeInUp.delay(index * 80).springify()} style={{ flex: 1, minWidth: '45%' }}>
                 <TouchableOpacity
-                  style={[
-                    styles.formatOption,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
-                  ]}
+                  style={[styles.formatOption, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
                   onPress={() => setShowFormatModal(true)}
                 >
                   <View style={[styles.formatIcon, { backgroundColor: option.color + '20' }]}>
@@ -227,72 +250,50 @@ export function ExportDataScreen() {
           </View>
         </Animated.View>
 
-        {/* Export Summary */}
-        <Animated.View entering={FadeInDown.delay(300).springify()}>
-          <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <View style={styles.summaryItem}>
+        <Animated.View entering={FadeInDown.delay(280).springify()} style={styles.sectionBlock}>
+          <View style={[styles.summaryCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+            <View style={styles.summaryRow}>
               <MaterialCommunityIcons name="swap-horizontal" size={20} color={colors.primary} />
-              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Total Transaksi:</Text>
+              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Total Transaksi</Text>
               <Text style={[styles.summaryValue, { color: colors.textPrimary }]}>{transactions.length}</Text>
             </View>
             <View style={[styles.summaryDivider, { backgroundColor: colors.divider }]} />
-            <View style={styles.summaryItem}>
+            <View style={styles.summaryRow}>
               <MaterialCommunityIcons name="target" size={20} color={colors.success} />
-              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Total Target:</Text>
+              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Total Target</Text>
               <Text style={[styles.summaryValue, { color: colors.textPrimary }]}>{goals.length}</Text>
-            </View>
-            <View style={[styles.summaryDivider, { backgroundColor: colors.divider }]} />
-            <View style={styles.summaryItem}>
-              <MaterialCommunityIcons name="information" size={20} color={colors.info} />
-              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Data Diekspor:</Text>
-              <Text style={[styles.summaryValue, { color: colors.textPrimary }]}>
-                {selectedScope === 'all' ? 'Semua' : selectedScope === 'transactions' ? 'Transaksi' : 'Target'}
-              </Text>
             </View>
           </View>
         </Animated.View>
 
-        {/* Tips */}
-        <Animated.View entering={FadeInDown.delay(400).springify()}>
-          <View style={[styles.tipsCard, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
-            <MaterialCommunityIcons name="lightbulb" size={24} color={colors.primary} />
+        <Animated.View entering={FadeInDown.delay(340).springify()} style={styles.sectionBlock}>
+          <View style={[styles.tipsCard, { backgroundColor: colors.primaryBg, borderColor: `${colors.primary}22` }]}>
+            <MaterialCommunityIcons name="lightbulb-outline" size={24} color={colors.primary} />
             <View style={styles.tipsContent}>
               <Text style={[styles.tipsTitle, { color: colors.primary }]}>Tips Ekspor Data</Text>
-              <Text style={[styles.tipsText, { color: colors.textSecondary }]}>
-                • JSON untuk backup lengkap dan restore
-              </Text>
-              <Text style={[styles.tipsText, { color: colors.textSecondary }]}>
-                • CSV untuk analisis di Excel/Google Sheets
-              </Text>
-              <Text style={[styles.tipsText, { color: colors.textSecondary }]}>
-                • TXT untuk laporan mudah dibaca
-              </Text>
+              <Text style={[styles.tipsText, { color: colors.textSecondary }]}>• JSON untuk backup lengkap dan restore</Text>
+              <Text style={[styles.tipsText, { color: colors.textSecondary }]}>• CSV untuk analisis di Excel/Google Sheets</Text>
+              <Text style={[styles.tipsText, { color: colors.textSecondary }]}>• TXT untuk laporan mudah dibaca</Text>
             </View>
           </View>
         </Animated.View>
       </ScrollView>
 
-      {/* Export Format Modal */}
       <Modal
         visible={showFormatModal}
         transparent
-        animationType='fade'
+        animationType="fade"
         onRequestClose={() => setShowFormatModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-              Pilih Format Ekspor
-            </Text>
+          <View style={[styles.modalContent, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Pilih Format Ekspor</Text>
 
             <View style={styles.formatList}>
               {exportOptions.map((option) => (
                 <TouchableOpacity
                   key={option.id}
-                  style={[
-                    styles.formatListItem,
-                    { backgroundColor: colors.background, borderColor: colors.border },
-                  ]}
+                  style={[styles.formatListItem, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
                   onPress={() => handleExport(option.id)}
                   disabled={isExporting}
                 >
@@ -305,19 +306,18 @@ export function ExportDataScreen() {
                       {option.description}
                     </Text>
                   </View>
-                  {isExporting && (
-                    <ActivityIndicator color={option.color} size='small' />
-                  )}
+                  {isExporting && <ActivityIndicator color={option.color} size="small" />}
                 </TouchableOpacity>
               ))}
             </View>
 
-            <TouchableOpacity
-              style={[styles.cancelButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+            <Button
+              label="Batal"
               onPress={() => setShowFormatModal(false)}
-            >
-              <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Batal</Text>
-            </TouchableOpacity>
+              variant="secondary"
+              fullWidth
+              style={{ marginTop: 16 }}
+            />
           </View>
         </View>
       </Modal>
@@ -330,58 +330,146 @@ const getStyles = (colors: any) => StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  bgAuraTop: {
+    position: 'absolute',
+    top: -100,
+    right: -30,
+    width: 220,
+    height: 220,
+    borderRadius: BorderRadius.full,
+    backgroundColor: colors.primaryLight,
+    opacity: 0.4,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 1,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: BorderRadius.xl,
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   title: {
     ...Typography.h2,
-    color: colors.textPrimary,
     flex: 1,
     textAlign: 'center',
   },
+  headerSpacer: {
+    width: 44,
+  },
   scrollContent: {
-    paddingVertical: 20,
-    gap: 24,
+    paddingVertical: 16,
+    paddingBottom: 32,
+  },
+  heroCard: {
+    borderRadius: 30,
+    padding: 20,
+    marginHorizontal: 16,
+    overflow: 'hidden',
+    shadowColor: colors.shadowColor,
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 3,
+  },
+  heroGlow: {
+    position: 'absolute',
+    top: -58,
+    right: -22,
+    width: 150,
+    height: 150,
+    borderRadius: BorderRadius.full,
+    backgroundColor: `${colors.textInverse}24`,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  heroIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryBg,
+  },
+  heroCopy: {
+    flex: 1,
+  },
+  heroTitle: {
+    fontFamily: FontFamily.heading,
+    fontSize: FontSize.h3,
+    color: colors.textInverse,
+  },
+  heroSubtitle: {
+    fontFamily: FontFamily.body,
+    fontSize: FontSize.caption,
+    color: colors.textInverse,
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  heroStats: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+  },
+  heroStat: {
+    flex: 1,
+    borderRadius: 18,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+  },
+  heroStatValue: {
+    fontFamily: FontFamily.heading,
+    fontSize: FontSize.h3,
+    color: colors.textInverse,
+  },
+  heroStatLabel: {
+    fontFamily: FontFamily.body,
+    fontSize: FontSize.caption,
+    marginTop: 2,
+    color: 'rgba(255,255,255,0.82)',
+  },
+  sectionBlock: {
+    paddingHorizontal: 16,
+    marginTop: 16,
   },
   sectionTitle: {
     ...Typography.caption,
-    color: colors.textSecondary,
     fontFamily: FontFamily.bodyBold,
     marginBottom: 12,
     paddingLeft: 4,
   },
-  scopeContainer: {
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: 'hidden',
+  optionList: {
+    gap: 12,
   },
   scopeOption: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 12,
+    backgroundColor: colors.surfaceElevated,
   },
-  scopeOptionActive: {
-    backgroundColor: colors.primaryBg,
-  },
+  scopeOptionActive: {},
   scopeIcon: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
   scopeInfo: {
     flex: 1,
@@ -389,13 +477,12 @@ const getStyles = (colors: any) => StyleSheet.create({
   scopeTitle: {
     fontFamily: FontFamily.bodyBold,
     fontSize: FontSize.body,
-    color: colors.textPrimary,
   },
   scopeDescription: {
     fontFamily: FontFamily.body,
     fontSize: FontSize.caption,
-    color: colors.textSecondary,
     marginTop: 2,
+    lineHeight: 18,
   },
   formatGrid: {
     flexDirection: 'row',
@@ -403,17 +490,17 @@ const getStyles = (colors: any) => StyleSheet.create({
     gap: 12,
   },
   formatOption: {
-    flex: 1,
-    minWidth: '45%',
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 16,
     borderWidth: 1,
     alignItems: 'center',
+    height: '100%',
+    backgroundColor: colors.surfaceElevated,
   },
   formatIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 60,
+    height: 60,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
@@ -421,29 +508,32 @@ const getStyles = (colors: any) => StyleSheet.create({
   formatTitle: {
     fontFamily: FontFamily.bodyBold,
     fontSize: FontSize.body,
-    color: colors.textPrimary,
     marginBottom: 4,
   },
   formatDescription: {
     fontFamily: FontFamily.body,
     fontSize: FontSize.caption,
-    color: colors.textSecondary,
     textAlign: 'center',
+    lineHeight: 18,
   },
   summaryCard: {
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 22,
+    padding: 18,
     borderWidth: 1,
+    shadowColor: colors.shadowColor,
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 1,
   },
-  summaryItem: {
+  summaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 8,
+    gap: 10,
   },
   summaryDivider: {
     height: 1,
-    marginVertical: 8,
+    marginVertical: 12,
   },
   summaryLabel: {
     flex: 1,
@@ -456,10 +546,9 @@ const getStyles = (colors: any) => StyleSheet.create({
   },
   tipsCard: {
     flexDirection: 'row',
-    borderRadius: 16,
+    borderRadius: 22,
     padding: 16,
     borderWidth: 1,
-    alignItems: 'flex-start',
     gap: 12,
   },
   tipsContent: {
@@ -468,13 +557,11 @@ const getStyles = (colors: any) => StyleSheet.create({
   tipsTitle: {
     fontFamily: FontFamily.bodyBold,
     fontSize: FontSize.body,
-    color: colors.primary,
     marginBottom: 8,
   },
   tipsText: {
     fontFamily: FontFamily.body,
     fontSize: FontSize.caption,
-    color: colors.textSecondary,
     lineHeight: 20,
   },
   modalOverlay: {
@@ -483,16 +570,20 @@ const getStyles = (colors: any) => StyleSheet.create({
     justifyContent: 'center',
   },
   modalContent: {
-    borderRadius: 24,
+    borderRadius: 28,
     padding: 24,
     marginHorizontal: 16,
-    maxWidth: 400,
+    borderWidth: 1,
+    shadowColor: colors.shadowColor,
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 4,
   },
   modalTitle: {
     fontFamily: FontFamily.heading,
     fontSize: FontSize.h3,
-    color: colors.textPrimary,
-    marginBottom: 20,
+    marginBottom: 18,
   },
   formatList: {
     gap: 12,
@@ -501,16 +592,17 @@ const getStyles = (colors: any) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 18,
     borderWidth: 1,
+    gap: 12,
+    backgroundColor: colors.surfaceElevated,
   },
   listFormatIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 54,
+    height: 54,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
   listFormatInfo: {
     flex: 1,
@@ -518,23 +610,11 @@ const getStyles = (colors: any) => StyleSheet.create({
   listFormatTitle: {
     fontFamily: FontFamily.bodyBold,
     fontSize: FontSize.body,
-    color: colors.textPrimary,
   },
   listFormatDescription: {
     fontFamily: FontFamily.body,
     fontSize: FontSize.caption,
-    color: colors.textSecondary,
     marginTop: 2,
-  },
-  cancelButton: {
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginTop: 16,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontFamily: FontFamily.bodyBold,
-    fontSize: FontSize.body,
+    lineHeight: 18,
   },
 });

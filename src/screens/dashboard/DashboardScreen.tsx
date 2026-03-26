@@ -188,17 +188,17 @@ export function DashboardScreen() {
                 </Text>
               </View>
               <View style={styles.balanceIconWrap}>
-                <MaterialCommunityIcons name="wallet-outline" size={28} color="#FFFFFF" />
+                <MaterialCommunityIcons name="wallet-outline" size={28} color={colors.textInverse} />
               </View>
             </View>
 
             <View style={styles.balanceStatsRow}>
               <View style={styles.balanceStatChip}>
-                <MaterialCommunityIcons name="piggy-bank-outline" size={14} color="#FFFFFF" />
+                <MaterialCommunityIcons name="piggy-bank-outline" size={14} color={colors.textInverse} />
                 <Text style={styles.balanceStatText}>{goals.length} target</Text>
               </View>
               <View style={styles.balanceStatChip}>
-                <MaterialCommunityIcons name="credit-card-multiple-outline" size={14} color="#FFFFFF" />
+                <MaterialCommunityIcons name="credit-card-multiple-outline" size={14} color={colors.textInverse} />
                 <Text style={styles.balanceStatText}>{wallets.length} dompet</Text>
               </View>
             </View>
@@ -209,7 +209,7 @@ export function DashboardScreen() {
               <View style={styles.incomeExpenseItem}>
                 <View style={styles.iconRow}>
                   <View style={styles.iconBg}>
-                    <MaterialCommunityIcons name="arrow-up" size={16} color="#FFF" />
+                    <MaterialCommunityIcons name="arrow-up" size={16} color={colors.textInverse} />
                   </View>
                   <Text style={styles.incomeExpenseLabel}>Pemasukan</Text>
                 </View>
@@ -222,7 +222,7 @@ export function DashboardScreen() {
               <View style={styles.incomeExpenseItem}>
                 <View style={styles.iconRow}>
                   <View style={styles.iconBg}>
-                    <MaterialCommunityIcons name="arrow-down" size={16} color="#FFF" />
+                    <MaterialCommunityIcons name="arrow-down" size={16} color={colors.textInverse} />
                   </View>
                   <Text style={styles.incomeExpenseLabel}>Pengeluaran</Text>
                 </View>
@@ -238,7 +238,7 @@ export function DashboardScreen() {
               accessibilityRole="button"
             >
               <Text style={styles.detailBtnText}>Buka Insight Keuangan</Text>
-              <MaterialCommunityIcons name="chevron-right" size={16} color="#FFF" />
+              <MaterialCommunityIcons name="chevron-right" size={16} color={colors.textInverse} />
             </TouchableOpacity>
           </LinearGradient>
         </Animated.View>
@@ -457,7 +457,7 @@ const getStyles = (colors: any) =>
     notifBadgeText: {
       fontFamily: FontFamily.bodyBold,
       fontSize: 10,
-      color: "#FFFFFF",
+      color: colors.textInverse,
     },
     balanceCard: {
       marginHorizontal: 20,
@@ -465,7 +465,7 @@ const getStyles = (colors: any) =>
       padding: 24,
       overflow: "hidden",
       borderWidth: 1,
-      borderColor: "rgba(255,255,255,0.16)",
+      borderColor: "rgba(255,255,255,0.12)",
       ...Shadow.xl,
     },
     balanceGlowTop: {
@@ -475,7 +475,7 @@ const getStyles = (colors: any) =>
       borderRadius: BorderRadius.full,
       top: -70,
       right: -24,
-      backgroundColor: "rgba(255,255,255,0.12)",
+      backgroundColor: "rgba(255,255,255,0.10)",
     },
     balanceGlowBottom: {
       position: "absolute",
@@ -484,7 +484,7 @@ const getStyles = (colors: any) =>
       borderRadius: BorderRadius.full,
       bottom: -40,
       left: -20,
-      backgroundColor: "rgba(255,255,255,0.08)",
+      backgroundColor: "rgba(255,255,255,0.06)",
     },
     balanceHeader: {
       flexDirection: "row",
@@ -495,12 +495,12 @@ const getStyles = (colors: any) =>
     balanceLabel: {
       fontFamily: FontFamily.bodyMedium,
       fontSize: FontSize.body,
-      color: "rgba(255,255,255,0.9)",
+      color: colors.textInverse,
     },
     balanceAmount: {
       fontFamily: FontFamily.heading,
       fontSize: FontSize.display,
-      color: "#FFF",
+      color: colors.textInverse,
       marginTop: 8,
       letterSpacing: -1,
     },
@@ -510,9 +510,9 @@ const getStyles = (colors: any) =>
       borderRadius: BorderRadius["2xl"],
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: "rgba(255,255,255,0.14)",
+      backgroundColor: "rgba(255,255,255,0.10)",
       borderWidth: 1,
-      borderColor: "rgba(255,255,255,0.16)",
+      borderColor: "rgba(255,255,255,0.12)",
     },
     balanceStatsRow: {
       flexDirection: "row",
@@ -527,18 +527,18 @@ const getStyles = (colors: any) =>
       paddingHorizontal: 12,
       paddingVertical: 8,
       borderRadius: BorderRadius.full,
-      backgroundColor: "rgba(255,255,255,0.14)",
+      backgroundColor: "rgba(255,255,255,0.10)",
       borderWidth: 1,
-      borderColor: "rgba(255,255,255,0.16)",
+      borderColor: "rgba(255,255,255,0.12)",
     },
     balanceStatText: {
       fontFamily: FontFamily.bodyMedium,
       fontSize: FontSize.caption,
-      color: "#FFFFFF",
+      color: colors.textInverse,
     },
-    dividerH: { height: 1, backgroundColor: "rgba(255,255,255,0.2)", marginBottom: 20 },
+    dividerH: { height: 1, backgroundColor: "rgba(255,255,255,0.14)", marginBottom: 20 },
     incomeExpenseRow: { flexDirection: "row" },
-    dividerV: { width: 1, backgroundColor: "rgba(255,255,255,0.2)", marginHorizontal: 20 },
+    dividerV: { width: 1, backgroundColor: "rgba(255,255,255,0.14)", marginHorizontal: 20 },
     incomeExpenseItem: { flex: 1, gap: 4 },
     iconRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 },
     iconBg: {
@@ -547,28 +547,28 @@ const getStyles = (colors: any) =>
       borderRadius: BorderRadius.full,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: "rgba(255,255,255,0.2)",
+      backgroundColor: "rgba(255,255,255,0.14)",
     },
     incomeExpenseLabel: {
       fontFamily: FontFamily.bodyMedium,
       fontSize: FontSize.caption,
-      color: "rgba(255,255,255,0.9)",
+      color: colors.textInverse,
     },
-    incomeAmount: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h3, color: "#FFF" },
-    periodText: { fontFamily: FontFamily.body, fontSize: 10, color: "rgba(255,255,255,0.7)" },
+    incomeAmount: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h3, color: colors.textInverse },
+    periodText: { fontFamily: FontFamily.body, fontSize: 10, color: "rgba(255,255,255,0.66)" },
     detailBtn: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: "rgba(255,255,255,0.15)",
+      backgroundColor: "rgba(255,255,255,0.10)",
       marginTop: 20,
       paddingVertical: 13,
       borderRadius: BorderRadius.xl,
       gap: 4,
       borderWidth: 1,
-      borderColor: "rgba(255,255,255,0.18)",
+      borderColor: "rgba(255,255,255,0.12)",
     },
-    detailBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.body, color: "#FFF" },
+    detailBtnText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.body, color: colors.textInverse },
     quickActions: {
       flexDirection: "row",
       justifyContent: "space-between",

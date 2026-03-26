@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
-import { BorderRadius, Shadow } from '../../constants/theme';
+import { BorderRadius } from '../../constants/theme';
 import { useSavingStore } from '../../store/useSavingStore';
 import { SavingGoalCard } from '../../components/saving/SavingGoalCard';
 import { SavingGoalCardSkeleton } from '../../components/common/SkeletonLoader';
@@ -41,7 +41,7 @@ export function SavingListScreen() {
     useEffect(() => {
         loadGoals();
         loadWallets();
-    }, []);
+    }, [loadGoals, loadWallets]);
 
     const onRefresh = async () => {
         setRefreshing(true);
@@ -102,7 +102,7 @@ export function SavingListScreen() {
                 <Animated.View entering={FadeInDown.delay(80).springify()}>
                     <LinearGradient
                         colors={[colors.primary, colors.primaryDark, colors.primary]}
-                        style={[styles.summaryCard, Shadow.md]}
+                        style={styles.summaryCard}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                     >
@@ -115,12 +115,12 @@ export function SavingListScreen() {
                                 <Text style={styles.summaryAmount}>{formatCurrency(totalSaved)}</Text>
                             </View>
                             <View style={styles.summaryIcon}>
-                                <MaterialCommunityIcons name="piggy-bank-outline" size={30} color="rgba(255,255,255,0.86)" />
+                                <MaterialCommunityIcons name="piggy-bank-outline" size={30} color={colors.textInverse} />
                             </View>
                         </View>
 
                         <View style={styles.targetRow}>
-                            <MaterialCommunityIcons name="flag-checkered" size={14} color="rgba(255,255,255,0.78)" />
+                            <MaterialCommunityIcons name="flag-checkered" size={14} color={colors.textInverse} />
                             <Text style={styles.summarySubtext}>
                                 dari target {formatCurrency(totalTarget)}
                             </Text>
@@ -128,11 +128,11 @@ export function SavingListScreen() {
 
                         <View style={styles.summaryStatsRow}>
                             <View style={styles.summaryStatChip}>
-                                <MaterialCommunityIcons name="wallet-outline" size={14} color="#FFFFFF" />
+                                <MaterialCommunityIcons name="wallet-outline" size={14} color={colors.primaryDark} />
                                 <Text style={styles.summaryStatText}>{walletLinkedGoals} terkait dompet</Text>
                             </View>
                             <View style={styles.summaryStatChip}>
-                                <MaterialCommunityIcons name="account-group-outline" size={14} color="#FFFFFF" />
+                                <MaterialCommunityIcons name="account-group-outline" size={14} color={colors.primaryDark} />
                                 <Text style={styles.summaryStatText}>{sharedGoals} shared</Text>
                             </View>
                         </View>
@@ -226,9 +226,14 @@ const getStyles = (colors: any) => StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: BorderRadius.xl,
-        backgroundColor: colors.surfaceGlass,
+        backgroundColor: colors.surfaceElevated,
         borderWidth: 1,
-        borderColor: colors.glassStroke,
+        borderColor: colors.border,
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 10,
+        elevation: 2,
     },
     headerCenter: { flex: 1 },
     headerTitle: { ...Typography.h2, color: colors.textPrimary },
@@ -245,7 +250,11 @@ const getStyles = (colors: any) => StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: colors.primary,
-        ...Shadow.md,
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.16,
+        shadowRadius: 18,
+        elevation: 5,
     },
     content: { paddingBottom: 108, gap: 18 },
     summaryCard: {
@@ -255,7 +264,12 @@ const getStyles = (colors: any) => StyleSheet.create({
         overflow: 'hidden',
         gap: 12,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.16)',
+        borderColor: `${colors.textInverse}29`,
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 14 },
+        shadowOpacity: 0.12,
+        shadowRadius: 24,
+        elevation: 6,
     },
     summaryGlowTop: {
         position: 'absolute',
@@ -264,7 +278,7 @@ const getStyles = (colors: any) => StyleSheet.create({
         borderRadius: BorderRadius.full,
         top: -52,
         right: -30,
-        backgroundColor: 'rgba(255,255,255,0.12)',
+        backgroundColor: `${colors.textInverse}1F`,
     },
     summaryGlowBottom: {
         position: 'absolute',
@@ -273,7 +287,7 @@ const getStyles = (colors: any) => StyleSheet.create({
         borderRadius: BorderRadius.full,
         bottom: -48,
         left: -24,
-        backgroundColor: 'rgba(255,255,255,0.08)',
+        backgroundColor: `${colors.textInverse}14`,
     },
     summaryHeaderRow: {
         flexDirection: 'row',
@@ -283,13 +297,13 @@ const getStyles = (colors: any) => StyleSheet.create({
     summaryLabel: {
         fontFamily: FontFamily.bodyMedium,
         fontSize: FontSize.caption,
-        color: 'rgba(255,255,255,0.8)',
+        color: colors.textInverse,
         marginBottom: 4,
     },
     summaryAmount: {
         fontFamily: FontFamily.heading,
         fontSize: 30,
-        color: '#FFFFFF',
+        color: colors.textInverse,
     },
     summaryIcon: {
         width: 56,
@@ -297,15 +311,15 @@ const getStyles = (colors: any) => StyleSheet.create({
         borderRadius: BorderRadius['2xl'],
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(255,255,255,0.14)',
+        backgroundColor: colors.primaryBg,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.16)',
+        borderColor: colors.primaryLight,
     },
     targetRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     summarySubtext: {
         fontFamily: FontFamily.body,
         fontSize: FontSize.caption,
-        color: 'rgba(255,255,255,0.74)',
+        color: colors.primaryDark,
     },
     summaryStatsRow: {
         flexDirection: 'row',
@@ -320,23 +334,27 @@ const getStyles = (colors: any) => StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 8,
         borderRadius: BorderRadius.full,
-        backgroundColor: 'rgba(255,255,255,0.14)',
+        backgroundColor: colors.primaryBg,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.16)',
+        borderColor: colors.primaryLight,
     },
     summaryStatText: {
         fontFamily: FontFamily.bodyMedium,
         fontSize: FontSize.caption,
-        color: '#FFFFFF',
+        color: colors.primaryDark,
     },
     filterBlock: {
         marginHorizontal: 20,
         padding: 16,
         borderRadius: BorderRadius['4xl'],
-        backgroundColor: colors.surfaceGlass,
+        backgroundColor: colors.surfaceElevated,
         borderWidth: 1,
-        borderColor: colors.glassStroke,
-        ...Shadow.sm,
+        borderColor: colors.border,
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        elevation: 3,
     },
     filterBlockHeader: { marginBottom: 14 },
     filterTitle: {
@@ -352,11 +370,11 @@ const getStyles = (colors: any) => StyleSheet.create({
     },
     filterRow: {
         flexDirection: 'row',
-        backgroundColor: colors.surfaceCard,
+        backgroundColor: colors.surfaceAlt,
         borderRadius: BorderRadius.xl,
         padding: 4,
         borderWidth: 1,
-        borderColor: `${colors.border}99`,
+        borderColor: colors.border,
     },
     filterTab: {
         flex: 1,

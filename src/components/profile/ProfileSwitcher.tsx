@@ -12,7 +12,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
-import { Shadow } from '../../constants/theme';
+import { BorderRadius } from '../../constants/theme';
 import { useProfileStore } from '../../store/useProfileStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import { useTransactionStore } from '../../store/useTransactionStore';
@@ -98,10 +98,10 @@ export function ProfileSwitcher() {
                 activeOpacity={0.8}
             >
                 <View style={[styles.avatar, { backgroundColor: activeProfile.color || colors.primary }]}>
-                    <MaterialCommunityIcons 
+                <MaterialCommunityIcons 
                         name={activeProfile.icon as any || 'account'} 
                         size={20} 
-                        color="#FFF" 
+                        color={colors.textInverse}
                     />
                 </View>
                 <Text style={styles.triggerText} numberOfLines={1}>
@@ -143,7 +143,7 @@ export function ProfileSwitcher() {
                                             onPress={() => handleSwitch(p.id)}
                                         >
                                             <View style={[styles.avatar, { backgroundColor: p.color || colors.primary }]}>
-                                                <MaterialCommunityIcons name={p.icon as any || 'account'} size={20} color="#FFF" />
+                                                <MaterialCommunityIcons name={p.icon as any || 'account'} size={20} color={colors.textInverse} />
                                             </View>
                                             <Text style={[
                                                 styles.profileName,
@@ -152,7 +152,7 @@ export function ProfileSwitcher() {
                                                 {p.name}
                                             </Text>
                                             {activeProfileId === p.id && (
-                                                <MaterialCommunityIcons name="check" size={20} color={colors.primary} />
+                                                        <MaterialCommunityIcons name="check" size={20} color={colors.primary} />
                                             )}
                                         </TouchableOpacity>
                                     ))}
@@ -222,7 +222,7 @@ export function ProfileSwitcher() {
                                                     onPress={() => setNewColor(color)}
                                                 >
                                                     {newColor === color && (
-                                                        <MaterialCommunityIcons name="check" size={16} color="#FFF" />
+                                                        <MaterialCommunityIcons name="check" size={16} color={colors.textInverse} />
                                                     )}
                                                 </TouchableOpacity>
                                             ))}
@@ -252,11 +252,12 @@ const getStyles = (colors: any) => StyleSheet.create({
     triggerBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: colors.surface,
+        backgroundColor: colors.surfaceElevated,
         padding: 4,
         paddingRight: 8,
         borderRadius: 100,
         borderWidth: 1,
+        borderColor: colors.border,
         gap: 8,
         maxWidth: 160,
     },
@@ -281,11 +282,17 @@ const getStyles = (colors: any) => StyleSheet.create({
         padding: 20,
     },
     modalContent: {
-        backgroundColor: colors.surface,
+        backgroundColor: colors.surfaceElevated,
         borderRadius: 24,
         padding: 20,
         maxHeight: '80%',
-        ...Shadow.lg,
+        borderWidth: 1,
+        borderColor: colors.border,
+        shadowColor: colors.shadowColor,
+        shadowOpacity: 0.1,
+        shadowRadius: 18,
+        shadowOffset: { width: 0, height: 10 },
+        elevation: 3,
     },
     modalHeader: {
         flexDirection: 'row',
@@ -346,7 +353,7 @@ const getStyles = (colors: any) => StyleSheet.create({
         color: colors.textSecondary,
     },
     input: {
-        backgroundColor: colors.background,
+        backgroundColor: colors.surfaceElevated,
         borderWidth: 1,
         borderColor: colors.border,
         borderRadius: 12,
@@ -364,6 +371,7 @@ const getStyles = (colors: any) => StyleSheet.create({
         borderColor: colors.border,
         alignItems: 'center',
         justifyContent: 'center',
+        backgroundColor: colors.surfaceElevated,
     },
     colorRow: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
     colorOption: {
@@ -382,6 +390,6 @@ const getStyles = (colors: any) => StyleSheet.create({
     },
     saveBtnText: {
         fontFamily: FontFamily.bodyBold,
-        color: '#FFF',
+        color: colors.textInverse,
     },
 });

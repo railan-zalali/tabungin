@@ -4,7 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { FontFamily, FontSize } from '../../constants/typography';
-import { BorderRadius, Shadow } from '../../constants/theme';
+import { BorderRadius } from '../../constants/theme';
 import type { SavingGoal } from '../../types/saving';
 import { formatRupiah, formatRupiahShort } from '../../utils/currency';
 import { daysFromNow } from '../../utils/date';
@@ -42,7 +42,7 @@ export function SavingGoalCard({ goal, onPress, onAddSaving, animationDelay = 0 
     return (
         <Animated.View entering={FadeInDown.delay(animationDelay).springify()}>
             <TouchableOpacity
-                style={[styles.card, Shadow.sm]}
+                style={[styles.card, styles.shadowSm]}
                 onPress={onPress}
                 accessible={true}
                 accessibilityRole="button"
@@ -51,7 +51,7 @@ export function SavingGoalCard({ goal, onPress, onAddSaving, animationDelay = 0 
                 activeOpacity={0.92}
             >
                 <LinearGradient
-                    colors={[`${goal.color}14`, colors.surfaceCard, colors.surfaceGlass]}
+                    colors={[`${goal.color}14`, colors.surfaceElevated, colors.surfaceElevated]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.glassOverlay}
@@ -165,13 +165,20 @@ export function SavingGoalCard({ goal, onPress, onAddSaving, animationDelay = 0 
 
 const getStyles = (colors: any) => StyleSheet.create({
     card: {
-        backgroundColor: colors.surfaceCard,
+        backgroundColor: colors.surfaceElevated,
         borderRadius: BorderRadius['4xl'],
         padding: 18,
         gap: 14,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: `${colors.border}AA`,
+        borderColor: colors.border,
+    },
+    shadowSm: {
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        elevation: 3,
     },
     glassOverlay: {
         ...StyleSheet.absoluteFillObject,
@@ -197,9 +204,9 @@ const getStyles = (colors: any) => StyleSheet.create({
         paddingHorizontal: 10,
         paddingVertical: 6,
         borderRadius: BorderRadius.full,
-        backgroundColor: colors.surfaceGlass,
+        backgroundColor: colors.surfaceElevated,
         borderWidth: 1,
-        borderColor: colors.glassStroke,
+        borderColor: colors.border,
         maxWidth: '100%',
     },
     sharedChip: {
@@ -219,7 +226,7 @@ const getStyles = (colors: any) => StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
-        borderColor: `${colors.glassStroke}`,
+        borderColor: colors.border,
     },
     emoji: { fontSize: 26 },
     headerInfo: { flex: 1, gap: 4 },
@@ -253,9 +260,9 @@ const getStyles = (colors: any) => StyleSheet.create({
         minWidth: 54,
         paddingVertical: 8,
         borderRadius: BorderRadius.xl,
-        backgroundColor: colors.surfaceGlass,
+        backgroundColor: colors.surfaceElevated,
         borderWidth: 1,
-        borderColor: colors.glassStroke,
+        borderColor: colors.border,
     },
     daysNumber: {
         fontFamily: FontFamily.heading,

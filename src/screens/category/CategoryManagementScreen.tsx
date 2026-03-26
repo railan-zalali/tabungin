@@ -52,7 +52,7 @@ export function CategoryManagementScreen() {
 
   useEffect(() => {
     loadCategories();
-  }, []);
+  }, [loadCategories]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -187,13 +187,8 @@ export function CategoryManagementScreen() {
 
       {/* Tabs */}
       <View style={styles.tabsWrap}>
-        <LinearGradient
-          colors={['rgba(255,255,255,0.7)', `${colors.primary}08`, `${colors.surface}EE`]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.tabs, { borderColor: `${colors.border}AA` }]}
-        >
-        <TouchableOpacity
+        <View style={styles.tabs}>
+          <TouchableOpacity
           style={[
             styles.tab,
             activeTab === 'expense' && [styles.tabActive, { backgroundColor: `${colors.primary}16`, borderColor: `${colors.primary}35` }],
@@ -220,8 +215,8 @@ export function CategoryManagementScreen() {
             color={activeTab === 'income' ? colors.primary : colors.textSecondary}
           />
           <Text style={[styles.tabText, activeTab === 'income' && { color: colors.primary }]}>Pemasukan</Text>
-        </TouchableOpacity>
-        </LinearGradient>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Content */}
@@ -289,16 +284,13 @@ export function CategoryManagementScreen() {
                 entering={FadeInUp.delay(index * 50).springify()}
                 style={[
                   styles.categoryItem,
-                  { backgroundColor: `${colors.surface}EA`, borderColor: `${colors.border}AA` },
+                  {
+                    backgroundColor: colors.surfaceElevated,
+                    borderColor: colors.border,
+                    borderLeftColor: category.color,
+                  },
                 ]}
               >
-                <LinearGradient
-                  colors={['rgba(255,255,255,0.68)', `${category.color}12`, 'rgba(255,255,255,0.3)']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={StyleSheet.absoluteFillObject}
-                />
-                <View style={styles.categoryShine} />
                 <View style={[styles.iconContainer, { backgroundColor: category.color + '20' }]}>
                   <MaterialCommunityIcons
                     name={resolveMaterialIcon(category.icon) as any}
@@ -346,12 +338,7 @@ export function CategoryManagementScreen() {
         onRequestClose={closeModal}
       >
         <View style={styles.modalOverlay}>
-          <LinearGradient
-            colors={['rgba(255,255,255,0.94)', `${colors.primary}10`, `${colors.surface}F7`]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[styles.modalContent, { borderColor: `${colors.border}AA` }]}
-          >
+          <View style={styles.modalContent}>
             <View style={styles.modalPreview}>
               <View style={[styles.modalPreviewIcon, { backgroundColor: `${formColor}20` }]}>
                 <MaterialCommunityIcons name={resolveMaterialIcon(formIcon) as any} size={22} color={formColor} />
@@ -377,7 +364,7 @@ export function CategoryManagementScreen() {
                   ]}
                   onPress={() => setFormType('expense')}
                 >
-                  <Text style={[styles.typeText, formType === 'expense' && { color: '#FFF' }]}>Pengeluaran</Text>
+                  <Text style={[styles.typeText, formType === 'expense' && { color: colors.textInverse }]}>Pengeluaran</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[
@@ -386,7 +373,7 @@ export function CategoryManagementScreen() {
                   ]}
                   onPress={() => setFormType('income')}
                 >
-                  <Text style={[styles.typeText, formType === 'income' && { color: '#FFF' }]}>Pemasukan</Text>
+                  <Text style={[styles.typeText, formType === 'income' && { color: colors.textInverse }]}>Pemasukan</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -459,13 +446,13 @@ export function CategoryManagementScreen() {
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
-                  <ActivityIndicator color='#FFF' size='small' />
+                  <ActivityIndicator color={colors.textInverse} size='small' />
                 ) : (
                   <Text style={styles.confirmButtonText}>{editingCategory ? 'Simpan' : 'Tambah'}</Text>
                 )}
               </TouchableOpacity>
             </View>
-          </LinearGradient>
+          </View>
         </View>
       </Modal>
     </View>
@@ -509,6 +496,13 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderRadius: 22,
     padding: 6,
     borderWidth: 1,
+    backgroundColor: colors.surfaceElevated,
+    borderColor: colors.border,
+    shadowColor: colors.shadowColor,
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 1,
   },
   tab: {
     flex: 1,
@@ -547,7 +541,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderRadius: 90,
     top: -64,
     right: -24,
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: `${colors.textInverse}24`,
   },
   heroGlowBottom: {
     position: 'absolute',
@@ -556,25 +550,25 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderRadius: 60,
     bottom: -36,
     left: -18,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: `${colors.textInverse}1A`,
   },
   heroLabel: {
     fontFamily: FontFamily.bodyMedium,
     fontSize: FontSize.caption,
-    color: 'rgba(255,255,255,0.76)',
+    color: colors.textInverse,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   heroTitle: {
     fontFamily: FontFamily.heading,
     fontSize: FontSize.h2,
-    color: '#FFFFFF',
+    color: colors.textInverse,
     marginTop: 10,
   },
   heroSubtitle: {
     fontFamily: FontFamily.body,
     fontSize: FontSize.body,
-    color: 'rgba(255,255,255,0.84)',
+    color: colors.textInverse,
     marginTop: 8,
     lineHeight: 22,
   },
@@ -585,22 +579,22 @@ const getStyles = (colors: any) => StyleSheet.create({
   },
   heroStatChip: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: colors.primaryBg,
     borderRadius: 18,
     paddingVertical: 12,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
+    borderColor: colors.primaryLight,
   },
   heroStatValue: {
     fontFamily: FontFamily.headingMedium,
     fontSize: FontSize.h4,
-    color: '#FFFFFF',
+    color: colors.primaryDark,
   },
   heroStatLabel: {
     fontFamily: FontFamily.body,
     fontSize: FontSize.caption,
-    color: 'rgba(255,255,255,0.72)',
+    color: colors.primaryDark,
     marginTop: 2,
   },
   list: {
@@ -614,16 +608,13 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderRadius: 24,
     padding: 18,
     borderWidth: 1,
+    borderLeftWidth: 4,
     overflow: 'hidden',
-  },
-  categoryShine: {
-    position: 'absolute',
-    top: -30,
-    right: -6,
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    shadowColor: colors.shadowColor,
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 1,
   },
   iconContainer: {
     width: 48,
@@ -694,6 +685,13 @@ const getStyles = (colors: any) => StyleSheet.create({
     marginHorizontal: 16,
     maxHeight: '90%',
     borderWidth: 1,
+    backgroundColor: colors.surfaceElevated,
+    borderColor: colors.border,
+    shadowColor: colors.shadowColor,
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 4,
   },
   modalPreview: {
     flexDirection: 'row',
@@ -702,7 +700,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     marginBottom: 16,
     padding: 14,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.55)',
+    backgroundColor: colors.primaryBg,
   },
   modalPreviewIcon: {
     width: 44,
@@ -776,7 +774,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.52)',
+    backgroundColor: colors.surfaceElevated,
   },
   iconOptionActive: {
     backgroundColor: colors.primaryLight,
@@ -794,7 +792,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.52)',
+    backgroundColor: colors.surfaceElevated,
   },
   colorOptionActive: {
     backgroundColor: colors.primaryLight,
@@ -815,7 +813,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.55)',
+    backgroundColor: colors.surfaceElevated,
   },
   cancelButtonText: {
     fontFamily: FontFamily.bodyBold,
@@ -831,6 +829,6 @@ const getStyles = (colors: any) => StyleSheet.create({
   confirmButtonText: {
     fontFamily: FontFamily.bodyBold,
     fontSize: FontSize.body,
-    color: '#FFF',
+    color: colors.textInverse,
   },
 });

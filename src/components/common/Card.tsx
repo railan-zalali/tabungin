@@ -9,7 +9,7 @@ import Animated, {
     Easing,
 } from 'react-native-reanimated';
 import { useTheme } from '../../store/useThemeStore';
-import { BorderRadius, Shadow } from '../../constants/theme';
+import { BorderRadius } from '../../constants/theme';
 
 interface CardProps {
     children: React.ReactNode;
@@ -44,7 +44,7 @@ export function Card({
             animationDelay,
             withTiming(0, { duration: 350, easing: Easing.out(Easing.ease) })
         );
-    }, []);
+    }, [animationDelay, opacity, translateY]);
 
     const animatedStyle = useAnimatedStyle(() => ({
         opacity: opacity.value,
@@ -58,8 +58,7 @@ export function Card({
                 variant === 'flat' && styles.flat,
                 variant === 'outlined' && styles.outlined,
                 variant === 'glass' && styles.glass,
-                elevated && Shadow.lg,
-                !elevated && variant !== 'flat' && Shadow.sm,
+                elevated ? styles.shadowLg : variant !== 'flat' ? styles.shadowSm : null,
                 interactive && styles.interactive,
                 style,
                 animatedStyle,
@@ -70,29 +69,44 @@ export function Card({
     );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-    base: {
-        backgroundColor: colors.surfaceCard,
-        borderRadius: BorderRadius['3xl'],
-        padding: 18,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: `${colors.border}B0`,
-    },
-    flat: {
-        backgroundColor: colors.surfaceAlt,
-        borderColor: 'transparent',
-    },
-    outlined: {
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: colors.borderStrong,
-    },
-    glass: {
-        backgroundColor: colors.surfaceGlass,
-        borderColor: colors.glassStroke,
-    },
-    interactive: {
-        shadowOpacity: 0.08,
-    },
-});
+const getStyles = (colors: any) =>
+    StyleSheet.create({
+        base: {
+            backgroundColor: colors.surfaceElevated,
+            borderRadius: BorderRadius['3xl'],
+            padding: 18,
+            overflow: 'hidden',
+            borderWidth: 1,
+            borderColor: colors.border,
+        },
+        flat: {
+            backgroundColor: colors.surfaceAlt,
+            borderColor: 'transparent',
+        },
+        outlined: {
+            backgroundColor: colors.surface,
+            borderWidth: 1,
+            borderColor: colors.borderStrong,
+        },
+        glass: {
+            backgroundColor: colors.surfaceGlass,
+            borderColor: colors.glassStroke,
+        },
+        interactive: {
+            shadowOpacity: 0.12,
+        },
+        shadowSm: {
+            shadowColor: colors.shadowColor,
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.08,
+            shadowRadius: 14,
+            elevation: 3,
+        },
+        shadowLg: {
+            shadowColor: colors.shadowColor,
+            shadowOffset: { width: 0, height: 14 },
+            shadowOpacity: 0.12,
+            shadowRadius: 24,
+            elevation: 8,
+        },
+    });

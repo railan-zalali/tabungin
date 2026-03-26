@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { Button } from './Button';
 import { useTheme } from '../../store/useThemeStore';
-import { BorderRadius, Shadow } from '../../constants/theme';
+import { BorderRadius } from '../../constants/theme';
 
 interface EmptyStateProps {
     icon: string;
@@ -74,11 +74,15 @@ const getStyles = (colors: any) => StyleSheet.create({
         paddingHorizontal: 28,
         paddingVertical: 34,
         gap: 14,
-        backgroundColor: colors.surfaceGlass,
+        backgroundColor: colors.surfaceElevated,
         borderRadius: BorderRadius['4xl'],
         borderWidth: 1,
-        borderColor: `${colors.border}AA`,
-        ...Shadow.sm,
+        borderColor: colors.border,
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.08,
+        shadowRadius: 18,
+        elevation: 4,
     },
     illustrationShell: {
         width: 120,
@@ -98,11 +102,11 @@ const getStyles = (colors: any) => StyleSheet.create({
         width: 96,
         height: 96,
         borderRadius: BorderRadius.full,
-        backgroundColor: colors.surfaceCard,
+        backgroundColor: colors.surface,
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
-        borderColor: colors.glassStroke,
+        borderColor: colors.border,
     },
     title: {
         fontFamily: FontFamily.headingMedium,

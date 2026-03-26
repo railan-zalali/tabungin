@@ -53,7 +53,7 @@ export function Skeleton({ width = '100%', height = 16, borderRadius = 8, style 
 export function TransactionItemSkeleton() {
     const { colors } = useTheme();
     return (
-        <View style={[styles.transactionItem, { backgroundColor: colors.surfaceCard, borderWidth: 1, borderColor: `${colors.border}88` }]}>
+        <View style={[styles.transactionItem, { backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border }]}>
             <Skeleton width={44} height={44} borderRadius={22} />
             <View style={styles.transactionContent}>
                 <Skeleton width="60%" height={14} />
@@ -69,7 +69,7 @@ export function TransactionItemSkeleton() {
 export function SavingGoalCardSkeleton() {
     const { colors } = useTheme();
     return (
-        <View style={[styles.goalCard, { backgroundColor: colors.surfaceCard, borderWidth: 1, borderColor: `${colors.border}88` }]}>
+        <View style={[styles.goalCard, { backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border }]}>
             <View style={styles.goalHeader}>
                 <Skeleton width={48} height={48} borderRadius={12} />
                 <View style={{ flex: 1, gap: 8 }}>

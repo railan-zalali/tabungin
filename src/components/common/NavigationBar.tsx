@@ -90,9 +90,14 @@ const getStyles = (colors: any) => StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: Spacing.lg,
         paddingBottom: Spacing.sm,
-        backgroundColor: colors.surface,
+        backgroundColor: colors.surfaceGlass,
         borderBottomWidth: 1,
-        borderBottomColor: `${colors.border}80`,
+        borderBottomColor: colors.glassStroke,
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.08,
+        shadowRadius: 14,
+        elevation: 3,
     },
     transparent: {
         backgroundColor: 'transparent',
@@ -100,19 +105,19 @@ const getStyles = (colors: any) => StyleSheet.create({
     },
     elevationSm: {
         ...Platform.select({
-            ios: { shadowOpacity: 0.06, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } },
+            ios: { shadowColor: colors.shadowColor, shadowOpacity: 0.06, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } },
             android: { elevation: 2 },
         }),
     },
     elevationMd: {
         ...Platform.select({
-            ios: { shadowOpacity: 0.1, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
+            ios: { shadowColor: colors.shadowColor, shadowOpacity: 0.1, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
             android: { elevation: 4 },
         }),
     },
     elevationLg: {
         ...Platform.select({
-            ios: { shadowOpacity: 0.15, shadowRadius: 16, shadowOffset: { width: 0, height: 4 } },
+            ios: { shadowColor: colors.shadowColor, shadowOpacity: 0.15, shadowRadius: 16, shadowOffset: { width: 0, height: 4 } },
             android: { elevation: 8 },
         }),
     },
@@ -128,9 +133,9 @@ const getStyles = (colors: any) => StyleSheet.create({
         borderRadius: BorderRadius.lg,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: `${colors.surface}D8`,
+        backgroundColor: colors.surfaceElevated,
         borderWidth: 1,
-        borderColor: `${colors.border}AA`,
+        borderColor: colors.border,
     },
     titleSection: {
         flex: 1,

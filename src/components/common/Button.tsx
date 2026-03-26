@@ -18,7 +18,7 @@ import * as Haptics from 'expo-haptics';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useTheme } from '../../store/useThemeStore';
-import { BorderRadius, Shadow } from '../../constants/theme';
+import { BorderRadius } from '../../constants/theme';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -149,15 +149,19 @@ const getStyles = (colors: any) => StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-        minHeight: 50,
+        minHeight: 52,
         minWidth: 48,
-        borderRadius: BorderRadius.xl,
+        borderRadius: BorderRadius['2xl'],
         borderWidth: 1,
         borderColor: 'transparent',
     },
     fullWidth: { width: '100%' },
     mediumEmphasis: {
-        ...Shadow.sm,
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.08,
+        shadowRadius: 14,
+        elevation: 3,
     },
     glass: {
         backgroundColor: colors.surfaceGlass,
@@ -167,22 +171,30 @@ const getStyles = (colors: any) => StyleSheet.create({
     primary: {
         backgroundColor: colors.primary,
         borderColor: `${colors.primaryDark}55`,
-        ...Shadow.md,
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.14,
+        shadowRadius: 20,
+        elevation: 6,
     },
     secondary: {
-        backgroundColor: colors.surfaceCard,
-        borderColor: colors.border,
+        backgroundColor: colors.surfaceElevated,
+        borderColor: colors.borderStrong,
     },
     outline: {
         backgroundColor: 'transparent',
         borderWidth: 1.2,
-        borderColor: `${colors.primary}55`,
+        borderColor: `${colors.primary}66`,
     },
     ghost: { backgroundColor: 'transparent' },
     danger: {
         backgroundColor: colors.danger,
         borderColor: `${colors.danger}66`,
-        ...Shadow.sm,
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.12,
+        shadowRadius: 18,
+        elevation: 5,
     },
 
     primaryText: { color: colors.textInverse },
@@ -214,6 +226,6 @@ const getStyles = (colors: any) => StyleSheet.create({
     lgText: { fontSize: FontSize.h4 },
     primaryGlow: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(255,255,255,0.08)',
+        backgroundColor: 'rgba(255,255,255,0.12)',
     },
 });

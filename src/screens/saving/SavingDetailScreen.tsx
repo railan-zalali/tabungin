@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
-import { Shadow } from '../../constants/theme';
+import { BorderRadius } from '../../constants/theme';
 import { useSavingStore } from '../../store/useSavingStore';
 import { ProgressBar } from '../../components/saving/ProgressBar';
 import { SavingSimulator } from '../../components/saving/SavingSimulator';
@@ -61,7 +61,7 @@ export function SavingDetailScreen() {
     useEffect(() => {
         loadGoalById(goalId);
         loadLogs(goalId);
-    }, [goalId]);
+    }, [goalId, loadGoalById, loadLogs]);
 
     useEffect(() => {
         if (justCompletedGoalId === goalId) {
@@ -70,7 +70,7 @@ export function SavingDetailScreen() {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             setTimeout(() => setShowConfetti(false), 5000);
         }
-    }, [justCompletedGoalId]);
+    }, [clearJustCompleted, goalId, justCompletedGoalId]);
 
     const handleAddSaving = async () => {
         const amount = parseRupiah(addAmount);
@@ -158,7 +158,7 @@ export function SavingDetailScreen() {
                         colors={[`${currentGoal.color}`, `${currentGoal.color}CC`, `${currentGoal.color}`]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
-                        style={[styles.heroSection, Shadow.md]}
+                        style={styles.heroSection}
                     >
                         <View style={styles.heroGlow} />
 
@@ -167,13 +167,13 @@ export function SavingDetailScreen() {
                                 <View style={styles.contextRow}>
                                     {wallet && (
                                         <View style={styles.contextChip}>
-                                            <MaterialCommunityIcons name="wallet-outline" size={12} color="#FFFFFF" />
+                                            <MaterialCommunityIcons name="wallet-outline" size={12} color={colors.textInverse} />
                                             <Text style={styles.contextChipText}>{wallet.name}</Text>
                                         </View>
                                     )}
                                     {isSharedWallet && (
                                         <View style={styles.contextChip}>
-                                            <MaterialCommunityIcons name="account-group-outline" size={12} color="#FFFFFF" />
+                                            <MaterialCommunityIcons name="account-group-outline" size={12} color={colors.textInverse} />
                                             <Text style={styles.contextChipText}>Shared</Text>
                                         </View>
                                     )}
@@ -186,7 +186,7 @@ export function SavingDetailScreen() {
                         <Text style={styles.heroProgress}>{progress.toFixed(1)}%</Text>
                         <ProgressBar
                             progress={progress}
-                            color="#FFFFFF"
+                            color={colors.textInverse}
                             height={12}
                             animationDelay={200}
                             style={{ width: '82%' }}
@@ -200,7 +200,7 @@ export function SavingDetailScreen() {
                     </LinearGradient>
                 </Animated.View>
 
-                <Animated.View entering={FadeInUp.delay(140).springify()} style={[styles.infoGrid, Shadow.sm]}>
+                <Animated.View entering={FadeInUp.delay(140).springify()} style={styles.infoGrid}>
                     {infoItems.map((item, idx) => (
                         <View key={item.label} style={[styles.infoItem, idx % 2 === 0 ? styles.borderRight : null, idx < 2 ? styles.borderBottom : null]}>
                             <View style={[styles.iconBox, { backgroundColor: `${currentGoal.color}20` }]}>
@@ -231,7 +231,7 @@ export function SavingDetailScreen() {
                             <Text style={styles.sectionTitle}>Riwayat Tabungan</Text>
                             <Text style={styles.sectionSubtitle}>{currentLogs.length} kontribusi tercatat</Text>
                         </View>
-                        <View style={[styles.logList, Shadow.sm]}>
+                        <View style={styles.logList}>
                             {currentLogs.map((log, idx) => (
                                 <React.Fragment key={log.id}>
                                     <View style={styles.logItem}>
@@ -324,22 +324,32 @@ const getStyles = (colors: any) => StyleSheet.create({
     backBtn: {
         width: 44,
         height: 44,
-        borderRadius: 16,
+        borderRadius: BorderRadius.xl,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: `${colors.surface}D8`,
+        backgroundColor: colors.surfaceElevated,
         borderWidth: 1,
-        borderColor: `${colors.border}AA`,
+        borderColor: colors.border,
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 10,
+        elevation: 2,
     },
     editBtn: {
         width: 44,
         height: 44,
-        borderRadius: 16,
+        borderRadius: BorderRadius.xl,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: `${colors.surface}D8`,
+        backgroundColor: colors.surfaceElevated,
         borderWidth: 1,
-        borderColor: `${colors.border}AA`,
+        borderColor: colors.border,
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 10,
+        elevation: 2,
     },
     headerTitle: { ...Typography.h3, color: colors.textPrimary, flex: 1, textAlign: 'center' },
     content: { padding: 20, gap: 24, paddingBottom: 100 },
@@ -349,6 +359,11 @@ const getStyles = (colors: any) => StyleSheet.create({
         alignItems: 'center',
         gap: 12,
         overflow: 'hidden',
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 14 },
+        shadowOpacity: 0.12,
+        shadowRadius: 24,
+        elevation: 6,
     },
     heroGlow: {
         position: 'absolute',
@@ -357,7 +372,7 @@ const getStyles = (colors: any) => StyleSheet.create({
         borderRadius: 80,
         top: -55,
         right: -24,
-        backgroundColor: 'rgba(255,255,255,0.14)',
+        backgroundColor: 'rgba(255,255,255,0.10)',
     },
     heroTopRow: {
         width: '100%',
@@ -375,37 +390,44 @@ const getStyles = (colors: any) => StyleSheet.create({
         paddingHorizontal: 10,
         paddingVertical: 7,
         borderRadius: 999,
-        backgroundColor: 'rgba(255,255,255,0.14)',
+        backgroundColor: 'rgba(255,255,255,0.10)',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.18)',
+        borderColor: 'rgba(255,255,255,0.12)',
     },
     contextChipText: {
         fontFamily: FontFamily.bodyMedium,
         fontSize: FontSize.caption,
-        color: '#FFFFFF',
+        color: colors.textInverse,
     },
     heroEmoji: { fontSize: 64 },
-    heroName: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: '#FFFFFF', textAlign: 'center' },
-    heroProgress: { fontFamily: FontFamily.heading, fontSize: 48, color: '#FFFFFF' },
+    heroName: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: colors.textInverse, textAlign: 'center' },
+    heroProgress: { fontFamily: FontFamily.heading, fontSize: 48, color: colors.textInverse },
     completedBanner: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        backgroundColor: `${colors.surface}D8`,
+        backgroundColor: colors.surfaceElevated,
         paddingHorizontal: 16,
         paddingVertical: 8,
         borderRadius: 20,
         marginTop: 8,
+        borderWidth: 1,
+        borderColor: colors.border,
     },
     completedText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.body, color: colors.success },
     infoGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        backgroundColor: `${colors.surface}D8`,
+        backgroundColor: colors.surfaceElevated,
         borderRadius: 24,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: `${colors.border}AA`,
+        borderColor: colors.border,
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        elevation: 3,
     },
     infoItem: {
         width: '50%',
@@ -430,11 +452,16 @@ const getStyles = (colors: any) => StyleSheet.create({
     sectionTitle: { ...Typography.h4, color: colors.textPrimary },
     sectionSubtitle: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary },
     logList: {
-        backgroundColor: `${colors.surface}D8`,
+        backgroundColor: colors.surfaceElevated,
         borderRadius: 24,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: `${colors.border}AA`,
+        borderColor: colors.border,
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        elevation: 3,
     },
     logItem: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16 },
     logIcon: {
@@ -453,9 +480,9 @@ const getStyles = (colors: any) => StyleSheet.create({
     footer: {
         padding: 20,
         paddingBottom: 32,
-        backgroundColor: `${colors.surface}F2`,
+        backgroundColor: colors.surfaceElevated,
         borderTopWidth: 1,
-        borderTopColor: `${colors.border}AA`,
+        borderTopColor: colors.border,
     },
     confettiOverlay: {
         position: 'absolute',
@@ -470,8 +497,8 @@ const getStyles = (colors: any) => StyleSheet.create({
         gap: 12,
     },
     confettiText: { fontSize: 80 },
-    confettiTitle: { fontFamily: FontFamily.heading, fontSize: 36, color: '#FFF' },
-    confettiSub: { fontFamily: FontFamily.body, fontSize: FontSize.h3, color: '#FFF', textAlign: 'center', paddingHorizontal: 40 },
+    confettiTitle: { fontFamily: FontFamily.heading, fontSize: 36, color: colors.textInverse },
+    confettiSub: { fontFamily: FontFamily.body, fontSize: FontSize.h3, color: colors.textInverse, textAlign: 'center', paddingHorizontal: 40 },
     modalSafe: { flex: 1, backgroundColor: colors.surface },
     modalHeader: {
         flexDirection: 'row',
@@ -487,24 +514,25 @@ const getStyles = (colors: any) => StyleSheet.create({
     rupiahInput: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: `${colors.background}94`,
+        backgroundColor: colors.surfaceElevated,
         borderRadius: 18,
         paddingHorizontal: 20,
         paddingVertical: 16,
         borderWidth: 1,
+        borderColor: colors.border,
         gap: 8,
     },
     prefix: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h3, color: colors.textSecondary },
     modalAmountInput: { flex: 1, fontFamily: FontFamily.heading, fontSize: 32, color: colors.textPrimary, padding: 0, height: 40 },
     modalNoteInput: {
-        backgroundColor: `${colors.background}94`,
+        backgroundColor: colors.surfaceElevated,
         borderRadius: 18,
         padding: 16,
         fontFamily: FontFamily.body,
         fontSize: FontSize.body,
         color: colors.textPrimary,
         borderWidth: 1,
-        borderColor: `${colors.border}AA`,
+        borderColor: colors.border,
         minHeight: 52,
     },
 });

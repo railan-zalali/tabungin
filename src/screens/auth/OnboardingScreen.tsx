@@ -10,16 +10,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
-    useSharedValue,
-    useAnimatedStyle,
-    interpolate,
-    Extrapolate,
+    FadeIn,
 } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
+import { Button } from '../../components/common/Button';
+import { useTheme } from '../../store/useThemeStore';
 import type { RootStackParamList } from '../../types/navigation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -64,6 +63,8 @@ export function OnboardingScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const [currentIndex, setCurrentIndex] = useState(0);
     const flatListRef = useRef<FlatList>(null);
+    const { colors, gradients } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
 
     const handleNext = () => {
         if (currentIndex < SLIDES.length - 1) {
@@ -78,6 +79,8 @@ export function OnboardingScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
+            <View style={styles.bgAuraTop} pointerEvents="none" />
+            <View style={styles.bgAuraBottom} pointerEvents="none" />
             {/* Tombol skip */}
             <TouchableOpacity
                 style={styles.skipBtn}
@@ -104,7 +107,7 @@ export function OnboardingScreen() {
                     setCurrentIndex(idx);
                 }}
                 renderItem={({ item }) => (
-                    <View style={[styles.slide, { width: SCREEN_WIDTH }]}>
+                    <Animated.View entering={FadeIn.duration(350)} style={[styles.slide, { width: SCREEN_WIDTH }]}>
                         <View style={[styles.illustrationContainer, { backgroundColor: item.bgColor }]}>
                             <MaterialCommunityIcons
                                 name={item.icon as any}
@@ -113,9 +116,11 @@ export function OnboardingScreen() {
                                 accessibilityElementsHidden={true}
                             />
                         </View>
-                        <Text style={styles.title} allowFontScaling={true}>{item.title}</Text>
-                        <Text style={styles.description} allowFontScaling={true}>{item.description}</Text>
-                    </View>
+                        <View style={styles.storyCard}>
+                            <Text style={styles.title} allowFontScaling={true}>{item.title}</Text>
+                            <Text style={styles.description} allowFontScaling={true}>{item.description}</Text>
+                        </View>
+                    </Animated.View>
                 )}
             />
 
@@ -146,7 +151,7 @@ export function OnboardingScreen() {
                 <MaterialCommunityIcons
                     name="arrow-right"
                     size={20}
-                    color={Colors.textInverse}
+                    color={colors.textInverse}
                     accessibilityElementsHidden={true}
                 />
             </TouchableOpacity>
@@ -154,77 +159,134 @@ export function OnboardingScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.surface },
-    skipBtn: {
-        position: 'absolute',
-        top: 56,
-        right: 20,
-        zIndex: 10,
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        minHeight: 48,
-        justifyContent: 'center',
-    },
-    skipText: {
-        fontFamily: FontFamily.bodyMedium,
-        fontSize: FontSize.body,
-        color: Colors.textSecondary,
-    },
-    slide: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 32,
-        paddingTop: 80,
-        gap: 24,
-    },
-    illustrationContainer: {
-        width: 200,
-        height: 200,
-        borderRadius: 100,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 8,
-    },
-    title: {
-        fontFamily: FontFamily.heading,
-        fontSize: FontSize.h2,
-        color: Colors.textPrimary,
-        textAlign: 'center',
-        lineHeight: 32,
-    },
-    description: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.body,
-        color: Colors.textSecondary,
-        textAlign: 'center',
-        lineHeight: 24,
-    },
-    dotsContainer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        gap: 8,
-        paddingBottom: 20,
-    },
-    dot: { borderRadius: 99, height: 8 },
-    dotActive: { width: 24, backgroundColor: Colors.primary },
-    dotInactive: { width: 8, backgroundColor: Colors.border },
-    cta: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 10,
-        backgroundColor: Colors.primary,
-        marginHorizontal: 24,
-        marginBottom: 32,
-        paddingVertical: 18,
-        borderRadius: 16,
-        minHeight: 60,
-    },
-    ctaText: {
-        fontFamily: FontFamily.bodyBold,
-        fontSize: FontSize.h4,
-        color: Colors.textInverse,
-    },
-});
+const getStyles = (colors: any) =>
+    StyleSheet.create({
+        container: { flex: 1, backgroundColor: colors.background },
+        bgAuraTop: {
+            position: 'absolute',
+            top: -100,
+            right: -40,
+            width: 260,
+            height: 260,
+            borderRadius: 9999,
+            backgroundColor: colors.primaryLight,
+            opacity: 0.72,
+        },
+        bgAuraBottom: {
+            position: 'absolute',
+            bottom: 40,
+            left: -80,
+            width: 220,
+            height: 220,
+            borderRadius: 9999,
+            backgroundColor: colors.infoBg,
+            opacity: 0.36,
+        },
+        skipBtn: {
+            position: 'absolute',
+            top: 56,
+            right: 20,
+            zIndex: 10,
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            minHeight: 48,
+            justifyContent: 'center',
+            borderRadius: 9999,
+            backgroundColor: colors.surfaceElevated,
+            borderWidth: 1,
+            borderColor: colors.border,
+            shadowColor: colors.shadowColor,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.06,
+            shadowRadius: 10,
+            elevation: 2,
+        },
+        skipText: {
+            fontFamily: FontFamily.bodyMedium,
+            fontSize: FontSize.body,
+            color: colors.textSecondary,
+        },
+        slide: {
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingHorizontal: 28,
+            paddingTop: 90,
+            gap: 24,
+        },
+        illustrationContainer: {
+            width: 204,
+            height: 204,
+            borderRadius: 9999,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 8,
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: colors.surfaceElevated,
+            shadowColor: colors.shadowColor,
+            shadowOffset: { width: 0, height: 12 },
+            shadowOpacity: 0.08,
+            shadowRadius: 20,
+            elevation: 4,
+        },
+        storyCard: {
+            width: '100%',
+            padding: 20,
+            borderRadius: 28,
+            backgroundColor: colors.surfaceElevated,
+            borderWidth: 1,
+            borderColor: colors.border,
+            shadowColor: colors.shadowColor,
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.08,
+            shadowRadius: 16,
+            elevation: 3,
+        },
+        title: {
+            fontFamily: FontFamily.heading,
+            fontSize: FontSize.h2,
+            color: colors.textPrimary,
+            textAlign: 'center',
+            lineHeight: 32,
+        },
+        description: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.body,
+            color: colors.textSecondary,
+            textAlign: 'center',
+            lineHeight: 24,
+            marginTop: 8,
+        },
+        dotsContainer: {
+            flexDirection: 'row',
+            justifyContent: 'center',
+            gap: 8,
+            paddingBottom: 20,
+        },
+        dot: { borderRadius: 99, height: 8 },
+        dotActive: { width: 24, backgroundColor: colors.primary },
+        dotInactive: { width: 8, backgroundColor: colors.border },
+        cta: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 10,
+            backgroundColor: colors.primary,
+            marginHorizontal: 24,
+            marginBottom: 32,
+            paddingVertical: 18,
+            borderRadius: 20,
+            minHeight: 60,
+            shadowColor: colors.shadowColor,
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.16,
+            shadowRadius: 20,
+            elevation: 5,
+        },
+        ctaText: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.h4,
+            color: colors.textInverse,
+        },
+    });

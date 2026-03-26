@@ -190,7 +190,7 @@ const getStyles = (colors: any) => StyleSheet.create({
         fontSize: FontSize.caption,
     },
     container: {
-        backgroundColor: colors.surfaceCard,
+        backgroundColor: colors.surfaceElevated,
     },
     inner: {
         flexDirection: 'row',
@@ -207,7 +207,7 @@ const getStyles = (colors: any) => StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
-        borderColor: `${colors.glassStroke}`,
+        borderColor: colors.border,
     },
     info: { flex: 1, gap: 4 },
     categoryName: {

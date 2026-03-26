@@ -12,7 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontFamily, FontSize } from '../constants/typography';
-import { BorderRadius, Shadow, Spacing } from '../constants/theme';
+import { BorderRadius, Spacing } from '../constants/theme';
 import type { TabParamList } from '../types/navigation';
 import { useTransactionStore } from '../store/useTransactionStore';
 import { useWalletStore } from '../store/useWalletStore';
@@ -163,7 +163,7 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         <View pointerEvents="box-none" style={styles.tabBarOuter}>
             <View style={[styles.tabBarShell, { paddingBottom: Math.max(insets.bottom, 10) }]}>
                 <LinearGradient
-                    colors={[colors.surfaceCard, colors.surfaceGlass]}
+                    colors={[colors.surfaceElevated, colors.surfaceGlass]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.tabBar}
@@ -253,10 +253,10 @@ const getStyles = (colors: any) =>
             paddingBottom: 4,
             borderRadius: BorderRadius['5xl'],
             borderWidth: 1,
-            borderColor: colors.glassStroke,
-            ...Shadow.xl,
+            borderColor: colors.border,
+            shadowColor: colors.shadowColor,
             shadowOffset: { width: 0, height: 14 },
-            shadowOpacity: Platform.OS === 'ios' ? 0.18 : 0.24,
+            shadowOpacity: Platform.OS === 'ios' ? 0.14 : 0.22,
             shadowRadius: 28,
             elevation: 16,
             backgroundColor: colors.surfaceGlass,

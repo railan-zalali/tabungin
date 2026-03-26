@@ -30,7 +30,7 @@ import { formatEstimatedDate } from '../../utils/date';
 import { simulateSaving } from '../../utils/calculator';
 import { validateGoalName, validateTargetAmount, validateSavingPerPeriod } from '../../utils/validation';
 import type { PeriodType } from '../../types/saving';
-import { BorderRadius, Shadow } from '../../constants/theme';
+import { BorderRadius } from '../../constants/theme';
 import { useTheme } from '../../store/useThemeStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import { useProfileStore } from '../../store/useProfileStore';
@@ -240,7 +240,7 @@ export function AddSavingGoalScreen() {
                             colors={[color, colors.primaryDark, color]}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 1 }}
-                            style={[styles.previewCard, Shadow.md]}
+                            style={styles.previewCard}
                         >
                             <View style={styles.previewOrb} />
                             <View style={styles.previewHeader}>
@@ -257,7 +257,7 @@ export function AddSavingGoalScreen() {
                                 </View>
                                 {isSharedWallet && (
                                     <View style={styles.previewSharedChip}>
-                                        <MaterialCommunityIcons name="account-group-outline" size={12} color="#FFFFFF" />
+                                        <MaterialCommunityIcons name="account-group-outline" size={12} color={colors.textInverse} />
                                         <Text style={styles.previewSharedText}>Shared</Text>
                                     </View>
                                 )}
@@ -440,7 +440,7 @@ export function AddSavingGoalScreen() {
                                 >
                                     {color === item && (
                                         <View style={styles.checkIcon}>
-                                            <MaterialCommunityIcons name="check" size={16} color="#FFF" />
+                                            <MaterialCommunityIcons name="check" size={16} color={colors.textInverse} />
                                         </View>
                                     )}
                                 </TouchableOpacity>
@@ -471,7 +471,7 @@ export function AddSavingGoalScreen() {
                                 value={reminderEnabled}
                                 onValueChange={setReminderEnabled}
                                 trackColor={{ false: colors.border, true: colors.primaryLight }}
-                                thumbColor={reminderEnabled ? colors.primary : '#FFF'}
+                                thumbColor={reminderEnabled ? colors.primary : colors.surfaceElevated}
                             />
                         </View>
                     </Animated.View>
@@ -510,9 +510,9 @@ const getStyles = (colors: any) => StyleSheet.create({
         borderRadius: BorderRadius.xl,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: `${colors.surface}D8`,
+        backgroundColor: colors.surfaceElevated,
         borderWidth: 1,
-        borderColor: `${colors.border}AA`,
+        borderColor: colors.border,
     },
     loadingState: {
         flex: 1,
@@ -546,6 +546,11 @@ const getStyles = (colors: any) => StyleSheet.create({
         borderRadius: 28,
         padding: 20,
         overflow: 'hidden',
+        shadowColor: colors.shadowColor,
+        shadowOpacity: 0.12,
+        shadowRadius: 18,
+        shadowOffset: { width: 0, height: 10 },
+        elevation: 3,
     },
     previewOrb: {
         position: 'absolute',
@@ -624,13 +629,17 @@ const getStyles = (colors: any) => StyleSheet.create({
         marginTop: 6,
     },
     sectionCard: {
-        backgroundColor: `${colors.surface}D8`,
+        backgroundColor: colors.surfaceElevated,
         borderWidth: 1,
-        borderColor: `${colors.border}B0`,
+        borderColor: colors.border,
         borderRadius: 24,
         padding: 18,
         gap: 12,
-        ...Shadow.sm,
+        shadowColor: colors.shadowColor,
+        shadowOpacity: 0.06,
+        shadowRadius: 14,
+        shadowOffset: { width: 0, height: 8 },
+        elevation: 1,
     },
     sectionTitle: {
         fontFamily: FontFamily.headingMedium,
@@ -655,8 +664,8 @@ const getStyles = (colors: any) => StyleSheet.create({
         padding: 12,
         borderRadius: 18,
         borderWidth: 1,
-        borderColor: `${colors.border}B0`,
-        backgroundColor: `${colors.background}90`,
+        borderColor: colors.border,
+        backgroundColor: colors.surfaceElevated,
     },
     walletIconWrap: {
         width: 38,
@@ -688,8 +697,8 @@ const getStyles = (colors: any) => StyleSheet.create({
         minHeight: 54,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: `${colors.border}AA`,
-        backgroundColor: `${colors.background}92`,
+        borderColor: colors.border,
+        backgroundColor: colors.surfaceElevated,
         paddingHorizontal: 16,
         flexDirection: 'row',
         alignItems: 'center',
@@ -704,12 +713,12 @@ const getStyles = (colors: any) => StyleSheet.create({
     rupiahInput: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: `${colors.background}92`,
+        backgroundColor: colors.surfaceElevated,
         borderRadius: 16,
         paddingHorizontal: 16,
         paddingVertical: 14,
         borderWidth: 1,
-        borderColor: `${colors.border}AA`,
+        borderColor: colors.border,
         gap: 8,
         minHeight: 54,
     },
@@ -739,21 +748,21 @@ const getStyles = (colors: any) => StyleSheet.create({
         borderRadius: 18,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: `${colors.background}94`,
+        backgroundColor: colors.surfaceElevated,
         borderWidth: 1,
-        borderColor: `${colors.border}AA`,
+        borderColor: colors.border,
     },
     emojiText: { fontSize: 28 },
     savingRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
     savingInput: { flex: 1 },
     periodSelector: {
         flexDirection: 'row',
-        backgroundColor: `${colors.background}92`,
+        backgroundColor: colors.surfaceElevated,
         borderRadius: 16,
         padding: 4,
         gap: 2,
         borderWidth: 1,
-        borderColor: `${colors.border}AA`,
+        borderColor: colors.border,
         height: 54,
         alignItems: 'center',
     },
@@ -798,11 +807,16 @@ const getStyles = (colors: any) => StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: `${colors.background}92`,
+        backgroundColor: colors.surfaceElevated,
         padding: 16,
         borderRadius: 18,
         borderWidth: 1,
-        borderColor: `${colors.border}AA`,
+        borderColor: colors.border,
+        shadowColor: colors.shadowColor,
+        shadowOpacity: 0.06,
+        shadowRadius: 14,
+        shadowOffset: { width: 0, height: 8 },
+        elevation: 1,
     },
     switchTextContainer: { flex: 1, marginRight: 16 },
     switchLabel: {
@@ -820,7 +834,7 @@ const getStyles = (colors: any) => StyleSheet.create({
         padding: 20,
         paddingBottom: 32,
         borderTopWidth: 1,
-        borderTopColor: `${colors.border}AA`,
-        backgroundColor: `${colors.surface}F2`,
+        borderTopColor: colors.border,
+        backgroundColor: colors.surfaceElevated,
     },
 });

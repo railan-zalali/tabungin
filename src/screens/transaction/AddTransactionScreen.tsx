@@ -27,7 +27,7 @@ import { Button } from "../../components/common/Button";
 import { formatInputRupiah, parseRupiah } from "../../utils/currency";
 import { validateAmount } from "../../utils/validation";
 import type { TransactionType } from "../../types/transaction";
-import { BorderRadius, Shadow } from "../../constants/theme";
+import { BorderRadius } from "../../constants/theme";
 
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { formatDateLong } from "../../utils/date";
@@ -58,7 +58,7 @@ export function AddTransactionScreen() {
   // Load wallets and set default
   useEffect(() => {
     loadWallets();
-  }, []);
+  }, [loadWallets]);
 
   useEffect(() => {
     if (!selectedWalletId && wallets.length > 0) {
@@ -226,7 +226,7 @@ export function AddTransactionScreen() {
                 <MaterialCommunityIcons
                   name={txType === "income" ? "arrow-up-circle-outline" : "arrow-down-circle-outline"}
                   size={26}
-                  color="#FFF"
+                  color={colors.textInverse}
                 />
               </View>
             </View>
@@ -440,22 +440,26 @@ const getStyles = (colors: any) => StyleSheet.create({
   headerTitle: { ...Typography.h3, color: colors.textPrimary },
 
   content: { padding: 20, gap: 18, paddingBottom: 40 },
-  heroCard: {
+    heroCard: {
     borderRadius: BorderRadius['4xl'],
     padding: 20,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: `${colors.border}B8`,
-    ...Shadow.md,
+    borderColor: colors.border,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.12,
+    shadowRadius: 22,
+    elevation: 5,
   },
-  heroShine: {
+    heroShine: {
     position: "absolute",
     top: -36,
     right: -18,
     width: 130,
     height: 130,
     borderRadius: BorderRadius.full,
-    backgroundColor: "rgba(255,255,255,0.35)",
+    backgroundColor: colors.primaryLight,
   },
   heroTopRow: {
     flexDirection: "row",
@@ -477,23 +481,27 @@ const getStyles = (colors: any) => StyleSheet.create({
     color: colors.textPrimary,
     marginTop: 6,
   },
-  heroIconWrap: {
-    width: 54,
-    height: 54,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    ...Shadow.sm,
-  },
+    heroIconWrap: {
+        width: 54,
+        height: 54,
+        borderRadius: 18,
+        alignItems: "center",
+        justifyContent: "center",
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+        elevation: 2,
+    },
 
   typeToggleContainer: {
     flexDirection: "row",
-    backgroundColor: `${colors.surface}C8`,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: BorderRadius['3xl'],
     padding: 4,
     gap: 4,
     borderWidth: 1,
-    borderColor: `${colors.border}CC`,
+    borderColor: colors.border,
   },
   typeBtn: {
     flex: 1,
@@ -516,12 +524,16 @@ const getStyles = (colors: any) => StyleSheet.create({
   fieldSection: { gap: 12 },
   glassSection: {
     gap: 12,
-    backgroundColor: `${colors.surface}D8`,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: BorderRadius['3xl'],
     borderWidth: 1,
-    borderColor: `${colors.border}E0`,
+    borderColor: colors.border,
     padding: 18,
-    ...Shadow.sm,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 3,
   },
   fieldLabel: {
     fontFamily: FontFamily.bodyBold,
@@ -534,14 +546,18 @@ const getStyles = (colors: any) => StyleSheet.create({
   amountContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: `${colors.surface}D0`,
+    backgroundColor: colors.surface,
     borderRadius: BorderRadius['2xl'],
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderWidth: 1,
     borderColor: colors.border,
     gap: 12,
-    ...Shadow.sm,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 2,
   },
   heroMetaRow: {
     flexDirection: "row",
@@ -556,9 +572,9 @@ const getStyles = (colors: any) => StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: BorderRadius.full,
-    backgroundColor: `${colors.surface}B8`,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: `${colors.border}D8`,
+    borderColor: colors.border,
   },
   heroMetaText: {
     fontFamily: FontFamily.bodyMedium,
@@ -590,9 +606,10 @@ const getStyles = (colors: any) => StyleSheet.create({
     paddingVertical: 6,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    backgroundColor: `${colors.surface}CC`,
+    backgroundColor: colors.surfaceElevated,
+    borderColor: colors.border,
   },
-  walletBtnActive: { backgroundColor: colors.surface, borderWidth: 1.5 },
+  walletBtnActive: { backgroundColor: colors.primaryBg, borderWidth: 1.5 },
   walletIconBg: {
     width: 32,
     height: 32,
@@ -619,7 +636,7 @@ const getStyles = (colors: any) => StyleSheet.create({
   dateBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: `${colors.surface}CC`,
+    backgroundColor: colors.surface,
     padding: 16,
     borderRadius: BorderRadius['3xl'],
     borderWidth: 1,
@@ -633,7 +650,7 @@ const getStyles = (colors: any) => StyleSheet.create({
   },
 
   noteInput: {
-    backgroundColor: `${colors.surface}CC`,
+    backgroundColor: colors.surface,
     borderRadius: BorderRadius['3xl'],
     padding: 16,
     fontFamily: FontFamily.body,
@@ -650,7 +667,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     paddingBottom: 32,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    backgroundColor: `${colors.surface}E8`,
+    backgroundColor: colors.surfaceElevated,
   },
   loadingState: {
     flex: 1,

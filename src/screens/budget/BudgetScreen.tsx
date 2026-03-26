@@ -12,16 +12,21 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { useBudgetStore } from '../../store/useBudgetStore';
-import { EXPENSE_CATEGORIES, type CategoryItem } from '../../constants/categories';
+import { EXPENSE_CATEGORIES } from '../../constants/categories';
 import { formatRupiah, formatInputRupiah, parseRupiah } from '../../utils/currency';
 import { Button } from '../../components/common/Button';
+import { useTheme } from '../../store/useThemeStore';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BorderRadius, Shadow } from '../../constants/theme';
+import { EmptyState } from '../../components/common/EmptyState';
 
 export function BudgetScreen() {
     const navigation = useNavigation();
     const { budgets, loadBudgets, saveBudget, removeBudget, isLoading, totalBudget, totalSpent } = useBudgetStore();
+    const { colors, isDark, gradients } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
     
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [amountInput, setAmountInput] = useState('');
@@ -29,7 +34,7 @@ export function BudgetScreen() {
 
     useEffect(() => {
         loadBudgets();
-    }, []);
+    }, [loadBudgets]);
 
     const handleSave = async () => {
         if (!selectedCategory) {
@@ -62,34 +67,53 @@ export function BudgetScreen() {
     };
 
     const expenseCategories = EXPENSE_CATEGORIES;
+    const budgetLeft = totalBudget - totalSpent;
+    const usagePercent = Math.min(100, (totalSpent / (totalBudget || 1)) * 100);
 
     return (
         <SafeAreaView style={styles.safe}>
+            <View style={styles.bgAuraTop} pointerEvents="none" />
+            <View style={styles.bgAuraBottom} pointerEvents="none" />
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <MaterialCommunityIcons name="arrow-left" size={24} color={Colors.textPrimary} />
+                    <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
                 </TouchableOpacity>
-                <Text style={styles.title}>Budget Bulanan</Text>
-                <View style={{ width: 24 }} />
+                <View style={styles.headerCenter}>
+                    <Text style={styles.title}>Budget Bulanan</Text>
+                    <Text style={styles.subtitle}>Kontrol pengeluaran per kategori dengan lebih jelas.</Text>
+                </View>
+                <TouchableOpacity style={styles.headerAction} onPress={() => setIsEditing(true)}>
+                    <MaterialCommunityIcons name="plus" size={20} color={colors.primary} />
+                </TouchableOpacity>
             </View>
 
             <ScrollView contentContainerStyle={styles.content}>
                 {/* Summary */}
-                <View style={styles.summaryCard}>
+                <LinearGradient
+                    colors={gradients.hero as unknown as [string, string, ...string[]]}
+                    style={styles.summaryCard}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                >
                     <Text style={styles.summaryTitle}>Total Budget Bulan Ini</Text>
                     <Text style={styles.summaryAmount}>{formatRupiah(totalBudget)}</Text>
-                    
+                    <Text style={styles.summarySubtitle}>
+                        {budgetLeft >= 0 ? `Sisa ${formatRupiah(budgetLeft)}` : `Melebihi ${formatRupiah(Math.abs(budgetLeft))}`}
+                    </Text>
                     <View style={styles.progressContainer}>
                         <View style={styles.progressBar}>
                             <View style={[
                                 styles.progressFill, 
-                                { width: `${Math.min(100, (totalSpent / (totalBudget || 1)) * 100)}%` },
-                                totalSpent > totalBudget ? { backgroundColor: Colors.danger } : {}
+                                { width: `${usagePercent}%` },
+                                totalSpent > totalBudget ? { backgroundColor: colors.danger } : {}
                             ]} />
                         </View>
-                        <Text style={styles.progressText}>Terpakai: {formatRupiah(totalSpent)}</Text>
+                        <View style={styles.summaryMetaRow}>
+                            <Text style={styles.summaryMetaText}>Terpakai: {formatRupiah(totalSpent)}</Text>
+                            <Text style={styles.summaryMetaText}>Sisa: {formatRupiah(Math.max(0, budgetLeft))}</Text>
+                        </View>
                     </View>
-                </View>
+                </LinearGradient>
 
                 {/* Form Add/Edit */}
                 {isEditing ? (
@@ -104,8 +128,8 @@ export function BudgetScreen() {
                                     style={[styles.catChip, selectedCategory === cat.id && styles.catChipActive]}
                                     onPress={() => setSelectedCategory(cat.id)}
                                 >
-                                    <MaterialCommunityIcons name={cat.icon as any} size={16} color={selectedCategory === cat.id ? Colors.surface : Colors.textPrimary} />
-                                    <Text style={[styles.catChipText, selectedCategory === cat.id && { color: Colors.surface }]}>{cat.name}</Text>
+                                    <MaterialCommunityIcons name={cat.icon as any} size={16} color={selectedCategory === cat.id ? colors.textInverse : colors.textPrimary} />
+                                    <Text style={[styles.catChipText, selectedCategory === cat.id && { color: colors.textInverse }]}>{cat.name}</Text>
                                 </TouchableOpacity>
                             ))}
                         </ScrollView>
@@ -117,6 +141,7 @@ export function BudgetScreen() {
                             onChangeText={v => setAmountInput(formatInputRupiah(v))}
                             keyboardType="numeric"
                             placeholder="0"
+                            placeholderTextColor={colors.textDisabled}
                         />
 
                         <View style={styles.formActions}>
@@ -125,15 +150,27 @@ export function BudgetScreen() {
                         </View>
                     </View>
                 ) : (
-                    <Button label="+ Atur Budget Baru" onPress={() => setIsEditing(true)} variant="outline" />
+                    <View style={styles.ctaCard}>
+                        <View style={styles.ctaInfo}>
+                            <Text style={styles.ctaTitle}>Buat budget baru</Text>
+                            <Text style={styles.ctaSubtitle}>Pilih kategori prioritas dan beri batas yang realistis.</Text>
+                        </View>
+                        <Button label="Atur Budget" onPress={() => setIsEditing(true)} variant="primary" />
+                    </View>
                 )}
 
                 {/* List Budgets */}
                 <Text style={styles.sectionTitle}>Budget Aktif</Text>
                 {isLoading ? (
-                    <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
+                    <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
                 ) : budgets.length === 0 ? (
-                    <Text style={styles.emptyText}>Belum ada budget yang diatur bulan ini.</Text>
+                    <EmptyState
+                        icon="chart-pie"
+                        title="Belum ada budget"
+                        message="Atur batas pengeluaran per kategori agar belanja tetap terkendali."
+                        actionLabel="Atur Budget"
+                        onAction={() => setIsEditing(true)}
+                    />
                 ) : (
                     budgets.map(b => (
                         <View key={b.id} style={styles.budgetCard}>
@@ -141,10 +178,10 @@ export function BudgetScreen() {
                                 <Text style={styles.budgetCat}>{b.category}</Text>
                                 <View style={styles.budgetActions}>
                                     <TouchableOpacity onPress={() => handleEdit(b.category, b.amount)}>
-                                        <MaterialCommunityIcons name="pencil" size={20} color={Colors.info} />
+                                        <MaterialCommunityIcons name="pencil" size={20} color={colors.info} />
                                     </TouchableOpacity>
                                     <TouchableOpacity onPress={() => handleDelete(b.id)}>
-                                        <MaterialCommunityIcons name="delete" size={20} color={Colors.danger} style={{ marginLeft: 12 }} />
+                                        <MaterialCommunityIcons name="delete" size={20} color={colors.danger} style={{ marginLeft: 12 }} />
                                     </TouchableOpacity>
                                 </View>
                             </View>
@@ -156,12 +193,12 @@ export function BudgetScreen() {
                                     <View style={[
                                         styles.progressFill, 
                                         { width: `${Math.min(100, b.percentage)}%` },
-                                        b.spent > b.amount ? { backgroundColor: Colors.danger } : {}
+                                        b.spent > b.amount ? { backgroundColor: colors.danger } : {}
                                     ]} />
                                 </View>
                                 <View style={styles.progressLabels}>
                                     <Text style={styles.progressText}>Terpakai: {formatRupiah(b.spent)}</Text>
-                                    <Text style={[styles.progressText, b.spent > b.amount && { color: Colors.danger }]}>Sisa: {formatRupiah(b.amount - b.spent)}</Text>
+                                    <Text style={[styles.progressText, b.spent > b.amount && { color: colors.danger }]}>Sisa: {formatRupiah(b.amount - b.spent)}</Text>
                                 </View>
                             </View>
                         </View>
@@ -172,34 +209,77 @@ export function BudgetScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    safe: { flex: 1, backgroundColor: Colors.background },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, backgroundColor: Colors.surface },
-    backBtn: { padding: 8, marginLeft: -8 },
-    title: { fontFamily: FontFamily.heading, fontSize: FontSize.h3, color: Colors.textPrimary },
-    content: { padding: 16, gap: 16, paddingBottom: 40 },
-    summaryCard: { backgroundColor: Colors.primary, padding: 20, borderRadius: 16 },
-    summaryTitle: { fontFamily: FontFamily.body, color: Colors.surface, opacity: 0.9 },
-    summaryAmount: { fontFamily: FontFamily.heading, fontSize: 32, color: Colors.surface, marginVertical: 8 },
+const getStyles = (colors: any) => StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.background },
+    bgAuraTop: {
+        position: 'absolute',
+        top: -110,
+        right: -30,
+        width: 240,
+        height: 240,
+        borderRadius: BorderRadius.full,
+        backgroundColor: colors.primaryLight,
+        opacity: 0.55,
+    },
+    bgAuraBottom: {
+        position: 'absolute',
+        bottom: 120,
+        left: -60,
+        width: 200,
+        height: 200,
+        borderRadius: BorderRadius.full,
+        backgroundColor: colors.infoBg,
+        opacity: 0.3,
+    },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12, gap: 12 },
+    headerCenter: { flex: 1 },
+    headerAction: {
+        width: 44,
+        height: 44,
+        borderRadius: BorderRadius.xl,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.surfaceElevated,
+        borderWidth: 1,
+        borderColor: colors.border,
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 10,
+        elevation: 2,
+    },
+    backBtn: { width: 44, height: 44, borderRadius: BorderRadius.xl, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border, shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 10, elevation: 2 },
+    title: { fontFamily: FontFamily.heading, fontSize: FontSize.h3, color: colors.textPrimary },
+    subtitle: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary, marginTop: 2 },
+    content: { padding: 20, gap: 16, paddingBottom: 40 },
+    summaryCard: { padding: 20, borderRadius: BorderRadius['5xl'], gap: 8, overflow: 'hidden', borderWidth: 1, borderColor: `${colors.textInverse}2E`, ...Shadow.md },
+    summaryTitle: { fontFamily: FontFamily.bodyMedium, color: colors.textInverse },
+    summaryAmount: { fontFamily: FontFamily.heading, fontSize: 32, color: colors.textInverse, marginVertical: 2 },
+    summarySubtitle: { fontFamily: FontFamily.body, color: colors.textInverse },
     progressContainer: { gap: 8, marginTop: 12 },
-    progressBar: { height: 8, backgroundColor: 'rgba(255,255,255,0.3)', borderRadius: 4, overflow: 'hidden' },
-    progressFill: { height: '100%', backgroundColor: Colors.surface, borderRadius: 4 },
-    progressText: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.textSecondary },
-    progressLabels: { flexDirection: 'row', justifyContent: 'space-between' },
-    formCard: { backgroundColor: Colors.surface, padding: 16, borderRadius: 16, gap: 12 },
-    formTitle: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: Colors.textPrimary },
-    label: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.body, color: Colors.textSecondary },
+    progressBar: { height: 8, backgroundColor: `${colors.textInverse}33`, borderRadius: 999, overflow: 'hidden' },
+    progressFill: { height: '100%', backgroundColor: colors.primaryLight, borderRadius: 999 },
+    summaryMetaRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+    summaryMetaText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.caption, color: colors.textInverse },
+    formCard: { backgroundColor: colors.surfaceElevated, padding: 16, borderRadius: BorderRadius['4xl'], gap: 12, borderWidth: 1, borderColor: colors.border, shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 3 },
+    ctaCard: { backgroundColor: colors.surfaceElevated, padding: 16, borderRadius: BorderRadius['4xl'], gap: 14, borderWidth: 1, borderColor: colors.border, shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 3 },
+    ctaInfo: { gap: 4 },
+    ctaTitle: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: colors.textPrimary },
+    ctaSubtitle: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary },
+    formTitle: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: colors.textPrimary },
+    label: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.body, color: colors.textSecondary },
     categoryScroll: { flexDirection: 'row', marginBottom: 8 },
-    catChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: Colors.background, marginRight: 8, borderWidth: 1, borderColor: Colors.border },
-    catChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-    catChipText: { fontFamily: FontFamily.bodyMedium, color: Colors.textPrimary },
-    input: { backgroundColor: Colors.background, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: Colors.border, fontFamily: FontFamily.bodyBold, fontSize: FontSize.h3, color: Colors.textPrimary },
+    catChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: BorderRadius.full, backgroundColor: colors.surface, marginRight: 8, borderWidth: 1, borderColor: colors.border },
+    catChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    catChipText: { fontFamily: FontFamily.bodyMedium, color: colors.textPrimary },
+    input: { backgroundColor: colors.surface, borderRadius: BorderRadius.xl, padding: 12, borderWidth: 1, borderColor: colors.border, fontFamily: FontFamily.bodyBold, fontSize: FontSize.h3, color: colors.textPrimary },
     formActions: { flexDirection: 'row', gap: 12, marginTop: 8 },
-    sectionTitle: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: Colors.textPrimary, marginTop: 8 },
-    emptyText: { fontFamily: FontFamily.body, color: Colors.textSecondary, textAlign: 'center', marginTop: 24 },
-    budgetCard: { backgroundColor: Colors.surface, padding: 16, borderRadius: 16, gap: 8 },
+    sectionTitle: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: colors.textPrimary, marginTop: 8 },
+    budgetCard: { backgroundColor: colors.surfaceElevated, padding: 16, borderRadius: BorderRadius['4xl'], gap: 8, borderWidth: 1, borderColor: colors.border, shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 3 },
     budgetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    budgetCat: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: Colors.textPrimary },
+    budgetCat: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: colors.textPrimary },
     budgetActions: { flexDirection: 'row' },
-    budgetAmount: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.h3, color: Colors.primary },
+    budgetAmount: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.h3, color: colors.primary },
+    progressLabels: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+    progressText: { fontFamily: FontFamily.body, fontSize: 12, color: colors.textSecondary },
 });

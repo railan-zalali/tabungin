@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
-import { BorderRadius, Shadow } from '../../constants/theme';
+import { BorderRadius } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useThemeStore, useTheme } from '../../store/useThemeStore';
 import { deleteUserAccount } from '../../database/authQueries';
@@ -153,7 +153,7 @@ export function SettingsScreen() {
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 {/* Profil */}
                 <TouchableOpacity
-                    style={[styles.profileCard, Shadow.sm, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                    style={styles.profileCard}
                     onPress={() => navigation.navigate('Profile')}
                 >
                     <View style={[styles.avatar, { backgroundColor: user?.avatarColor ?? colors.primary }]}>
@@ -168,7 +168,7 @@ export function SettingsScreen() {
 
                 {/* Notifikasi */}
                 <TouchableOpacity
-                    style={[styles.profileCard, Shadow.sm, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                    style={styles.profileCard}
                     onPress={() => navigation.navigate('Notifications' as never)}
                 >
                     <View style={[styles.avatar, { backgroundColor: colors.warning + '20' }]}>
@@ -190,7 +190,7 @@ export function SettingsScreen() {
                 {/* Tampilan */}
                 <View style={styles.section}>
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Tampilan</Text>
-                    <View style={[styles.card, Shadow.sm, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <View style={styles.card}>
                         <SettingRow
                             icon="theme-light-dark"
                             iconColor={colors.primary}
@@ -202,7 +202,7 @@ export function SettingsScreen() {
                                     value={mode === 'dark'}
                                     onValueChange={(val) => setMode(val ? 'dark' : 'light')}
                                     trackColor={{ false: colors.neutral300, true: colors.primaryLight }}
-                                    thumbColor={mode === 'dark' ? colors.primary : '#FFF'}
+                                    thumbColor={mode === 'dark' ? colors.primary : colors.surfaceElevated}
                                 />
                             }
                         />
@@ -240,7 +240,7 @@ export function SettingsScreen() {
                 {/* Aksesibilitas */}
                 <View style={styles.section}>
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Aksesibilitas</Text>
-                    <View style={[styles.card, Shadow.sm, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <View style={styles.card}>
                         <SettingRow
                             icon="vibrate"
                             iconColor={colors.warning}
@@ -251,7 +251,7 @@ export function SettingsScreen() {
                                     value={hapticEnabled}
                                     onValueChange={setHapticEnabled}
                                     trackColor={{ false: colors.neutral300, true: colors.primaryLight }}
-                                    thumbColor={hapticEnabled ? colors.primary : '#FFF'}
+                                    thumbColor={hapticEnabled ? colors.primary : colors.surfaceElevated}
                                 />
                             }
                         />
@@ -261,7 +261,7 @@ export function SettingsScreen() {
                 {/* Keuangan */}
                 <View style={styles.section}>
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Keuangan</Text>
-                    <View style={[styles.card, Shadow.sm, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <View style={styles.card}>
                         <SettingRow
                             icon="wallet-outline"
                             iconColor={colors.primary}
@@ -299,7 +299,7 @@ export function SettingsScreen() {
                 {/* Data */}
                 <View style={styles.section}>
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Data</Text>
-                    <View style={[styles.card, Shadow.sm, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <View style={styles.card}>
                         <SettingRow
                             icon="export"
                             iconColor={colors.primary}
@@ -321,7 +321,7 @@ export function SettingsScreen() {
                 {/* Tentang */}
                 <View style={styles.section}>
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Tentang</Text>
-                    <View style={[styles.card, Shadow.sm, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <View style={styles.card}>
                         <SettingRow
                             icon="information"
                             iconColor={colors.textSecondary}
@@ -380,11 +380,16 @@ const getStyles = (colors: any) => StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 16,
-        backgroundColor: colors.surfaceGlass,
+        backgroundColor: colors.surfaceElevated,
         borderRadius: BorderRadius['4xl'],
         padding: 20,
         borderWidth: 1,
-        borderColor: colors.glassStroke,
+        borderColor: colors.border,
+        shadowColor: colors.shadowColor,
+        shadowOpacity: 0.08,
+        shadowRadius: 18,
+        shadowOffset: { width: 0, height: 10 },
+        elevation: 2,
     },
     avatar: { 
         width: 60, 
@@ -426,11 +431,16 @@ const getStyles = (colors: any) => StyleSheet.create({
     },
     
     card: { 
-        backgroundColor: colors.surfaceGlass, 
+        backgroundColor: colors.surfaceElevated, 
         borderRadius: BorderRadius['3xl'], 
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: colors.glassStroke,
+        borderColor: colors.border,
+        shadowColor: colors.shadowColor,
+        shadowOpacity: 0.06,
+        shadowRadius: 14,
+        shadowOffset: { width: 0, height: 8 },
+        elevation: 1,
     },
     row: { 
         flexDirection: 'row', 
@@ -475,7 +485,7 @@ const getStyles = (colors: any) => StyleSheet.create({
         borderRadius: BorderRadius.lg, 
         borderWidth: 1, 
         borderColor: colors.border, 
-        backgroundColor: colors.surfaceCard 
+        backgroundColor: colors.surfaceElevated 
     },
     textSizeBtnActive: { 
         backgroundColor: colors.primaryBg, 

@@ -20,10 +20,15 @@ import { Button } from '../../components/common/Button';
 import { useAuthStore } from '../../store/useAuthStore';
 import { validateEmail } from '../../utils/validation';
 import type { RootStackParamList } from '../../types/navigation';
+import { useTheme } from '../../store/useThemeStore';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BorderRadius } from '../../constants/theme';
 
 export function ForgotPasswordScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const { sendResetPassword } = useAuthStore();
+    const { colors, gradients } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
     const [email, setEmail] = useState('');
     const [error, setError] = useState<string | undefined>();
     const [isLoading, setIsLoading] = useState(false);
@@ -71,9 +76,9 @@ export function ForgotPasswordScreen() {
                 >
                     <ScrollView contentContainerStyle={styles.container}>
                         <View style={styles.successContainer}>
-                            <View style={styles.successIcon}>
-                                <MaterialCommunityIcons name='email-check' size={64} color={Colors.primary} />
-                            </View>
+                            <LinearGradient colors={gradients.hero as unknown as [string, string, ...string[]]} style={styles.successIcon}>
+                                <MaterialCommunityIcons name='email-check' size={64} color={colors.textInverse} />
+                            </LinearGradient>
                             <Text style={styles.successTitle}>Email Terkirim!</Text>
                             <Text style={styles.successSubtitle}>
                                 Kami telah mengirim link reset password ke email:
@@ -112,14 +117,14 @@ export function ForgotPasswordScreen() {
                         accessibilityRole="button"
                         accessibilityLabel="Kembali ke login"
                     >
-                        <MaterialCommunityIcons name='arrow-left' size={24} color={Colors.primary} />
+                        <MaterialCommunityIcons name='arrow-left' size={24} color={colors.primary} />
                         <Text style={styles.backText} allowFontScaling={true}> Kembali</Text>
                     </TouchableOpacity>
 
                     <View style={styles.headerSection}>
-                        <View style={styles.iconContainer}>
-                            <MaterialCommunityIcons name='lock-reset' size={48} color={Colors.primary} />
-                        </View>
+                        <LinearGradient colors={gradients.hero as unknown as [string, string, ...string[]]} style={styles.iconContainer}>
+                            <MaterialCommunityIcons name='lock-reset' size={48} color={colors.textInverse} />
+                        </LinearGradient>
                         <Text style={styles.heading} allowFontScaling={true} accessibilityRole="header">
                             Lupa Password?
                         </Text>
@@ -171,82 +176,99 @@ export function ForgotPasswordScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    safe: { flex: 1, backgroundColor: Colors.surface },
-    flex: { flex: 1 },
-    container: { flexGrow: 1, padding: 24 },
-    backBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 8,
-        minHeight: 48,
-        width: 120,
-    },
-    backText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.body, color: Colors.primary },
-    headerSection: { alignItems: 'center', marginVertical: 24, gap: 12 },
-    iconContainer: {
-        width: 96,
-        height: 96,
-        borderRadius: 48,
-        backgroundColor: Colors.primaryLight,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 8,
-    },
-    heading: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: Colors.textPrimary },
-    subHeading: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.body,
-        color: Colors.textSecondary,
-        textAlign: 'center',
-        lineHeight: 22,
-    },
-    fields: { gap: 14 },
-    helpSection: {
-        marginTop: 24,
-        backgroundColor: Colors.primaryLight + '30',
-        padding: 16,
-        borderRadius: 12,
-    },
-    helpText: {
-        fontFamily: FontFamily.bodyMedium,
-        fontSize: FontSize.body,
-        color: Colors.textPrimary,
-        marginBottom: 4,
-    },
-    helpHint: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
-        color: Colors.textSecondary,
-        lineHeight: 20,
-    },
-    successContainer: { alignItems: 'center', paddingVertical: 40, gap: 12 },
-    successIcon: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-        backgroundColor: Colors.primaryLight,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 8,
-    },
-    successTitle: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: Colors.textPrimary },
-    successSubtitle: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.body,
-        color: Colors.textSecondary,
-        textAlign: 'center',
-    },
-    successEmail: {
-        fontFamily: FontFamily.bodyBold,
-        fontSize: FontSize.body,
-        color: Colors.primary,
-    },
-    successHint: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
-        color: Colors.textSecondary,
-        textAlign: 'center',
-        marginTop: 8,
-    },
-});
+const getStyles = (colors: any) =>
+    StyleSheet.create({
+        safe: { flex: 1, backgroundColor: colors.background },
+        flex: { flex: 1 },
+        container: { flexGrow: 1, padding: 24 },
+        backBtn: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: 8,
+            minHeight: 48,
+            width: 120,
+        },
+        backText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.body, color: colors.primary },
+        headerSection: { alignItems: 'center', marginVertical: 24, gap: 12 },
+        iconContainer: {
+            width: 96,
+            height: 96,
+            borderRadius: 48,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 8,
+            backgroundColor: colors.surfaceElevated,
+            borderWidth: 1,
+            borderColor: colors.border,
+            shadowColor: colors.shadowColor,
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.1,
+            shadowRadius: 18,
+            elevation: 4,
+        },
+        heading: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: colors.textPrimary },
+        subHeading: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.body,
+            color: colors.textSecondary,
+            textAlign: 'center',
+            lineHeight: 22,
+        },
+        fields: { gap: 14 },
+        helpSection: {
+            marginTop: 24,
+            backgroundColor: colors.primaryBg,
+            padding: 16,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: `${colors.primary}1F`,
+        },
+        helpText: {
+            fontFamily: FontFamily.bodyMedium,
+            fontSize: FontSize.body,
+            color: colors.textPrimary,
+            marginBottom: 4,
+        },
+        helpHint: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+            lineHeight: 20,
+        },
+        successContainer: { alignItems: 'center', paddingVertical: 40, gap: 12 },
+        successIcon: {
+            width: 120,
+            height: 120,
+            borderRadius: 60,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 8,
+            backgroundColor: colors.surfaceElevated,
+            borderWidth: 1,
+            borderColor: colors.border,
+            shadowColor: colors.shadowColor,
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.1,
+            shadowRadius: 18,
+            elevation: 4,
+        },
+        successTitle: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: colors.textPrimary },
+        successSubtitle: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.body,
+            color: colors.textSecondary,
+            textAlign: 'center',
+        },
+        successEmail: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.body,
+            color: colors.primary,
+        },
+        successHint: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+            textAlign: 'center',
+            marginTop: 8,
+        },
+    });

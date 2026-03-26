@@ -7,19 +7,20 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
-  Platform,
   StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { useTheme } from '../../store/useThemeStore';
 import { useNotificationStore } from '../../store/useNotificationStore';
 import { EmptyState } from '../../components/common/EmptyState';
+import { Button } from '../../components/common/Button';
+import { BorderRadius, Shadow } from '../../constants/theme';
 import type { Notification as NotificationType } from '../../types/notification';
 
 interface NotificationItemProps {
@@ -27,11 +28,11 @@ interface NotificationItemProps {
   onPress: () => void;
   onRead: (id: string) => void;
   onDelete: (id: string) => void;
+  colors: any;
   styles: any;
 }
 
-function NotificationItem({ notification, onPress, onRead, onDelete, styles }: NotificationItemProps) {
-  const { colors } = useTheme();
+function NotificationItem({ notification, onPress, onRead, onDelete, colors, styles }: NotificationItemProps) {
   const getNotificationIcon = (type: string): { name: string; color: string; bgColor: string } => {
     switch (type) {
       case 'goal_reminder':
@@ -51,7 +52,7 @@ function NotificationItem({ notification, onPress, onRead, onDelete, styles }: N
   const timeAgo = getTimeAgo(notification.created_at);
 
   return (
-    <Animated.View entering={FadeInDown} style={[styles.notificationItem, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <Animated.View entering={FadeInDown.springify()} style={[styles.notificationItem, Shadow.sm]}>
       <TouchableOpacity
         style={styles.notificationContent}
         onPress={() => {
@@ -60,10 +61,10 @@ function NotificationItem({ notification, onPress, onRead, onDelete, styles }: N
           }
           onPress();
         }}
-        activeOpacity={0.7}
+        activeOpacity={0.8}
       >
         <View style={[styles.iconContainer, { backgroundColor: icon.bgColor }]}>
-          <MaterialCommunityIcons name={icon.name as any} size={24} color={icon.color} />
+          <MaterialCommunityIcons name={icon.name as any} size={22} color={icon.color} />
         </View>
 
         <View style={styles.notificationText}>
@@ -124,14 +125,13 @@ export function NotificationScreen() {
 
   useEffect(() => {
     loadNotifications();
-  }, []);
+  }, [loadNotifications]);
 
   const handleRefresh = useCallback(async () => {
     await loadNotifications();
   }, [loadNotifications]);
 
   const handleNotificationPress = useCallback((notification: NotificationType) => {
-    // Navigate based on notification type and data
     if (notification.data?.goalId) {
       navigation.navigate('Savings', {
         screen: 'SavingDetail',
@@ -150,22 +150,22 @@ export function NotificationScreen() {
       onPress={() => handleNotificationPress(item)}
       onRead={readNotification}
       onDelete={removeNotification}
+      colors={colors}
       styles={styles}
     />
-  ), [handleNotificationPress, readNotification, removeNotification]);
+  ), [colors, handleNotificationPress, readNotification, removeNotification, styles]);
 
   return (
-    <View
-      style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}
-    >
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
       <StatusBar
         barStyle={mode === 'dark' ? 'light-content' : 'dark-content'}
-        backgroundColor='transparent'
+        backgroundColor="transparent"
         translucent
       />
+      <View style={styles.bgAuraTop} pointerEvents="none" />
+      <View style={styles.bgAuraBottom} pointerEvents="none" />
 
-      {/* Header */}
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+      <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
@@ -176,27 +176,62 @@ export function NotificationScreen() {
 
         <View style={styles.headerContent}>
           <Text style={[styles.screenTitle, { color: colors.textPrimary }]}>Notifikasi</Text>
-          {unreadCount > 0 && (
-            <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
-              <Text style={styles.unreadBadgeText}>
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </Text>
-            </View>
-          )}
+          <Text style={[styles.screenSubtitle, { color: colors.textSecondary }]}>
+            Semua pembaruan penting dari budget, dompet, dan target.
+          </Text>
         </View>
 
-        {unreadCount > 0 && (
-          <TouchableOpacity
-            style={styles.markAllReadButton}
-            onPress={readAllNotifications}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={[styles.markAllReadText, { color: colors.primary }]}>Tandai Semua</Text>
-          </TouchableOpacity>
+        {unreadCount > 0 ? (
+          <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
+            <Text style={styles.unreadBadgeText}>
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.spacer} />
         )}
       </View>
 
-      {/* Content */}
+      <View style={styles.heroWrap}>
+        <Animated.View entering={FadeInDown.delay(50).springify()}>
+          <View style={[styles.heroCard, Shadow.md]}>
+            <View style={styles.heroTopRow}>
+              <View style={[styles.heroIcon, { backgroundColor: colors.primaryBg }]}>
+                <MaterialCommunityIcons name="bell-badge-outline" size={20} color={colors.primary} />
+              </View>
+              <View style={styles.heroCopy}>
+                <Text style={[styles.heroTitle, { color: colors.textPrimary }]}>Pusat Notifikasi</Text>
+                <Text style={[styles.heroDescription, { color: colors.textSecondary }]}>
+                  Tetap singkat, cepat dibaca, dan langsung ke tindakan yang relevan.
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.heroStats}>
+              <View style={[styles.heroStat, { backgroundColor: colors.surfaceCard, borderColor: colors.border }]}>
+                <Text style={[styles.heroStatValue, { color: colors.textPrimary }]}>{notifications.length}</Text>
+                <Text style={[styles.heroStatLabel, { color: colors.textSecondary }]}>Total</Text>
+              </View>
+              <View style={[styles.heroStat, { backgroundColor: colors.primaryBg, borderColor: `${colors.primary}22` }]}>
+                <Text style={[styles.heroStatValue, { color: colors.primary }]}>{unreadCount}</Text>
+                <Text style={[styles.heroStatLabel, { color: colors.textSecondary }]}>Belum dibaca</Text>
+              </View>
+            </View>
+          </View>
+        </Animated.View>
+      </View>
+
+      <View style={styles.actionRow}>
+        {unreadCount > 0 && (
+          <Button
+            label="Tandai Semua"
+            onPress={readAllNotifications}
+            variant="secondary"
+            fullWidth
+          />
+        )}
+      </View>
+
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -206,7 +241,9 @@ export function NotificationScreen() {
           <EmptyState
             icon="bell-off"
             title="Tidak ada notifikasi"
-            message="Semua notifikasi akan muncul di sini"
+            description="Semua notifikasi akan muncul di sini ketika ada pembaruan penting."
+            actionLabel="Muat Ulang"
+            onAction={handleRefresh}
           />
         </View>
       ) : (
@@ -234,50 +271,143 @@ const getStyles = (colors: any) => StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  bgAuraTop: {
+    position: 'absolute',
+    top: -120,
+    right: -40,
+    width: 240,
+    height: 240,
+    borderRadius: BorderRadius.full,
+    backgroundColor: colors.primaryLight,
+    opacity: 0.45,
+  },
+  bgAuraBottom: {
+    position: 'absolute',
+    bottom: -140,
+    left: -60,
+    width: 280,
+    height: 280,
+    borderRadius: BorderRadius.full,
+    backgroundColor: colors.successBg,
+    opacity: 0.35,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 1,
+    gap: 12,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.xl,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
   },
   headerContent: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 8,
-    gap: 8,
   },
   screenTitle: {
     ...Typography.h2,
     color: colors.textPrimary,
   },
+  screenSubtitle: {
+    fontFamily: FontFamily.body,
+    fontSize: FontSize.caption,
+    marginTop: 2,
+  },
   unreadBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    minWidth: 24,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    minWidth: 26,
     alignItems: 'center',
     justifyContent: 'center',
   },
   unreadBadgeText: {
     fontFamily: FontFamily.bodyBold,
     fontSize: 12,
-    color: '#FFFFFF',
+        color: colors.textInverse,
   },
-  markAllReadButton: {
-    paddingHorizontal: 8,
+  spacer: {
+    width: 26,
+    height: 26,
   },
-  markAllReadText: {
-    fontFamily: FontFamily.bodyBold,
-    fontSize: FontSize.body,
-    color: colors.primary,
+  heroWrap: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    marginBottom: 12,
+  },
+  heroCard: {
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: 28,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 4,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  heroIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroCopy: {
+    flex: 1,
+  },
+  heroTitle: {
+    fontFamily: FontFamily.headingMedium,
+    fontSize: FontSize.h4,
+  },
+  heroDescription: {
+    fontFamily: FontFamily.body,
+    fontSize: FontSize.caption,
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  heroStats: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+  },
+  heroStat: {
+    flex: 1,
+    borderRadius: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+  },
+  heroStatValue: {
+    fontFamily: FontFamily.heading,
+    fontSize: FontSize.h3,
+  },
+  heroStatLabel: {
+    fontFamily: FontFamily.body,
+    fontSize: FontSize.caption,
+    marginTop: 2,
+  },
+  actionRow: {
+    paddingHorizontal: 16,
+    marginBottom: 8,
   },
   loadingContainer: {
     flex: 1,
@@ -291,13 +421,22 @@ const getStyles = (colors: any) => StyleSheet.create({
     paddingHorizontal: 20,
   },
   listContent: {
-    paddingVertical: 16,
+    paddingVertical: 12,
+    paddingBottom: 28,
   },
   notificationItem: {
     marginHorizontal: 16,
     marginBottom: 12,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
+    backgroundColor: colors.surfaceElevated,
+    overflow: 'hidden',
+    borderColor: colors.border,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 3,
   },
   notificationContent: {
     flexDirection: 'row',
@@ -305,9 +444,9 @@ const getStyles = (colors: any) => StyleSheet.create({
     padding: 16,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 46,
+    height: 46,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -336,14 +475,12 @@ const getStyles = (colors: any) => StyleSheet.create({
   body: {
     fontFamily: FontFamily.body,
     fontSize: FontSize.caption,
-    color: colors.textSecondary,
     lineHeight: 20,
     marginBottom: 4,
   },
   time: {
     fontFamily: FontFamily.body,
     fontSize: FontSize.caption,
-    color: colors.textTertiary,
   },
   deleteButton: {
     width: 32,

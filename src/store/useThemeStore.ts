@@ -78,10 +78,11 @@ export function useTheme() {
     const primaryColor = activeProfile?.color || BaseColors.primary;
     const isDark = mode === 'dark';
     const neutralBase = isDark ? BaseColors.dark : BaseColors;
-    const primaryDark = mix(primaryColor, isDark ? '#08110D' : '#173625', isDark ? 0.35 : 0.24);
-    const primarySoft = rgba(primaryColor, isDark ? 0.24 : 0.12);
-    const primaryStrong = rgba(primaryColor, isDark ? 0.32 : 0.18);
-    const surfaceGlass = isDark ? neutralBase.surfaceGlass : neutralBase.surfaceGlass;
+    const primaryDark = mix(primaryColor, isDark ? '#08110D' : '#173625', isDark ? 0.38 : 0.24);
+    const primarySoft = rgba(primaryColor, isDark ? 0.24 : 0.10);
+    const primaryStrong = rgba(primaryColor, isDark ? 0.32 : 0.16);
+    const surfaceGlass = neutralBase.surfaceGlass;
+    const shadowColor = isDark ? 'rgba(0, 0, 0, 0.58)' : 'rgba(15, 23, 20, 0.16)';
 
     const colors = {
         ...BaseColors,
@@ -108,6 +109,7 @@ export function useTheme() {
         divider: neutralBase.divider,
         overlay: neutralBase.overlay,
         overlayLight: neutralBase.overlayLight,
+        shadowColor,
         successBg: isDark ? BaseColors.dark.successBg : BaseColors.successBg,
         warningBg: isDark ? BaseColors.dark.warningBg : BaseColors.warningBg,
         dangerBg: isDark ? BaseColors.dark.dangerBg : BaseColors.dangerBg,
@@ -116,17 +118,16 @@ export function useTheme() {
         warningLight: rgba(BaseColors.warning, isDark ? 0.28 : 0.16),
         dangerLight: rgba(BaseColors.danger, isDark ? 0.28 : 0.16),
         infoLight: rgba(BaseColors.info, isDark ? 0.28 : 0.16),
-        glassStroke: rgba('#FFFFFF', isDark ? 0.08 : 0.52),
+        glassStroke: isDark ? rgba('#FFFFFF', 0.08) : rgba(BaseColors.border, 0.88),
         glassTint: surfaceGlass,
-        shadowColor: isDark ? '#000000' : '#0F1714',
-        heroStart: mix(primaryColor, '#FFFFFF', isDark ? 0.08 : 0.02),
+        heroStart: mix(primaryColor, isDark ? '#FFFFFF' : neutralBase.surface, isDark ? 0.08 : 0.10),
         heroEnd: primaryDark,
         heroSoft: primaryStrong,
     };
 
     const gradients = {
         hero: [colors.heroStart, colors.primary, colors.heroEnd] as const,
-        surface: [colors.surfaceCard, colors.surfaceGlass] as const,
+        surface: [colors.surfaceElevated, colors.surfaceGlass] as const,
         success: [rgba(BaseColors.success, 0.12), rgba(BaseColors.success, 0.03)] as const,
         warning: [rgba(BaseColors.warning, 0.12), rgba(BaseColors.warning, 0.03)] as const,
         info: [rgba(BaseColors.info, 0.12), rgba(BaseColors.info, 0.03)] as const,

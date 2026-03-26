@@ -20,6 +20,9 @@ import { Button } from '../../components/common/Button';
 import { useAuthStore } from '../../store/useAuthStore';
 import { validateEmail, validatePassword, validateConfirmPassword, validateName } from '../../utils/validation';
 import type { RootStackParamList } from '../../types/navigation';
+import { useTheme } from '../../store/useThemeStore';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BorderRadius } from '../../constants/theme';
 
 function getPasswordStrength(password: string): { label: string; color: string; progress: number } {
     if (!password) return { label: '', color: Colors.border, progress: 0 };
@@ -39,6 +42,8 @@ function getPasswordStrength(password: string): { label: string; color: string; 
 export function RegisterScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const { register, authError } = useAuthStore();
+    const { colors, gradients } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -84,6 +89,8 @@ export function RegisterScreen() {
 
     return (
         <SafeAreaView style={styles.safe}>
+            <View style={styles.bgAuraTop} pointerEvents="none" />
+            <View style={styles.bgAuraBottom} pointerEvents="none" />
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
                 <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
                     <TouchableOpacity
@@ -96,12 +103,14 @@ export function RegisterScreen() {
                         <Text style={styles.backText} allowFontScaling={true}>Kembali</Text>
                     </TouchableOpacity>
 
-                    <Text style={styles.heading} allowFontScaling={true} accessibilityRole="header">
-                        Buat Akun Baru
-                    </Text>
-                    <Text style={styles.subHeading} allowFontScaling={true}>
-                        Mulai perjalanan finansialmu bersama Tabungin
-                    </Text>
+                    <View style={styles.heroCard}>
+                        <Text style={styles.heading} allowFontScaling={true} accessibilityRole="header">
+                            Buat Akun Baru
+                        </Text>
+                        <Text style={styles.subHeading} allowFontScaling={true}>
+                            Mulai perjalanan finansialmu bersama Tabungin.
+                        </Text>
+                    </View>
 
                     <View style={styles.fields}>
                         <Input
@@ -203,46 +212,82 @@ export function RegisterScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    safe: { flex: 1, backgroundColor: Colors.surface },
-    flex: { flex: 1 },
-    container: { flexGrow: 1, padding: 24, gap: 14 },
-    backBtn: { paddingVertical: 8, minHeight: 48, justifyContent: 'center', width: 120 },
-    backText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.body, color: Colors.primary },
-    heading: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: Colors.textPrimary },
-    subHeading: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: Colors.textSecondary },
-    fields: { gap: 14 },
-    strengthContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: 8,
-        gap: 12,
-    },
-    strengthBar: {
-        flex: 1,
-        height: 4,
-        backgroundColor: Colors.border,
-        borderRadius: 2,
-        overflow: 'hidden',
-    },
-    strengthProgress: {
-        height: '100%',
-        borderRadius: 2,
-    },
-    strengthLabel: {
-        fontFamily: FontFamily.bodyMedium,
-        fontSize: FontSize.caption,
-        minWidth: 50,
-    },
-    errorBanner: {
-        backgroundColor: '#FEF2F2',
-        borderRadius: 10,
-        borderLeftWidth: 3,
-        borderLeftColor: '#DC2626',
-        padding: 12,
-    },
-    errorBannerText: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: '#DC2626' },
-    footer: { flexDirection: 'row', justifyContent: 'center', paddingVertical: 16 },
-    footerText: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: Colors.textSecondary },
-    footerLink: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.body, color: Colors.primary },
-});
+const getStyles = (colors: any) =>
+    StyleSheet.create({
+        safe: { flex: 1, backgroundColor: colors.background },
+        flex: { flex: 1 },
+        container: { flexGrow: 1, padding: 24, gap: 14 },
+        bgAuraTop: {
+            position: 'absolute',
+            top: -100,
+            right: -40,
+            width: 240,
+            height: 240,
+            borderRadius: 9999,
+            backgroundColor: colors.primaryLight,
+            opacity: 0.68,
+        },
+        bgAuraBottom: {
+            position: 'absolute',
+            left: -70,
+            bottom: 80,
+            width: 180,
+            height: 180,
+            borderRadius: 9999,
+            backgroundColor: colors.infoBg,
+            opacity: 0.32,
+        },
+        backBtn: { paddingVertical: 8, minHeight: 48, justifyContent: 'center', width: 120 },
+        backText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.body, color: colors.primary },
+        heroCard: {
+            backgroundColor: colors.surfaceElevated,
+            borderRadius: BorderRadius['4xl'],
+            borderWidth: 1,
+            borderColor: colors.border,
+            padding: 18,
+            gap: 6,
+            shadowColor: colors.shadowColor,
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.08,
+            shadowRadius: 16,
+            elevation: 3,
+        },
+        heading: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: colors.textPrimary },
+        subHeading: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: colors.textSecondary, lineHeight: 22 },
+        fields: { gap: 14 },
+        strengthContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginTop: 8,
+            gap: 12,
+        },
+        strengthBar: {
+            flex: 1,
+            height: 4,
+            backgroundColor: colors.border,
+            borderRadius: 2,
+            overflow: 'hidden',
+        },
+        strengthProgress: {
+            height: '100%',
+            borderRadius: 2,
+        },
+        strengthLabel: {
+            fontFamily: FontFamily.bodyMedium,
+            fontSize: FontSize.caption,
+            minWidth: 50,
+        },
+        errorBanner: {
+            backgroundColor: colors.dangerBg,
+            borderRadius: 14,
+            borderLeftWidth: 3,
+            borderLeftColor: colors.danger,
+            padding: 12,
+            borderWidth: 1,
+            borderColor: `${colors.danger}20`,
+        },
+        errorBannerText: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.danger },
+        footer: { flexDirection: 'row', justifyContent: 'center', paddingVertical: 16 },
+        footerText: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: colors.textSecondary },
+        footerLink: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.body, color: colors.primary },
+    });

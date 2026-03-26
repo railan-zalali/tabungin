@@ -10,8 +10,8 @@ import {
     ViewStyle,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
+import { useTheme } from '../../store/useThemeStore';
 
 interface InputProps extends TextInputProps {
     label: string;
@@ -37,6 +37,8 @@ export function Input({
 }: InputProps) {
     const [focused, setFocused] = useState(false);
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
 
     const isPassword = textInputProps.secureTextEntry;
     const effectiveSecure = isPassword && !isPasswordVisible;
@@ -67,7 +69,7 @@ export function Input({
                     <MaterialCommunityIcons
                         name={leftIcon as any}
                         size={20}
-                        color={error ? Colors.danger : focused ? Colors.primary : Colors.textSecondary}
+                        color={error ? colors.danger : focused ? colors.primary : colors.textSecondary}
                         style={styles.leftIcon}
                         accessibilityElementsHidden={true}
                     />
@@ -79,7 +81,7 @@ export function Input({
                         leftIcon ? styles.inputWithLeft : undefined,
                         (rightIcon || isPassword) ? styles.inputWithRight : undefined,
                     ]}
-                    placeholderTextColor={Colors.textDisabled}
+                    placeholderTextColor={colors.textDisabled}
                     onFocus={() => setFocused(true)}
                     onBlur={() => setFocused(false)}
                     accessible={true}
@@ -105,7 +107,7 @@ export function Input({
                         <MaterialCommunityIcons
                             name={isPasswordVisible ? 'eye-off' : 'eye'}
                             size={20}
-                            color={Colors.textSecondary}
+                            color={colors.textSecondary}
                             accessibilityElementsHidden={true}
                         />
                     </TouchableOpacity>
@@ -122,7 +124,7 @@ export function Input({
                         <MaterialCommunityIcons
                             name={rightIcon as any}
                             size={20}
-                            color={Colors.textSecondary}
+                            color={colors.textSecondary}
                             accessibilityElementsHidden={true}
                         />
                     </TouchableOpacity>
@@ -132,7 +134,7 @@ export function Input({
             {/* Pesan error spesifik — WCAG Understandable */}
             {error && (
                 <View style={styles.errorRow} accessible={true} accessibilityLiveRegion="polite">
-                    <MaterialCommunityIcons name="alert-circle" size={14} color={Colors.danger} accessibilityElementsHidden={true} />
+                    <MaterialCommunityIcons name="alert-circle" size={14} color={colors.danger} accessibilityElementsHidden={true} />
                     <Text style={styles.errorText} allowFontScaling={true} accessibilityRole="alert">
                         {error}
                     </Text>
@@ -149,50 +151,61 @@ export function Input({
     );
 }
 
-const styles = StyleSheet.create({
-    container: { gap: 6 },
-    label: {
-        fontFamily: FontFamily.bodyMedium,
-        fontSize: FontSize.caption,
-        color: Colors.textSecondary,
-        letterSpacing: 0.3,
-        textTransform: 'uppercase',
-    },
-    required: { color: Colors.danger },
-    inputContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Colors.surface,
-        borderRadius: 10,
-        borderWidth: 1.5,
-        borderColor: Colors.border,
-        minHeight: 52,
-    },
-    inputContainerFocused: { borderColor: Colors.primary },
-    inputContainerError: { borderColor: Colors.danger },
-    leftIcon: { paddingLeft: 14 },
-    rightIconBtn: { paddingRight: 14, paddingLeft: 8, minHeight: 48, justifyContent: 'center' },
-    input: {
-        flex: 1,
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.body,
-        color: Colors.textPrimary,
-        minHeight: 52,
-    },
-    inputWithLeft: { paddingLeft: 10 },
-    inputWithRight: { paddingRight: 0 },
-    errorRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    errorText: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
-        color: Colors.danger,
-        flex: 1,
-    },
-    hintText: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
-        color: Colors.textSecondary,
-    },
-});
+const getStyles = (colors: any) =>
+    StyleSheet.create({
+        container: { gap: 6 },
+        label: {
+            fontFamily: FontFamily.bodyMedium,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+            letterSpacing: 0.3,
+            textTransform: 'uppercase',
+        },
+        required: { color: colors.danger },
+        inputContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: colors.surfaceElevated,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+            minHeight: 54,
+            shadowColor: colors.shadowColor,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.04,
+            shadowRadius: 10,
+            elevation: 1,
+        },
+        inputContainerFocused: {
+            borderColor: colors.primary,
+            backgroundColor: colors.surface,
+            shadowOpacity: 0.08,
+            elevation: 2,
+        },
+        inputContainerError: { borderColor: colors.danger },
+        leftIcon: { paddingLeft: 14 },
+        rightIconBtn: { paddingRight: 14, paddingLeft: 8, minHeight: 48, justifyContent: 'center' },
+        input: {
+            flex: 1,
+            paddingHorizontal: 16,
+            paddingVertical: 14,
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.body,
+            color: colors.textPrimary,
+            minHeight: 54,
+        },
+        inputWithLeft: { paddingLeft: 10 },
+        inputWithRight: { paddingRight: 0 },
+        errorRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+        errorText: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.danger,
+            flex: 1,
+        },
+        hintText: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textTertiary,
+        },
+    });

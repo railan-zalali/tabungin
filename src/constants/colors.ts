@@ -2,10 +2,10 @@
 // Berdasarkan UI/UX Revision Plan (Tailwind-like tokens)
 export const Colors = {
     // Brand anchor
-    primary: '#1E8C5C',
-    primaryDark: '#156746',
-    primaryLight: '#DDF2E5',
-    primaryBg: '#F4FBF6',
+    primary: '#1D7D53',
+    primaryDark: '#14563A',
+    primaryLight: '#D9F0E2',
+    primaryBg: '#F3FAF6',
 
     // Premium calm neutrals
     neutral950: '#0F1714',
@@ -32,31 +32,31 @@ export const Colors = {
 
     // Background & surface
     background: '#F4F7F2',
-    backgroundAlt: '#ECF1EB',
-    backgroundCanvas: '#E7ECE7',
-    surface: '#FCFEFB',
-    surfaceAlt: '#EEF3ED',
+    backgroundAlt: '#EBF0EA',
+    backgroundCanvas: '#E6EDE6',
+    surface: '#FFFFFF',
+    surfaceAlt: '#F3F6F1',
     surfaceElevated: '#FFFFFF',
-    surfaceCard: 'rgba(255,255,255,0.92)',
-    surfaceGlass: 'rgba(252,254,251,0.78)',
-    surfaceInset: '#E7ECE7',
-    surfaceMuted: '#E1E8E3',
+    surfaceCard: '#FAFCF9',
+    surfaceGlass: 'rgba(255,255,255,0.82)',
+    surfaceInset: '#E7EDE7',
+    surfaceMuted: '#DEE6E0',
 
     // Text hierarchy
-    textPrimary: '#17211D',
-    textSecondary: '#5A6A63',
-    textTertiary: '#7A8B83',
+    textPrimary: '#13201B',
+    textSecondary: '#5B6A64',
+    textTertiary: '#7A8983',
     textInverse: '#FFFFFF',
     textDisabled: '#A5B2AB',
 
     // Border & divider
-    border: '#D6DFD9',
-    borderStrong: '#B7C3BC',
-    divider: '#E7ECE7',
+    border: '#D8E2DC',
+    borderStrong: '#B8C5BE',
+    divider: '#EAF0EA',
 
     // Overlay & transparency
-    overlay: 'rgba(15, 23, 20, 0.5)',
-    overlayLight: 'rgba(15, 23, 20, 0.18)',
+    overlay: 'rgba(15, 23, 20, 0.48)',
+    overlayLight: 'rgba(15, 23, 20, 0.14)',
     
     transparent: 'transparent',
 
@@ -67,8 +67,8 @@ export const Colors = {
     infoLight: '#D2E2FB',
 
     // Legacy compatibility
-    secondary: '#D6A13A',
-    secondaryLight: '#FEF3DC',
+    secondary: '#D3992D',
+    secondaryLight: '#FDF1D8',
     
     // Dark mode tokens
     dark: {

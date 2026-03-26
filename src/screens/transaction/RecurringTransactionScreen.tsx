@@ -17,9 +17,11 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
+import { BorderRadius } from '../../constants/theme';
 import { useTheme } from '../../store/useThemeStore';
 import { useRecurringStore } from '../../store/useRecurringStore';
 import { useCategoryStore } from '../../store/useCategoryStore';
@@ -27,6 +29,8 @@ import type { RecurringFrequency } from '../../database/recurringQueries';
 import { formatCurrency } from '../../utils/currency';
 import { formatDateLong } from '../../utils/date';
 import { resolveCategoriesForType } from '../../utils/categoryResolver';
+import { EmptyState } from '../../components/common/EmptyState';
+import { Button } from '../../components/common/Button';
 
 const FREQUENCY_OPTIONS: { label: string; value: RecurringFrequency }[] = [
   { label: 'Harian', value: 'daily' },
@@ -165,6 +169,23 @@ export function RecurringTransactionScreen() {
     [formType, categories],
   );
 
+  const recurringSummary = React.useMemo(() => {
+    const activeCount = recurringTransactions.filter((tx) => tx.is_active).length;
+    const incomeCount = recurringTransactions.filter((tx) => tx.type === 'income').length;
+    const expenseCount = recurringTransactions.filter((tx) => tx.type === 'expense').length;
+    const nextActive = recurringTransactions
+      .filter((tx) => tx.is_active)
+      .slice()
+      .sort((a, b) => a.next_occurrence - b.next_occurrence)[0];
+
+    return {
+      activeCount,
+      incomeCount,
+      expenseCount,
+      nextLabel: nextActive ? formatDateLong(nextActive.next_occurrence) : 'Belum ada jadwal',
+    };
+  }, [recurringTransactions]);
+
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
       <StatusBar
@@ -204,25 +225,66 @@ export function RecurringTransactionScreen() {
           />
         }
       >
+        <Animated.View entering={FadeInDown.delay(60).springify()} style={styles.heroWrap}>
+          <LinearGradient
+            colors={[colors.primary, colors.primaryDark, colors.primary]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroCard}
+          >
+            <View style={styles.heroGlow} />
+            <View style={styles.heroTopRow}>
+              <View style={styles.heroIcon}>
+                <MaterialCommunityIcons name="autorenew" size={24} color={colors.textInverse} />
+              </View>
+              <View style={styles.heroCopy}>
+                <Text style={styles.heroTitle}>Transaksi Berulang</Text>
+                <Text style={styles.heroSubtitle}>
+                  Jadwalkan pemasukan dan pengeluaran rutin tanpa harus input ulang setiap bulan.
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.heroStats}>
+              <View style={styles.heroStatChip}>
+                <Text style={styles.heroStatValue}>{recurringSummary.activeCount}</Text>
+                <Text style={styles.heroStatLabel}>Aktif</Text>
+              </View>
+              <View style={styles.heroStatChip}>
+                <Text style={styles.heroStatValue}>{recurringSummary.incomeCount}</Text>
+                <Text style={styles.heroStatLabel}>Income</Text>
+              </View>
+              <View style={styles.heroStatChip}>
+                <Text style={styles.heroStatValue}>{recurringSummary.expenseCount}</Text>
+                <Text style={styles.heroStatLabel}>Expense</Text>
+              </View>
+            </View>
+
+            <View style={styles.heroNextCard}>
+              <MaterialCommunityIcons name="calendar-clock" size={18} color={colors.primary} />
+              <Text style={styles.heroNextText}>Jadwal terdekat: {recurringSummary.nextLabel}</Text>
+            </View>
+          </LinearGradient>
+        </Animated.View>
+
         {isLoading ? (
           <ActivityIndicator size="large" color={colors.primary} />
         ) : recurringTransactions.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <MaterialCommunityIcons name="autorenew" size={64} color={colors.textTertiary} />
-            <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>
-              Belum ada transaksi berulang
-            </Text>
-            <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
-              Tambahkan transaksi berulang untuk memudahkan pencatatan rutin seperti gaji atau tagihan
-            </Text>
-          </View>
+          <EmptyState
+            icon="autorenew"
+            title="Belum ada transaksi berulang"
+            description="Tambahkan transaksi rutin untuk gaji, tagihan, atau kebutuhan bulanan supaya pencatatan lebih rapi."
+            actionLabel="Tambah Transaksi"
+            onAction={() => setShowAddModal(true)}
+            style={styles.emptyState}
+          />
         ) : (
           <View style={styles.list}>
             {recurringTransactions.map((transaction, index) => (
               <Animated.View
                 key={transaction.id}
                 entering={FadeInUp.delay(index * 50).springify()}
-                style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                style={[styles.card, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
               >
                 <View style={styles.cardHeader}>
                   <View style={[styles.iconContainer, { backgroundColor: transaction.type === 'income' ? colors.successBg : colors.dangerBg }]}>
@@ -286,7 +348,7 @@ export function RecurringTransactionScreen() {
         onRequestClose={() => setShowAddModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
             <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
               Tambah Transaksi Berulang
             </Text>
@@ -300,7 +362,7 @@ export function RecurringTransactionScreen() {
                 ]}
                 onPress={() => setFormType('expense')}
               >
-                <Text style={[styles.typeText, formType === 'expense' && { color: '#FFF' }]}>Pengeluaran</Text>
+                <Text style={[styles.typeText, formType === 'expense' && { color: colors.textInverse }]}>Pengeluaran</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
@@ -309,7 +371,7 @@ export function RecurringTransactionScreen() {
                 ]}
                 onPress={() => setFormType('income')}
               >
-                <Text style={[styles.typeText, formType === 'income' && { color: '#FFF' }]}>Pemasukan</Text>
+                <Text style={[styles.typeText, formType === 'income' && { color: colors.textInverse }]}>Pemasukan</Text>
               </TouchableOpacity>
             </View>
 
@@ -330,10 +392,10 @@ export function RecurringTransactionScreen() {
                     ]}
                     onPress={() => setFormCategory(category.name)}
                   >
-                    <MaterialCommunityIcons name={category.icon as any} size={16} color={formCategory === category.name ? '#FFF' : category.color} />
+                      <MaterialCommunityIcons name={category.icon as any} size={16} color={formCategory === category.name ? colors.textInverse : category.color} />
                     <Text style={[
                       styles.categoryChipText,
-                      formCategory === category.name && { color: '#FFF' },
+                      formCategory === category.name && { color: colors.textInverse },
                     ]}>
                       {category.name}
                     </Text>
@@ -344,9 +406,9 @@ export function RecurringTransactionScreen() {
 
             {/* Amount */}
             <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>Jumlah</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Jumlah</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.textPrimary }]}
+                style={[styles.input, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, color: colors.textPrimary }]}
                 value={formAmount}
                 onChangeText={setFormAmount}
                 placeholder='0'
@@ -370,7 +432,7 @@ export function RecurringTransactionScreen() {
                   >
                     <Text style={[
                       styles.frequencyText,
-                      formFrequency === option.value && { color: '#FFF' },
+                      formFrequency === option.value && { color: colors.textInverse },
                     ]}>
                       {option.label}
                     </Text>
@@ -384,7 +446,7 @@ export function RecurringTransactionScreen() {
               <View style={styles.inputGroup}>
                 <Text style={[styles.label, { color: colors.textSecondary }]}>Tanggal (1-31)</Text>
                 <TextInput
-                  style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.textPrimary }]}
+                  style={[styles.input, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, color: colors.textPrimary }]}
                   value={formDayOfMonth}
                   onChangeText={setFormDayOfMonth}
                   placeholder='1'
@@ -399,7 +461,7 @@ export function RecurringTransactionScreen() {
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: colors.textSecondary }]}>Catatan (opsional)</Text>
               <TextInput
-                style={[styles.textArea, { backgroundColor: colors.background, borderColor: colors.border, color: colors.textPrimary }]}
+                style={[styles.textArea, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, color: colors.textPrimary }]}
                 value={formNote}
                 onChangeText={setFormNote}
                 placeholder='Tambahkan catatan...'
@@ -425,11 +487,11 @@ export function RecurringTransactionScreen() {
                 onPress={handleAddRecurring}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? (
-                  <ActivityIndicator color='#FFF' size='small' />
-                ) : (
-                  <Text style={styles.confirmButtonText}>Simpan</Text>
-                )}
+                  {isSubmitting ? (
+                    <ActivityIndicator color={colors.textInverse} size='small' />
+                  ) : (
+                    <Text style={styles.confirmButtonText}>Simpan</Text>
+                  )}
               </TouchableOpacity>
             </View>
           </View>
@@ -456,6 +518,10 @@ const getStyles = (colors: any) => StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: BorderRadius.xl,
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   title: {
     ...Typography.h2,
@@ -467,9 +533,106 @@ const getStyles = (colors: any) => StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: BorderRadius.xl,
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   scrollContent: {
     paddingVertical: 16,
+    gap: 16,
+  },
+  heroWrap: {
+    paddingHorizontal: 16,
+  },
+  heroCard: {
+    borderRadius: 28,
+    padding: 18,
+    overflow: 'hidden',
+    gap: 14,
+    shadowColor: colors.shadowColor,
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 3,
+  },
+  heroGlow: {
+    position: 'absolute',
+    top: -40,
+    right: -20,
+    width: 140,
+    height: 140,
+    borderRadius: BorderRadius.full,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  heroIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+  },
+  heroCopy: {
+    flex: 1,
+  },
+  heroTitle: {
+    fontFamily: FontFamily.heading,
+    fontSize: FontSize.h3,
+    color: colors.textInverse,
+  },
+  heroSubtitle: {
+    fontFamily: FontFamily.body,
+    fontSize: FontSize.caption,
+    color: 'rgba(255,255,255,0.82)',
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  heroStats: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  heroStatChip: {
+    flex: 1,
+    borderRadius: 18,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+  },
+  heroStatValue: {
+    fontFamily: FontFamily.heading,
+    fontSize: FontSize.h3,
+    color: colors.textInverse,
+  },
+  heroStatLabel: {
+    fontFamily: FontFamily.bodyMedium,
+    fontSize: FontSize.caption,
+    color: 'rgba(255,255,255,0.82)',
+    marginTop: 2,
+  },
+  heroNextCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  heroNextText: {
+    flex: 1,
+    fontFamily: FontFamily.bodyMedium,
+    fontSize: FontSize.caption,
+    color: colors.textPrimary,
   },
   list: {
     gap: 12,
@@ -479,6 +642,11 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
+    shadowColor: colors.shadowColor,
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 1,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -545,6 +713,9 @@ const getStyles = (colors: any) => StyleSheet.create({
     paddingHorizontal: 40,
     paddingVertical: 60,
   },
+  emptyState: {
+    marginHorizontal: 16,
+  },
   emptyTitle: {
     fontFamily: FontFamily.bodyBold,
     fontSize: FontSize.h3,
@@ -569,6 +740,14 @@ const getStyles = (colors: any) => StyleSheet.create({
     padding: 24,
     marginHorizontal: 16,
     maxHeight: '80%',
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: colors.shadowColor,
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 3,
   },
   modalTitle: {
     fontFamily: FontFamily.heading,
@@ -609,6 +788,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     padding: 12,
     fontFamily: FontFamily.body,
     fontSize: FontSize.body,
+    backgroundColor: colors.surfaceElevated,
   },
   textArea: {
     borderWidth: 1,
@@ -618,6 +798,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     fontSize: FontSize.body,
     minHeight: 80,
     textAlignVertical: 'top',
+    backgroundColor: colors.surfaceElevated,
   },
   categoryScroll: {
     marginBottom: 8,
@@ -632,6 +813,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     marginRight: 8,
+    backgroundColor: colors.surfaceElevated,
   },
   categoryChipActive: {
     backgroundColor: colors.primary,
@@ -652,6 +834,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
+    backgroundColor: colors.surfaceElevated,
   },
   frequencyOptionActive: {
     backgroundColor: colors.primary,
@@ -672,6 +855,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
+    backgroundColor: colors.surfaceElevated,
   },
   cancelButtonText: {
     fontFamily: FontFamily.bodyBold,
@@ -684,9 +868,9 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
   },
-  confirmButtonText: {
+    confirmButtonText: {
     fontFamily: FontFamily.bodyBold,
     fontSize: FontSize.body,
-    color: '#FFF',
+    color: colors.textInverse,
   },
 });

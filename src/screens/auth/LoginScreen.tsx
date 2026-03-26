@@ -14,19 +14,23 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Colors } from "../../constants/colors";
 import { FontFamily, FontSize } from "../../constants/typography";
 import { Input } from "../../components/common/Input";
 import { Button } from "../../components/common/Button";
 import { useAuthStore } from "../../store/useAuthStore";
 import { validateEmail, validatePassword } from "../../utils/validation";
 import type { RootStackParamList } from "../../types/navigation";
+import { useTheme } from "../../store/useThemeStore";
+import { LinearGradient } from "expo-linear-gradient";
+import { BorderRadius } from "../../constants/theme";
 
 const REMEMBER_EMAIL_KEY = '@tabungin_remember_email';
 
 export function LoginScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { login, authError, clearError } = useAuthStore();
+  const { colors, gradients } = useTheme();
+  const styles = React.useMemo(() => getStyles(colors), [colors]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
@@ -83,6 +87,8 @@ export function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <View style={styles.bgAuraTop} pointerEvents="none" />
+      <View style={styles.bgAuraBottom} pointerEvents="none" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.flex}
@@ -93,9 +99,9 @@ export function LoginScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.logoSection} accessibilityRole='header'>
-            <View style={styles.logoCircle} accessibilityElementsHidden={true}>
-              <MaterialCommunityIcons name='piggy-bank' size={48} color={Colors.textInverse} />
-            </View>
+            <LinearGradient colors={gradients.hero as unknown as [string, string, ...string[]]} style={styles.logoCircle}>
+              <MaterialCommunityIcons name='piggy-bank' size={48} color={colors.textInverse} />
+            </LinearGradient>
             <Text style={styles.appName} allowFontScaling={true}>
               Tabungin
             </Text>
@@ -105,12 +111,14 @@ export function LoginScreen() {
           </View>
 
           <View style={styles.formSection}>
-            <Text style={styles.heading} allowFontScaling={true} accessibilityRole='header'>
-              Selamat Datang Kembali!
-            </Text>
-            <Text style={styles.subHeading} allowFontScaling={true}>
-              Masuk ke akun Tabunginmu
-            </Text>
+            <View style={styles.heroCard}>
+              <Text style={styles.heading} allowFontScaling={true} accessibilityRole='header'>
+                Selamat Datang Kembali!
+              </Text>
+              <Text style={styles.subHeading} allowFontScaling={true}>
+                Masuk ke akun Tabunginmu dan lanjutkan ritme keuangan hari ini.
+              </Text>
+            </View>
 
             <View style={styles.fields}>
               <Input
@@ -156,7 +164,7 @@ export function LoginScreen() {
                 <MaterialCommunityIcons 
                   name={rememberMe ? 'checkbox-marked' : 'checkbox-blank-outline'} 
                   size={20} 
-                  color={rememberMe ? Colors.primary : Colors.textSecondary} 
+                  color={rememberMe ? colors.primary : colors.textSecondary} 
                 />
                 <Text style={[styles.rememberMeText, rememberMe && styles.rememberMeTextActive]}>
                   Ingat saya
@@ -215,68 +223,111 @@ export function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.surface },
-  flex: { flex: 1 },
-  container: { flexGrow: 1, padding: 24 },
-  logoSection: { alignItems: "center", paddingTop: 20, paddingBottom: 32, gap: 8 },
-  logoCircle: {
-    width: 84,
-    height: 84,
-    borderRadius: 28,
-    backgroundColor: Colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  appName: { fontFamily: FontFamily.heading, fontSize: 28, color: Colors.textPrimary },
-  tagline: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: Colors.textSecondary },
-  formSection: { gap: 16 },
-  heading: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: Colors.textPrimary },
-  subHeading: {
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.body,
-    color: Colors.textSecondary,
-    marginBottom: 8,
-  },
-  fields: { gap: 14 },
-  optionsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 4,
-  },
-  rememberMeContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 4,
-  },
-  rememberMeText: {
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.caption,
-    color: Colors.textSecondary,
-  },
-  rememberMeTextActive: {
-    color: Colors.primary,
-  },
-  forgotPasswordText: {
-    fontFamily: FontFamily.bodyMedium,
-    fontSize: FontSize.caption,
-    color: Colors.primary,
-  },
-  errorBanner: {
-    backgroundColor: "#FEF2F2",
-    borderRadius: 10,
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.danger,
-    padding: 12,
-  },
-  errorBannerText: {
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.caption,
-    color: Colors.danger,
-  },
-  footer: { flexDirection: "row", justifyContent: "center", marginTop: 24, paddingBottom: 20 },
-  footerText: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: Colors.textSecondary },
-  footerLink: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.body, color: Colors.primary },
-});
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.background },
+    flex: { flex: 1 },
+    container: { flexGrow: 1, padding: 24 },
+    bgAuraTop: {
+      position: "absolute",
+      top: -100,
+      right: -40,
+      width: 240,
+      height: 240,
+      borderRadius: 9999,
+      backgroundColor: colors.primaryLight,
+      opacity: 0.7,
+    },
+    bgAuraBottom: {
+      position: "absolute",
+      left: -70,
+      bottom: 80,
+      width: 180,
+      height: 180,
+      borderRadius: 9999,
+      backgroundColor: colors.infoBg,
+      opacity: 0.38,
+    },
+    logoSection: { alignItems: "center", paddingTop: 20, paddingBottom: 28, gap: 8 },
+    logoCircle: {
+      width: 88,
+      height: 88,
+      borderRadius: 30,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surfaceElevated,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: colors.shadowColor,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.1,
+      shadowRadius: 18,
+      elevation: 4,
+    },
+    appName: { fontFamily: FontFamily.heading, fontSize: 28, color: colors.textPrimary },
+    tagline: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: colors.textSecondary },
+    formSection: { gap: 16 },
+    heroCard: {
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: BorderRadius["4xl"],
+      padding: 18,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 6,
+      shadowColor: colors.shadowColor,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.08,
+      shadowRadius: 16,
+      elevation: 3,
+    },
+    heading: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: colors.textPrimary },
+    subHeading: {
+      fontFamily: FontFamily.body,
+      fontSize: FontSize.body,
+      color: colors.textSecondary,
+      lineHeight: 22,
+    },
+    fields: { gap: 14 },
+    optionsRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginTop: 4,
+    },
+    rememberMeContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingVertical: 4,
+    },
+    rememberMeText: {
+      fontFamily: FontFamily.body,
+      fontSize: FontSize.caption,
+      color: colors.textSecondary,
+    },
+    rememberMeTextActive: {
+      color: colors.primary,
+    },
+    forgotPasswordText: {
+      fontFamily: FontFamily.bodyMedium,
+      fontSize: FontSize.caption,
+      color: colors.primary,
+    },
+    errorBanner: {
+      backgroundColor: colors.dangerBg,
+      borderRadius: 14,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.danger,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: `${colors.danger}20`,
+    },
+    errorBannerText: {
+      fontFamily: FontFamily.body,
+      fontSize: FontSize.caption,
+      color: colors.danger,
+    },
+    footer: { flexDirection: "row", justifyContent: "center", marginTop: 24, paddingBottom: 20 },
+    footerText: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: colors.textSecondary },
+    footerLink: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.body, color: colors.primary },
+  });

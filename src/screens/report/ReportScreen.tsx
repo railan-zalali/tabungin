@@ -15,7 +15,7 @@ import * as Sharing from 'expo-sharing';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
-import { BorderRadius, Shadow } from '../../constants/theme';
+import { BorderRadius } from '../../constants/theme';
 import { useTransactionStore } from '../../store/useTransactionStore';
 import { useCategoryStore } from '../../store/useCategoryStore';
 import { useTheme } from '../../store/useThemeStore';
@@ -132,7 +132,7 @@ export function ReportScreen() {
                 <Animated.View entering={FadeInDown.delay(70).springify()}>
                     <LinearGradient
                         colors={gradients.hero as unknown as [string, string, ...string[]]}
-                        style={[styles.heroCard, Shadow.md]}
+                        style={styles.heroCard}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                     >
@@ -144,11 +144,11 @@ export function ReportScreen() {
                         </Text>
                         <View style={styles.heroChips}>
                             <View style={styles.heroChip}>
-                                <MaterialCommunityIcons name="arrow-up-circle-outline" size={14} color="#FFFFFF" />
+                                <MaterialCommunityIcons name="arrow-up-circle-outline" size={14} color={colors.textInverse} />
                                 <Text style={styles.heroChipText}>{formatCurrency(totalIncome)}</Text>
                             </View>
                             <View style={styles.heroChip}>
-                                <MaterialCommunityIcons name="arrow-down-circle-outline" size={14} color="#FFFFFF" />
+                                <MaterialCommunityIcons name="arrow-down-circle-outline" size={14} color={colors.textInverse} />
                                 <Text style={styles.heroChipText}>{formatCurrency(totalExpense)}</Text>
                             </View>
                         </View>
@@ -172,11 +172,39 @@ export function ReportScreen() {
                     </ScrollView>
                 </Animated.View>
 
+                <Animated.View entering={FadeInUp.delay(150).springify()} style={styles.insightCard}>
+                    <View style={styles.insightHeader}>
+                        <View style={styles.insightIcon}>
+                            <MaterialCommunityIcons name="lightbulb-on-outline" size={18} color={colors.primary} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.insightTitle}>Insight Cepat</Text>
+                            <Text style={styles.insightSubtitle}>
+                                {expenseCategories[0]
+                                    ? `Kategori terbesar saat ini adalah ${resolveCategoryByKey(expenseCategories[0].category, categories)?.name ?? expenseCategories[0].category}.`
+                                    : 'Belum ada pengeluaran yang cukup untuk dianalisis.'}
+                            </Text>
+                        </View>
+                    </View>
+                    <View style={styles.insightChipRow}>
+                        <View style={styles.insightChip}>
+                            <Text style={styles.insightChipValue}>
+                                {totalIncome > 0 ? `${Math.max(0, ((totalIncome - totalExpense) / totalIncome) * 100).toFixed(0)}%` : '0%'}
+                            </Text>
+                            <Text style={styles.insightChipLabel}>Saving rate</Text>
+                        </View>
+                        <View style={styles.insightChip}>
+                            <Text style={styles.insightChipValue}>{expenseCategories.length}</Text>
+                            <Text style={styles.insightChipLabel}>Kategori aktif</Text>
+                        </View>
+                    </View>
+                </Animated.View>
+
                 {isLoading ? (
                     <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 60 }} />
                 ) : (
                     <>
-                        <Animated.View entering={FadeInUp.delay(180).springify()} style={[styles.summaryCard, Shadow.sm]}>
+                        <Animated.View entering={FadeInUp.delay(180).springify()} style={styles.summaryCard}>
                             <View style={styles.summaryRow}>
                                 <View style={styles.summaryItem}>
                                     <View style={styles.summaryIconRow}>
@@ -202,7 +230,7 @@ export function ReportScreen() {
                             </View>
                         </Animated.View>
 
-                        <Animated.View entering={FadeInUp.delay(240).springify()} style={[styles.chartCard, Shadow.sm]}>
+                        <Animated.View entering={FadeInUp.delay(240).springify()} style={styles.chartCard}>
                             <View style={styles.cardHeader}>
                                 <Text style={styles.chartTitle}>Pemasukan vs Pengeluaran</Text>
                                 <Text style={styles.cardHint}>6 bulan terakhir</Text>
@@ -241,7 +269,7 @@ export function ReportScreen() {
                         </Animated.View>
 
                         {expenseCategories.length > 0 && (
-                            <Animated.View entering={FadeInUp.delay(300).springify()} style={[styles.tableCard, Shadow.sm]}>
+                            <Animated.View entering={FadeInUp.delay(300).springify()} style={styles.tableCard}>
                                 <View style={styles.cardHeader}>
                                     <Text style={styles.chartTitle}>Breakdown Pengeluaran</Text>
                                     <Text style={styles.cardHint}>Kategori dominan di periode ini</Text>
@@ -370,10 +398,14 @@ const getStyles = (colors: any) => StyleSheet.create({
         paddingHorizontal: 14,
         paddingVertical: 10,
         borderRadius: BorderRadius.xl,
-        backgroundColor: colors.surfaceGlass,
+        backgroundColor: colors.surfaceElevated,
         borderWidth: 1,
-        borderColor: colors.glassStroke,
-        ...Shadow.sm,
+        borderColor: colors.border,
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 10,
+        elevation: 2,
     },
     exportText: {
         fontFamily: FontFamily.bodyBold,
@@ -386,7 +418,7 @@ const getStyles = (colors: any) => StyleSheet.create({
         padding: 22,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.16)',
+        borderColor: 'rgba(255,255,255,0.12)',
     },
     heroGlow: {
         position: 'absolute',
@@ -395,23 +427,23 @@ const getStyles = (colors: any) => StyleSheet.create({
         borderRadius: 85,
         top: -55,
         right: -26,
-        backgroundColor: 'rgba(255,255,255,0.12)',
+        backgroundColor: 'rgba(255,255,255,0.10)',
     },
     heroLabel: {
         fontFamily: FontFamily.bodyMedium,
         fontSize: FontSize.caption,
-        color: 'rgba(255,255,255,0.8)',
+        color: colors.textInverse,
     },
     heroValue: {
         fontFamily: FontFamily.heading,
         fontSize: FontSize.display,
-        color: '#FFFFFF',
+        color: colors.textInverse,
         marginTop: 8,
     },
     heroSubtext: {
         fontFamily: FontFamily.body,
         fontSize: FontSize.body,
-        color: 'rgba(255,255,255,0.84)',
+        color: colors.textInverse,
         marginTop: 6,
     },
     heroChips: {
@@ -427,22 +459,26 @@ const getStyles = (colors: any) => StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 8,
         borderRadius: 999,
-        backgroundColor: 'rgba(255,255,255,0.14)',
+        backgroundColor: 'rgba(255,255,255,0.10)',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.18)',
+        borderColor: 'rgba(255,255,255,0.12)',
     },
     heroChipText: {
         fontFamily: FontFamily.bodyMedium,
         fontSize: FontSize.caption,
-        color: '#FFFFFF',
+        color: colors.textInverse,
     },
     periodBlock: {
-        backgroundColor: colors.surfaceGlass,
+        backgroundColor: colors.surfaceElevated,
         borderRadius: BorderRadius['4xl'],
         padding: 16,
         borderWidth: 1,
-        borderColor: colors.glassStroke,
-        ...Shadow.sm,
+        borderColor: colors.border,
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        elevation: 3,
     },
     blockTitle: {
         fontFamily: FontFamily.headingMedium,
@@ -455,9 +491,9 @@ const getStyles = (colors: any) => StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 9,
         borderRadius: BorderRadius.full,
-        backgroundColor: colors.surfaceCard,
+        backgroundColor: colors.surface,
         borderWidth: 1,
-        borderColor: `${colors.border}AA`,
+        borderColor: colors.border,
     },
     periodChipActive: {
         backgroundColor: colors.background,
@@ -472,13 +508,81 @@ const getStyles = (colors: any) => StyleSheet.create({
         color: colors.primaryDark,
         fontFamily: FontFamily.bodyBold,
     },
+    insightCard: {
+        backgroundColor: colors.surfaceElevated,
+        borderRadius: BorderRadius['4xl'],
+        padding: 16,
+        gap: 14,
+        borderWidth: 1,
+        borderColor: colors.border,
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        elevation: 3,
+    },
+    insightHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    insightIcon: {
+        width: 38,
+        height: 38,
+        borderRadius: BorderRadius.lg,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.primaryBg,
+        borderWidth: 1,
+        borderColor: `${colors.primary}24`,
+    },
+    insightTitle: {
+        fontFamily: FontFamily.headingMedium,
+        fontSize: FontSize.body,
+        color: colors.textPrimary,
+    },
+    insightSubtitle: {
+        fontFamily: FontFamily.body,
+        fontSize: FontSize.caption,
+        color: colors.textSecondary,
+        lineHeight: 20,
+        marginTop: 2,
+    },
+    insightChipRow: {
+        flexDirection: 'row',
+        gap: 10,
+    },
+    insightChip: {
+        flex: 1,
+        padding: 14,
+        borderRadius: BorderRadius['3xl'],
+        backgroundColor: colors.surface,
+        borderWidth: 1,
+        borderColor: colors.border,
+        gap: 4,
+    },
+    insightChipValue: {
+        fontFamily: FontFamily.heading,
+        fontSize: FontSize.h3,
+        color: colors.textPrimary,
+    },
+    insightChipLabel: {
+        fontFamily: FontFamily.body,
+        fontSize: FontSize.caption,
+        color: colors.textSecondary,
+    },
     summaryCard: {
-        backgroundColor: colors.surfaceGlass,
+        backgroundColor: colors.surfaceElevated,
         borderRadius: BorderRadius['4xl'],
         padding: 20,
         gap: 16,
         borderWidth: 1,
-        borderColor: colors.glassStroke,
+        borderColor: colors.border,
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        elevation: 3,
     },
     summaryRow: { flexDirection: 'row', gap: 12 },
     summaryItem: { flex: 1, gap: 8 },
@@ -497,12 +601,17 @@ const getStyles = (colors: any) => StyleSheet.create({
     balanceLabel: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: colors.textSecondary },
     balanceAmount: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4 },
     chartCard: {
-        backgroundColor: colors.surfaceGlass,
+        backgroundColor: colors.surfaceElevated,
         borderRadius: BorderRadius['4xl'],
         padding: 20,
         gap: 16,
         borderWidth: 1,
-        borderColor: colors.glassStroke,
+        borderColor: colors.border,
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        elevation: 3,
     },
     cardHeader: {
         flexDirection: 'row',
@@ -526,12 +635,17 @@ const getStyles = (colors: any) => StyleSheet.create({
     legendDot: { width: 8, height: 8, borderRadius: 4 },
     legendText: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary },
     tableCard: {
-        backgroundColor: colors.surfaceGlass,
+        backgroundColor: colors.surfaceElevated,
         borderRadius: BorderRadius['4xl'],
         padding: 20,
         gap: 16,
         borderWidth: 1,
-        borderColor: colors.glassStroke,
+        borderColor: colors.border,
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        elevation: 3,
     },
     tableRow: {
         flexDirection: 'row',
