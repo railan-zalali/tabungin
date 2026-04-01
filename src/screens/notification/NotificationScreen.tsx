@@ -10,7 +10,6 @@ import {
   StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
@@ -22,6 +21,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { Button } from '../../components/common/Button';
 import { BorderRadius, Shadow } from '../../constants/theme';
 import type { Notification as NotificationType } from '../../types/notification';
+import type { SettingsChildNavigationProp } from '../../types/navigation';
 
 interface NotificationItemProps {
   notification: NotificationType;
@@ -108,7 +108,7 @@ function getTimeAgo(timestamp: number): string {
 }
 
 export function NotificationScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  const navigation = useNavigation<SettingsChildNavigationProp<'Notifications'>>();
   const insets = useSafeAreaInsets();
   const { colors, mode } = useTheme();
   const styles = React.useMemo(() => getStyles(colors), [colors]);

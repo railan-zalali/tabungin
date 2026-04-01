@@ -1,6 +1,6 @@
 // Zustand store untuk manajemen saving goals dan logs
 import { create } from 'zustand';
-import type { SavingGoal, SavingLog } from '../types/saving';
+import type { GoalSharingActivity, GoalSharingMember, SavingGoal, SavingLog } from '../types/saving';
 import {
     fetchSavingGoals,
     fetchSavingGoalById,
@@ -9,6 +9,10 @@ import {
     deleteSavingGoal,
     fetchSavingLogs,
     insertSavingLog,
+    setGoalPermission,
+    revokeGoalSharing,
+    getGoalSharingStatus,
+    getSharingActivityLog,
 } from '../database/savingQueries';
 import {
     scheduleGoalReminder,
@@ -25,6 +29,8 @@ interface SavingState {
     completedGoals: SavingGoal[];
     currentGoal: SavingGoal | null;
     currentLogs: SavingLog[];
+    sharingMembers: GoalSharingMember[];
+    sharingActivity: GoalSharingActivity[];
     isLoading: boolean;
     justCompletedGoalId: string | null; // untuk trigger konfeti
 
@@ -37,6 +43,10 @@ interface SavingState {
     removeGoal: (id: string) => Promise<void>;
     addSavingLog: (data: Omit<SavingLog, 'id' | 'created_at'>) => Promise<SavingLog>;
     clearJustCompleted: () => void;
+    setGoalPermission: (goalId: string, userEmail: string, permissionLevel: string) => Promise<void>;
+    revokeGoalSharing: (goalId: string, userEmail: string) => Promise<void>;
+    loadSharingDetails: (goalId: string) => Promise<void>;
+    loadSharingActivity: (goalId: string) => Promise<void>;
 }
 
 export const useSavingStore = create<SavingState>((set, get) => ({
@@ -45,6 +55,8 @@ export const useSavingStore = create<SavingState>((set, get) => ({
     completedGoals: [],
     currentGoal: null,
     currentLogs: [],
+    sharingMembers: [],
+    sharingActivity: [],
     isLoading: false,
     justCompletedGoalId: null,
 
@@ -74,6 +86,26 @@ export const useSavingStore = create<SavingState>((set, get) => ({
     loadLogs: async (goalId: string) => {
         const logs = await fetchSavingLogs(goalId);
         set({ currentLogs: logs });
+    },
+
+    loadSharingDetails: async (goalId: string) => {
+        try {
+            const [sharingMembers, sharingActivity] = await Promise.all([
+                getGoalSharingStatus(goalId).catch((error) => {
+                    console.error('Error loading goal sharing status:', error);
+                    return [];
+                }),
+                getSharingActivityLog(goalId).catch((error) => {
+                    console.error('Error loading sharing activity:', error);
+                    return [];
+                }),
+            ]);
+
+            set({ sharingMembers, sharingActivity });
+        } catch (error) {
+            console.error('Error loading sharing details:', error);
+            set({ sharingMembers: [], sharingActivity: [] });
+        }
     },
 
     addGoal: async (data) => {
@@ -106,6 +138,39 @@ export const useSavingStore = create<SavingState>((set, get) => ({
         }
     },
 
+    setGoalPermission: async (goalId: string, userEmail: string, permissionLevel: string) => {
+        try {
+            await setGoalPermission(goalId, userEmail, permissionLevel);
+            // Refresh goals to update sharing status
+            await get().loadGoals();
+            await get().loadSharingDetails(goalId);
+        } catch (error) {
+            console.error('Error setting goal permission:', error);
+            throw error;
+        }
+    },
+
+    revokeGoalSharing: async (goalId: string, userEmail: string) => {
+        try {
+            await revokeGoalSharing(goalId, userEmail);
+            await get().loadGoals();
+            await get().loadSharingDetails(goalId);
+        } catch (error) {
+            console.error('Error revoking goal sharing:', error);
+            throw error;
+        }
+    },
+
+    loadSharingActivity: async (goalId: string) => {
+        try {
+            const activity = await getSharingActivityLog(goalId);
+            set({ sharingActivity: activity });
+        } catch (error) {
+            console.error('Error loading sharing activity:', error);
+            set({ sharingActivity: [] });
+        }
+    },
+
     removeGoal: async (id) => {
         await cancelGoalReminder(id);
         await deleteSavingGoal(id);
@@ -134,6 +199,7 @@ export const useSavingStore = create<SavingState>((set, get) => ({
         await get().loadGoals();
         await get().loadGoalById(data.goal_id);
         await get().loadLogs(data.goal_id);
+        await get().loadSharingDetails(data.goal_id);
         return log;
     },
 

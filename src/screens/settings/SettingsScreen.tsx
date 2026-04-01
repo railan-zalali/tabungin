@@ -10,8 +10,7 @@ import {
     StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { SettingsStackParamList } from '../../types/navigation';
+import type { SettingsNavigationProp } from '../../types/navigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -59,7 +58,7 @@ function SettingRow({ icon, iconColor, title, subtitle, onPress, rightElement }:
 }
 
 export function SettingsScreen() {
-    const navigation = useNavigation<NativeStackNavigationProp<SettingsStackParamList>>();
+    const navigation = useNavigation<SettingsNavigationProp>();
     const insets = useSafeAreaInsets();
     const { user, hapticEnabled, setHapticEnabled, logout } = useAuthStore();
     const { mode, setMode, textSize, setTextSize } = useThemeStore();
@@ -133,13 +132,10 @@ export function SettingsScreen() {
         { id: 'xlarge', label: 'X-Large' },
     ];
 
-    const navigateToBudget = () => {
-        (navigation.getParent()?.getParent() as any)?.navigate('Budget');
-    };
+    const navigateToBudget = () => navigation.navigate('Budget');
 
-    const navigateToRecurringTransactions = () => {
-        (navigation.getParent() as any)?.navigate('Transactions', { screen: 'RecurringTransaction' });
-    };
+    const navigateToRecurringTransactions = () =>
+        navigation.navigate('Transactions', { screen: 'RecurringTransaction' });
 
     return (
         <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>

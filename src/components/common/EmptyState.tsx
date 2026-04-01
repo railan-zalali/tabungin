@@ -2,7 +2,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { FontFamily, FontSize } from '../../constants/typography';
+import { FontFamily, FontSize, scaleFontSize } from '../../constants/typography';
 import { Button } from './Button';
 import { useTheme } from '../../store/useThemeStore';
 import { BorderRadius } from '../../constants/theme';
@@ -26,8 +26,8 @@ export function EmptyState({
     onAction,
     style,
 }: EmptyStateProps) {
-    const { colors } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const { colors, textSize } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors, textSize), [colors, textSize]);
     return (
         <View
             style={[styles.container, style]}
@@ -67,7 +67,7 @@ export function EmptyState({
     );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
+const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize']) => StyleSheet.create({
     container: {
         alignItems: 'center',
         justifyContent: 'center',
@@ -110,13 +110,13 @@ const getStyles = (colors: any) => StyleSheet.create({
     },
     title: {
         fontFamily: FontFamily.headingMedium,
-        fontSize: FontSize.h3,
+        fontSize: scaleFontSize(FontSize.h3, textSize),
         color: colors.textPrimary,
         textAlign: 'center',
     },
     description: {
         fontFamily: FontFamily.body,
-        fontSize: FontSize.body,
+        fontSize: scaleFontSize(FontSize.body, textSize),
         color: colors.textSecondary,
         textAlign: 'center',
         lineHeight: 22,

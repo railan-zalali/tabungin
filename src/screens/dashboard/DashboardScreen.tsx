@@ -9,7 +9,6 @@ import {
   StatusBar,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -34,12 +33,16 @@ import { EmptyState } from "../../components/common/EmptyState";
 import { ProfileSwitcher } from "../../components/profile/ProfileSwitcher";
 import { useProfileStore } from "../../store/useProfileStore";
 import { useTheme } from "../../store/useThemeStore";
+import { ContextBadge } from "../../components/common/ContextBadge";
+import { SectionHeader } from "../../components/common/SectionHeader";
+import { getGoalComputedMeta } from "../../utils/goalSharing";
+import type { DashboardNavigationProp } from "../../types/navigation";
 
 export function DashboardScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  const navigation = useNavigation<DashboardNavigationProp>();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
-  const { loadProfiles } = useProfileStore();
+  const { loadProfiles, profiles, activeProfileId } = useProfileStore();
   const { colors, gradients, mode } = useTheme();
   const styles = React.useMemo(() => getStyles(colors), [colors]);
 
@@ -60,6 +63,7 @@ export function DashboardScreen() {
   const { unreadCount, loadUnreadCount } = useNotificationStore();
   const loadCategories = useCategoryStore((state) => state.loadCategories);
   const categoryCount = useCategoryStore((state) => state.categories.length);
+  const activeProfile = profiles.find((profile) => profile.id === activeProfileId);
 
   const [refreshing, setRefreshing] = React.useState(false);
 
@@ -123,6 +127,11 @@ export function DashboardScreen() {
       onPress: () => navigation.navigate("Savings", { screen: "AddSavingGoal" }),
     },
   ];
+  const sharedGoalsCount = activeGoals.filter((goal) => {
+    const wallet = wallets.find((item) => item.id === goal.wallet_id);
+    return getGoalComputedMeta(goal, wallet, activeProfileId).isSharedGoal;
+  }).length;
+  const sharedWalletCount = wallets.filter((wallet) => wallet.profile_id && wallet.profile_id !== activeProfileId).length;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -148,6 +157,15 @@ export function DashboardScreen() {
             <Text style={styles.date}>{formatDateLong(Date.now())}</Text>
             <View style={styles.profileWrap}>
               <ProfileSwitcher />
+            </View>
+            <View style={styles.contextBadgeRow}>
+              {activeProfile ? (
+                <ContextBadge icon="account-circle-outline" label={activeProfile.name} tone="primary" />
+              ) : null}
+              <ContextBadge icon="wallet-outline" label={`${wallets.length} dompet`} tone="neutral" />
+              {sharedWalletCount > 0 ? (
+                <ContextBadge icon="account-group-outline" label={`${sharedWalletCount} shared`} tone="info" />
+              ) : null}
             </View>
           </View>
 
@@ -201,6 +219,12 @@ export function DashboardScreen() {
                 <MaterialCommunityIcons name="credit-card-multiple-outline" size={14} color={colors.textInverse} />
                 <Text style={styles.balanceStatText}>{wallets.length} dompet</Text>
               </View>
+              {sharedGoalsCount > 0 ? (
+                <View style={styles.balanceStatChip}>
+                  <MaterialCommunityIcons name="account-group-outline" size={14} color={colors.textInverse} />
+                  <Text style={styles.balanceStatText}>{sharedGoalsCount} target bersama</Text>
+                </View>
+              ) : null}
             </View>
 
             <View style={styles.dividerH} />
@@ -274,18 +298,12 @@ export function DashboardScreen() {
 
         <View style={styles.section}>
           <Animated.View entering={FadeInDown.delay(320).springify()} style={styles.sectionHeader}>
-            <View>
-              <Text style={styles.sectionTitle}>Target Tabungan</Text>
-              <Text style={styles.sectionSubtitle}>Tujuan yang sedang kamu dorong sekarang</Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => navigation.navigate("Savings")}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              accessibilityLabel="Lihat semua target tabungan"
-              accessibilityRole="button"
-            >
-              <Text style={styles.seeAll}>Lihat Semua</Text>
-            </TouchableOpacity>
+            <SectionHeader
+              title="Target Tabungan"
+              subtitle="Tujuan yang sedang kamu dorong sekarang"
+              actionLabel="Lihat Semua"
+              onAction={() => navigation.navigate("Savings", { screen: "SavingList" })}
+            />
           </Animated.View>
 
           {savLoading ? (
@@ -331,18 +349,12 @@ export function DashboardScreen() {
 
         <View style={[styles.section, { marginBottom: 100 }]}>
           <Animated.View entering={FadeInDown.delay(420).springify()} style={styles.sectionHeader}>
-            <View>
-              <Text style={styles.sectionTitle}>Transaksi Terbaru</Text>
-              <Text style={styles.sectionSubtitle}>Pantau arus uang terakhir tanpa pindah screen</Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => navigation.navigate("Transactions")}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              accessibilityLabel="Lihat semua transaksi"
-              accessibilityRole="button"
-            >
-              <Text style={styles.seeAll}>Lihat Semua</Text>
-            </TouchableOpacity>
+            <SectionHeader
+              title="Transaksi Terbaru"
+              subtitle="Pantau arus uang terakhir tanpa pindah screen"
+              actionLabel="Lihat Semua"
+              onAction={() => navigation.navigate("Transactions", { screen: "TransactionList" })}
+            />
           </Animated.View>
 
           <View style={styles.transactionList}>
@@ -431,6 +443,12 @@ const getStyles = (colors: any) =>
       marginTop: 4,
     },
     profileWrap: { marginTop: 8 },
+    contextBadgeRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginTop: 10,
+    },
     notifBtn: {
       width: 48,
       height: 48,

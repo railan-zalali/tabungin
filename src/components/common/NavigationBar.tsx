@@ -92,7 +92,7 @@ const getStyles = (colors: any) => StyleSheet.create({
         paddingBottom: Spacing.sm,
         backgroundColor: colors.surfaceGlass,
         borderBottomWidth: 1,
-        borderBottomColor: colors.glassStroke,
+        borderBottomColor: colors.border,
         shadowColor: colors.shadowColor,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.08,

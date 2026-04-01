@@ -25,6 +25,7 @@ import { GOAL_COLORS } from '../../constants/categories';
 import { useSavingStore } from '../../store/useSavingStore';
 import { fetchSavingGoalById } from '../../database/savingQueries';
 import { Button } from '../../components/common/Button';
+import { NavigationBar } from '../../components/common/NavigationBar';
 import { formatInputRupiah, parseRupiah } from '../../utils/currency';
 import { formatEstimatedDate } from '../../utils/date';
 import { simulateSaving } from '../../utils/calculator';
@@ -34,6 +35,8 @@ import { BorderRadius } from '../../constants/theme';
 import { useTheme } from '../../store/useThemeStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import { useProfileStore } from '../../store/useProfileStore';
+import { ContextBadge } from '../../components/common/ContextBadge';
+import { getGoalComputedMeta } from '../../utils/goalSharing';
 
 const EMOJIS = ['💻', '🌴', '🎮', '🏠', '🚗', '📱', '✈️', '👜', '🎓', '💍', '🎯', '⭐'];
 
@@ -71,6 +74,29 @@ export function AddSavingGoalScreen() {
     const selectedWallet = wallets.find((wallet) => wallet.id === selectedWalletId);
     const isSharedWallet = Boolean(selectedWallet?.profile_id && selectedWallet.profile_id !== activeProfileId);
     const goalProfileId = selectedWallet?.profile_id || activeProfileId || undefined;
+    const goalMetaPreview = getGoalComputedMeta(
+        {
+            id: editId || 'preview',
+            name,
+            target_amount: targetAmount,
+            current_amount: currentAmount,
+            emoji,
+            photo_uri: null,
+            saving_per_period: savingPerPeriod,
+            period_type: periodType,
+            color,
+            start_date: startDate,
+            estimated_date: estimatedDateValue,
+            is_completed: false,
+            reminder_enabled: reminderEnabled,
+            reminder_time: reminderTime,
+            created_at: startDate,
+            wallet_id: selectedWalletId || undefined,
+            profile_id: goalProfileId,
+        },
+        selectedWallet,
+        activeProfileId
+    );
 
     useEffect(() => {
         loadWallets();
@@ -243,6 +269,20 @@ export function AddSavingGoalScreen() {
                             style={styles.previewCard}
                         >
                             <View style={styles.previewOrb} />
+                            <View style={styles.previewBadgeRow}>
+                                {selectedWallet ? (
+                                    <ContextBadge
+                                        icon={isSharedWallet ? 'account-group-outline' : 'wallet-outline'}
+                                        label={selectedWallet.name}
+                                        inverse
+                                    />
+                                ) : null}
+                                <ContextBadge
+                                    icon={goalMetaPreview.isSharedGoal ? 'account-group-outline' : 'account-outline'}
+                                    label={goalMetaPreview.scopeLabel}
+                                    inverse
+                                />
+                            </View>
                             <View style={styles.previewHeader}>
                                 <View style={styles.previewEmojiWrap}>
                                     <Text style={styles.previewEmoji}>{emoji}</Text>
@@ -252,15 +292,9 @@ export function AddSavingGoalScreen() {
                                         {name.trim() || 'Nama targetmu'}
                                     </Text>
                                     <Text style={styles.previewSubtitle} numberOfLines={1}>
-                                        {selectedWallet?.name || 'Pilih dompet terlebih dahulu'}
+                                        {goalMetaPreview.scopeDescription}
                                     </Text>
                                 </View>
-                                {isSharedWallet && (
-                                    <View style={styles.previewSharedChip}>
-                                        <MaterialCommunityIcons name="account-group-outline" size={12} color={colors.textInverse} />
-                                        <Text style={styles.previewSharedText}>Shared</Text>
-                                    </View>
-                                )}
                             </View>
 
                             <View style={styles.previewMetrics}>
@@ -318,6 +352,20 @@ export function AddSavingGoalScreen() {
                                 );
                             })}
                         </ScrollView>
+                        {selectedWallet && (
+                            <View style={styles.walletInsightCard}>
+                                <MaterialCommunityIcons
+                                    name={isSharedWallet ? 'account-group-outline' : 'shield-check-outline'}
+                                    size={18}
+                                    color={isSharedWallet ? colors.info : colors.primary}
+                                />
+                                <Text style={styles.walletInsightText}>
+                                    {isSharedWallet
+                                        ? 'Karena target ini ditempatkan di dompet bersama, konteks dan progresnya akan terlihat sebagai goal bersama.'
+                                        : 'Target ini akan tetap berada di ruang personal aktif, tetapi tetap terkait ke dompet yang kamu pilih.'}
+                                </Text>
+                            </View>
+                        )}
                         {errors.wallet && <Text style={styles.errorText}>{errors.wallet}</Text>}
                     </Animated.View>
 
@@ -552,6 +600,12 @@ const getStyles = (colors: any) => StyleSheet.create({
         shadowOffset: { width: 0, height: 10 },
         elevation: 3,
     },
+    previewBadgeRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginBottom: 14,
+    },
     previewOrb: {
         position: 'absolute',
         width: 160,
@@ -588,22 +642,6 @@ const getStyles = (colors: any) => StyleSheet.create({
         fontSize: FontSize.caption,
         color: 'rgba(255,255,255,0.82)',
         marginTop: 4,
-    },
-    previewSharedChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 999,
-        backgroundColor: 'rgba(255,255,255,0.14)',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.18)',
-    },
-    previewSharedText: {
-        fontFamily: FontFamily.bodyBold,
-        fontSize: FontSize.caption,
-        color: '#FFFFFF',
     },
     previewMetrics: {
         flexDirection: 'row',
@@ -685,6 +723,23 @@ const getStyles = (colors: any) => StyleSheet.create({
         fontSize: FontSize.label,
         color: colors.textSecondary,
         marginTop: 2,
+    },
+    walletInsightCard: {
+        flexDirection: 'row',
+        gap: 10,
+        padding: 14,
+        borderRadius: 18,
+        backgroundColor: colors.surfaceAlt,
+        borderWidth: 1,
+        borderColor: colors.border,
+        alignItems: 'flex-start',
+    },
+    walletInsightText: {
+        flex: 1,
+        fontFamily: FontFamily.body,
+        fontSize: FontSize.caption,
+        lineHeight: 20,
+        color: colors.textSecondary,
     },
     fieldLabel: {
         fontFamily: FontFamily.bodyBold,

@@ -22,6 +22,8 @@ import { useTheme } from '../../store/useThemeStore';
 import type { CategorySummary, MonthlySummary } from '../../types/transaction';
 import { resolveCategoryByKey } from '../../utils/categoryResolver';
 import { formatCurrency } from '../../utils/currency';
+import { ContextBadge } from '../../components/common/ContextBadge';
+import { SectionHeader } from '../../components/common/SectionHeader';
 
 type PeriodFilter = 'month' | '3months' | '6months' | 'year';
 
@@ -156,7 +158,10 @@ export function ReportScreen() {
                 </Animated.View>
 
                 <Animated.View entering={FadeInDown.delay(120).springify()} style={styles.periodBlock}>
-                    <Text style={styles.blockTitle}>Pilih Periode</Text>
+                    <SectionHeader
+                        title="Pilih Periode"
+                        subtitle="Ubah snapshot, tren, dan breakdown sesuai horizon yang ingin kamu baca."
+                    />
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.periodRow}>
                         {PERIOD_OPTIONS.map((item) => (
                             <TouchableOpacity
@@ -185,6 +190,14 @@ export function ReportScreen() {
                                     : 'Belum ada pengeluaran yang cukup untuk dianalisis.'}
                             </Text>
                         </View>
+                    </View>
+                    <View style={styles.insightBadgeRow}>
+                        <ContextBadge
+                            icon={netBalance >= 0 ? 'trending-up' : 'trending-down'}
+                            label={netBalance >= 0 ? 'Surplus' : 'Defisit'}
+                            tone={netBalance >= 0 ? 'success' : 'warning'}
+                        />
+                        <ContextBadge icon="calendar-range" label={PERIOD_OPTIONS.find((item) => item.id === period)?.label || 'Bulan ini'} tone="neutral" />
                     </View>
                     <View style={styles.insightChipRow}>
                         <View style={styles.insightChip}>
@@ -231,10 +244,10 @@ export function ReportScreen() {
                         </Animated.View>
 
                         <Animated.View entering={FadeInUp.delay(240).springify()} style={styles.chartCard}>
-                            <View style={styles.cardHeader}>
-                                <Text style={styles.chartTitle}>Pemasukan vs Pengeluaran</Text>
-                                <Text style={styles.cardHint}>6 bulan terakhir</Text>
-                            </View>
+                            <SectionHeader
+                                title="Pemasukan vs Pengeluaran"
+                                subtitle="6 bulan terakhir untuk membaca ritme naik-turun kas."
+                            />
                             <View style={styles.barChart}>
                                 {monthlyData.map((month, idx) => (
                                     <View key={idx} style={styles.barGroup}>
@@ -270,10 +283,10 @@ export function ReportScreen() {
 
                         {expenseCategories.length > 0 && (
                             <Animated.View entering={FadeInUp.delay(300).springify()} style={styles.tableCard}>
-                                <View style={styles.cardHeader}>
-                                    <Text style={styles.chartTitle}>Breakdown Pengeluaran</Text>
-                                    <Text style={styles.cardHint}>Kategori dominan di periode ini</Text>
-                                </View>
+                                <SectionHeader
+                                    title="Breakdown Pengeluaran"
+                                    subtitle="Kategori dominan di periode ini untuk membaca fokus pengeluaran."
+                                />
 
                                 {expenseCategories.map((cat, index) => {
                                     const categoryInfo = resolveCategoryByKey(cat.category, categories);
@@ -551,6 +564,11 @@ const getStyles = (colors: any) => StyleSheet.create({
     insightChipRow: {
         flexDirection: 'row',
         gap: 10,
+    },
+    insightBadgeRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
     },
     insightChip: {
         flex: 1,

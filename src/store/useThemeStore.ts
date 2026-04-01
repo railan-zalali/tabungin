@@ -4,9 +4,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors as BaseColors } from '../constants/colors';
 import { useProfileStore } from './useProfileStore';
 import { Motion } from '../constants/theme';
+import { getTextScale } from '../constants/typography';
 
 type ThemeMode = 'light' | 'dark';
-type TextSize = 'normal' | 'large' | 'xlarge';
+export type TextSize = 'normal' | 'large' | 'xlarge';
 
 interface ThemeState {
     mode: ThemeMode;
@@ -71,7 +72,7 @@ function mix(hexA: string, hexB: string, weight: number) {
 }
 
 export function useTheme() {
-    const { mode } = useThemeStore();
+    const { mode, textSize } = useThemeStore();
     const { profiles, activeProfileId } = useProfileStore();
     
     const activeProfile = profiles.find(p => p.id === activeProfileId);
@@ -133,5 +134,5 @@ export function useTheme() {
         info: [rgba(BaseColors.info, 0.12), rgba(BaseColors.info, 0.03)] as const,
     };
 
-    return { colors, gradients, motion: Motion, isDark, mode };
+    return { colors, gradients, motion: Motion, isDark, mode, textSize, textScale: getTextScale(textSize) };
 }

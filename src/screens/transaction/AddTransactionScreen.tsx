@@ -32,6 +32,8 @@ import { BorderRadius } from "../../constants/theme";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { formatDateLong } from "../../utils/date";
 
+const TAB_BAR_OVERLAY_OFFSET = 92;
+
 export function AddTransactionScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const route = useRoute<any>();
@@ -42,6 +44,7 @@ export function AddTransactionScreen() {
   const isEditMode = Boolean(editId);
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
+  const footerBottomInset = Math.max(insets.bottom, 16) + TAB_BAR_OVERLAY_OFFSET;
 
   const [txType, setTxType] = useState<TransactionType>(route.params?.type ?? "expense");
   const [amountInput, setAmountInput] = useState("");
@@ -195,7 +198,7 @@ export function AddTransactionScreen() {
           </View>
         ) : (
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingBottom: 24 }]}
           keyboardShouldPersistTaps='handled'
           showsVerticalScrollIndicator={false}
         >
@@ -390,7 +393,7 @@ export function AddTransactionScreen() {
         )}
 
         {/* Footer Button */}
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: footerBottomInset }]}>
           <Button
             label={isEditMode ? 'Simpan Perubahan' : 'Simpan Transaksi'}
             onPress={handleSave}

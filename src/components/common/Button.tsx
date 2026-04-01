@@ -15,7 +15,7 @@ import Animated, {
     withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { FontFamily, FontSize } from '../../constants/typography';
+import { FontFamily, FontSize, scaleFontSize } from '../../constants/typography';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useTheme } from '../../store/useThemeStore';
 import { BorderRadius } from '../../constants/theme';
@@ -63,8 +63,8 @@ export function Button({
     const scale = useSharedValue(1);
     const glowOpacity = useSharedValue(variant === 'primary' ? 1 : 0);
     const hapticEnabled = useAuthStore((s) => s.hapticEnabled);
-    const { colors, motion } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const { colors, motion, textSize } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors, textSize), [colors, textSize]);
 
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [{ scale: scale.value }],
@@ -142,7 +142,7 @@ export function Button({
     );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
+const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize']) => StyleSheet.create({
     base: {
         overflow: 'hidden',
         flexDirection: 'row',
@@ -218,12 +218,12 @@ const getStyles = (colors: any) => StyleSheet.create({
 
     labelBase: {
         fontFamily: FontFamily.bodyBold,
-        fontSize: FontSize.body,
+        fontSize: scaleFontSize(FontSize.body, textSize),
         letterSpacing: 0.1,
     },
-    smText: { fontSize: 13 },
-    mdText: { fontSize: FontSize.body },
-    lgText: { fontSize: FontSize.h4 },
+    smText: { fontSize: scaleFontSize(13, textSize) },
+    mdText: { fontSize: scaleFontSize(FontSize.body, textSize) },
+    lgText: { fontSize: scaleFontSize(FontSize.h4, textSize) },
     primaryGlow: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: 'rgba(255,255,255,0.12)',

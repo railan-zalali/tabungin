@@ -28,6 +28,7 @@ import {
   buildWalletInviteMessage,
   buildWalletInviteUrl,
 } from "../../utils/walletInvite";
+import { ContextBadge } from "../common/ContextBadge";
 
 interface WalletMemberListProps {
   walletId: string;
@@ -170,19 +171,25 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
               <View style={styles.memberAvatar}>
                 <Text style={styles.avatarText}>{member.user_email[0].toUpperCase()}</Text>
               </View>
-              <View style={styles.memberInfo}>
-                <View style={styles.memberHeader}>
-                  <Text style={styles.memberEmail}>{member.user_email}</Text>
-                  {sharedGoalsCount[member.id] > 0 && (
-                    <View style={styles.goalsBadge}>
-                      <MaterialCommunityIcons name='target' size={12} color={colors.primary} />
-                      <Text style={styles.goalsBadgeText}>{sharedGoalsCount[member.id]}</Text>
-                    </View>
-                  )}
+                <View style={styles.memberInfo}>
+                  <View style={styles.memberHeader}>
+                    <Text style={styles.memberEmail}>{member.user_email}</Text>
+                    {sharedGoalsCount[member.id] > 0 && (
+                    <ContextBadge icon='bullseye-arrow' label={`${sharedGoalsCount[member.id]} goal`} tone='primary' />
+                    )}
+                  </View>
+                <View style={styles.memberMetaRow}>
+                  <ContextBadge
+                    icon={member.status === "pending" ? 'clock-outline' : 'check-circle-outline'}
+                    label={member.status === "pending" ? 'Menunggu konfirmasi' : 'Akses aktif'}
+                    tone={member.status === "pending" ? 'warning' : 'success'}
+                  />
+                  <ContextBadge
+                    icon='shield-account-outline'
+                    label={member.role === 'owner' ? 'Owner' : member.role === 'editor' ? 'Editor' : 'Viewer'}
+                    tone='neutral'
+                  />
                 </View>
-                <Text style={styles.memberRole}>
-                  {member.role} - {member.status === "pending" ? "Menunggu" : "Aktif"}
-                </Text>
               </View>
               <TouchableOpacity onPress={() => handleRemove(member.id)} style={styles.removeBtn}>
                 <MaterialCommunityIcons name='trash-can-outline' size={20} color={colors.danger} />
@@ -377,34 +384,17 @@ const getStyles = (colors: any) => StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
+  memberMetaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 8,
+  },
   memberEmail: {
     fontFamily: FontFamily.bodyMedium,
     fontSize: FontSize.body,
     color: colors.textPrimary,
     flex: 1,
-  },
-  goalsBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: colors.primaryBg,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-    borderColor: `${colors.primary}22`,
-  },
-  goalsBadgeText: {
-    fontFamily: FontFamily.bodyBold,
-    fontSize: 10,
-    color: colors.primary,
-  },
-  memberRole: {
-    fontFamily: FontFamily.bodyMedium,
-    fontSize: FontSize.caption,
-    color: colors.textSecondary,
-    textTransform: "capitalize",
-    marginTop: 4,
   },
   removeBtn: {
     width: 36,

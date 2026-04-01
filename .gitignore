@@ -13,6 +13,7 @@ ios/
 .env.development.local
 .env.test.local
 .env.production.local
+.testsprite/
 
 # MacOS
 .DS_Store

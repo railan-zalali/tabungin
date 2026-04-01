@@ -1,6 +1,8 @@
 // Query database untuk tabel saving_goals dan saving_logs
 import { getInitializedDatabase } from './schema';
+import { supabase } from '../lib/supabase';
 import type { SavingGoal, SavingLog } from '../types/saving';
+import type { GoalSharingActivity, GoalSharingMember } from '../types/saving';
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -185,6 +187,66 @@ export async function fetchSavingLogs(goalId: string): Promise<SavingLog[]> {
  * Tambah log tabungan dan update current_amount pada goal.
  * Seluruh operasi dijalankan dalam satu SQLite transaction (atomic).
  */
+export async function setGoalPermission(goalId: string, userEmail: string, permissionLevel: string): Promise<void> {
+    const userEmailLower = userEmail.toLowerCase();
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
+    if (!profile) throw new Error('Profile not found');
+
+    const { error } = await supabase.rpc('set_goal_permission', {
+        p_goal_id: goalId,
+        p_user_email: userEmailLower,
+        p_permission_level: permissionLevel,
+        p_performed_by: profile.user_id,
+    });
+
+    if (error) throw error;
+}
+
+export async function revokeGoalSharing(goalId: string, userEmail: string): Promise<void> {
+    const userEmailLower = userEmail.toLowerCase();
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+
+    if (!profile) throw new Error('Profile not found');
+
+    const { error } = await supabase.rpc('revoke_goal_sharing', {
+        p_goal_id: goalId,
+        p_user_email: userEmailLower,
+        p_performed_by: profile.user_id,
+    });
+
+    if (error) throw error;
+}
+
+export async function getGoalSharingStatus(goalId: string): Promise<GoalSharingMember[]> {
+    const { data, error } = await supabase.rpc('get_goal_sharing_status', {
+        p_goal_id: goalId,
+    });
+
+    if (error) throw error;
+    return data || [];
+}
+
+export async function getSharingActivityLog(goalId: string): Promise<GoalSharingActivity[]> {
+    const { data, error } = await supabase
+        .from('sharing_activity_log')
+        .select('*')
+        .eq('goal_id', goalId)
+        .order('timestamp', { ascending: false })
+        .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+}
+
 export async function insertSavingLog(
     data: Omit<SavingLog, 'id' | 'created_at'>
 ): Promise<SavingLog> {

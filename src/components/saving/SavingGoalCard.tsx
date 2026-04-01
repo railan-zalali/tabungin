@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { FontFamily, FontSize } from '../../constants/typography';
+import { FontFamily, FontSize, scaleFontSize } from '../../constants/typography';
 import { BorderRadius } from '../../constants/theme';
 import type { SavingGoal } from '../../types/saving';
 import { formatRupiah, formatRupiahShort } from '../../utils/currency';
@@ -13,6 +13,8 @@ import { ProgressBar } from './ProgressBar';
 import { useTheme } from '../../store/useThemeStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import { useProfileStore } from '../../store/useProfileStore';
+import { getGoalComputedMeta } from '../../utils/goalSharing';
+import { ContextBadge } from '../common/ContextBadge';
 
 interface SavingGoalCardProps {
     goal: SavingGoal;
@@ -22,8 +24,8 @@ interface SavingGoalCardProps {
 }
 
 export function SavingGoalCard({ goal, onPress, onAddSaving, animationDelay = 0 }: SavingGoalCardProps) {
-    const { colors } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const { colors, textSize } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors, textSize), [colors, textSize]);
     const wallets = useWalletStore((state) => state.wallets);
     const activeProfileId = useProfileStore((state) => state.activeProfileId);
 
@@ -31,7 +33,7 @@ export function SavingGoalCard({ goal, onPress, onAddSaving, animationDelay = 0 
     const daysLeft = daysFromNow(goal.estimated_date);
     const isCompleted = goal.is_completed || goal.current_amount >= goal.target_amount;
     const wallet = wallets.find((item) => item.id === goal.wallet_id);
-    const isSharedGoal = Boolean(wallet?.profile_id && wallet.profile_id !== activeProfileId);
+    const meta = getGoalComputedMeta(goal, wallet, activeProfileId);
 
     const periodLabel = goal.period_type === 'daily'
         ? 'hari'
@@ -58,34 +60,20 @@ export function SavingGoalCard({ goal, onPress, onAddSaving, animationDelay = 0 
                 />
                 <View style={[styles.glowOrb, { backgroundColor: `${goal.color}12` }]} />
 
-                {(wallet || isSharedGoal) && (
+                {(wallet || meta.isSharedGoal) && (
                     <View style={styles.contextRow}>
                         {wallet && (
-                            <View style={styles.contextChip}>
-                                <MaterialCommunityIcons
-                                    name='wallet-outline'
-                                    size={12}
-                                    color={colors.primary}
-                                    accessibilityElementsHidden={true}
-                                />
-                                <Text style={styles.contextChipText} numberOfLines={1}>
-                                    {wallet.name}
-                                </Text>
-                            </View>
+                            <ContextBadge
+                                icon={meta.isSharedWalletGoal ? 'account-group-outline' : 'wallet-outline'}
+                                label={wallet.name}
+                                tone={meta.isSharedWalletGoal ? 'info' : 'neutral'}
+                            />
                         )}
-                        {isSharedGoal && (
-                            <View style={[styles.contextChip, styles.sharedChip]}>
-                                <MaterialCommunityIcons
-                                    name='account-group-outline'
-                                    size={12}
-                                    color={colors.info}
-                                    accessibilityElementsHidden={true}
-                                />
-                                <Text style={[styles.contextChipText, { color: colors.info }]}>
-                                    Shared
-                                </Text>
-                            </View>
-                        )}
+                        <ContextBadge
+                            icon={meta.isSharedGoal ? 'account-group-outline' : 'account-outline'}
+                            label={meta.scopeLabel}
+                            tone={meta.isSharedGoal ? 'info' : 'primary'}
+                        />
                     </View>
                 )}
 
@@ -163,7 +151,7 @@ export function SavingGoalCard({ goal, onPress, onAddSaving, animationDelay = 0 
     );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
+const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize']) => StyleSheet.create({
     card: {
         backgroundColor: colors.surfaceElevated,
         borderRadius: BorderRadius['4xl'],
@@ -196,28 +184,6 @@ const getStyles = (colors: any) => StyleSheet.create({
         flexWrap: 'wrap',
         gap: 8,
     },
-    contextChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        alignSelf: 'flex-start',
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: BorderRadius.full,
-        backgroundColor: colors.surfaceElevated,
-        borderWidth: 1,
-        borderColor: colors.border,
-        maxWidth: '100%',
-    },
-    sharedChip: {
-        backgroundColor: colors.infoBg,
-        borderColor: `${colors.info}30`,
-    },
-    contextChipText: {
-        fontFamily: FontFamily.bodyMedium,
-        fontSize: FontSize.label,
-        color: colors.textSecondary,
-    },
     header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     emojiContainer: {
         width: 52,
@@ -232,12 +198,12 @@ const getStyles = (colors: any) => StyleSheet.create({
     headerInfo: { flex: 1, gap: 4 },
     goalName: {
         fontFamily: FontFamily.headingMedium,
-        fontSize: FontSize.h4,
+        fontSize: scaleFontSize(FontSize.h4, textSize),
         color: colors.textPrimary,
     },
     savingChip: {
         fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
+        fontSize: scaleFontSize(FontSize.caption, textSize),
         color: colors.textSecondary,
     },
     completedBadge: {
@@ -252,7 +218,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     },
     completedText: {
         fontFamily: FontFamily.bodyMedium,
-        fontSize: FontSize.caption,
+        fontSize: scaleFontSize(FontSize.caption, textSize),
         color: colors.success,
     },
     daysContainer: {
@@ -266,24 +232,24 @@ const getStyles = (colors: any) => StyleSheet.create({
     },
     daysNumber: {
         fontFamily: FontFamily.heading,
-        fontSize: 20,
+        fontSize: scaleFontSize(20, textSize),
         color: colors.textPrimary,
     },
     daysLabel: {
         fontFamily: FontFamily.body,
-        fontSize: FontSize.label,
+        fontSize: scaleFontSize(FontSize.label, textSize),
         color: colors.textSecondary,
     },
     progressSection: { gap: 8 },
     amountRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
     currentAmount: {
         fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
+        fontSize: scaleFontSize(FontSize.caption, textSize),
         color: colors.textPrimary,
     },
     targetAmount: {
         fontFamily: FontFamily.bodyMedium,
-        fontSize: FontSize.caption,
+        fontSize: scaleFontSize(FontSize.caption, textSize),
         color: colors.textSecondary,
     },
     addBtn: {
@@ -298,6 +264,6 @@ const getStyles = (colors: any) => StyleSheet.create({
     },
     addBtnText: {
         fontFamily: FontFamily.bodyMedium,
-        fontSize: FontSize.body,
+        fontSize: scaleFontSize(FontSize.body, textSize),
     },
 });

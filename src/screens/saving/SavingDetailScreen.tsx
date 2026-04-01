@@ -31,6 +31,21 @@ import { calculateProgress } from '../../utils/calculator';
 import { useTheme } from '../../store/useThemeStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import { useProfileStore } from '../../store/useProfileStore';
+import { ContextBadge } from '../../components/common/ContextBadge';
+import { SectionHeader } from '../../components/common/SectionHeader';
+import { getGoalComputedMeta, getSharingActivityDescription, getSharingActivityLabel } from '../../utils/goalSharing';
+
+function formatPermissionLabel(permissionLevel: string) {
+    switch (permissionLevel) {
+        case 'admin':
+            return 'Admin';
+        case 'read_only':
+            return 'Read only';
+        case 'read_write':
+        default:
+            return 'Bisa edit';
+    }
+}
 
 export function SavingDetailScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<any>>();
@@ -45,9 +60,12 @@ export function SavingDetailScreen() {
     const {
         currentGoal,
         currentLogs,
+        sharingMembers,
+        sharingActivity,
         justCompletedGoalId,
         loadGoalById,
         loadLogs,
+        loadSharingDetails,
         addSavingLog,
         clearJustCompleted,
     } = useSavingStore();
@@ -61,7 +79,8 @@ export function SavingDetailScreen() {
     useEffect(() => {
         loadGoalById(goalId);
         loadLogs(goalId);
-    }, [goalId, loadGoalById, loadLogs]);
+        loadSharingDetails(goalId);
+    }, [goalId, loadGoalById, loadLogs, loadSharingDetails]);
 
     useEffect(() => {
         if (justCompletedGoalId === goalId) {
@@ -107,7 +126,7 @@ export function SavingDetailScreen() {
     const remaining = Math.max(currentGoal.target_amount - currentGoal.current_amount, 0);
     const isCompleted = currentGoal.is_completed || progress >= 100;
     const wallet = wallets.find((item) => item.id === currentGoal.wallet_id);
-    const isSharedWallet = Boolean(wallet?.profile_id && wallet.profile_id !== activeProfileId);
+    const goalMeta = getGoalComputedMeta(currentGoal, wallet, activeProfileId, sharingMembers);
 
     const infoItems = [
         { label: 'Target', value: formatCurrency(currentGoal.target_amount), icon: 'flag-variant' },
@@ -163,22 +182,23 @@ export function SavingDetailScreen() {
                         <View style={styles.heroGlow} />
 
                         <View style={styles.heroTopRow}>
-                            {(wallet || isSharedWallet) && (
-                                <View style={styles.contextRow}>
-                                    {wallet && (
-                                        <View style={styles.contextChip}>
-                                            <MaterialCommunityIcons name="wallet-outline" size={12} color={colors.textInverse} />
-                                            <Text style={styles.contextChipText}>{wallet.name}</Text>
-                                        </View>
-                                    )}
-                                    {isSharedWallet && (
-                                        <View style={styles.contextChip}>
-                                            <MaterialCommunityIcons name="account-group-outline" size={12} color={colors.textInverse} />
-                                            <Text style={styles.contextChipText}>Shared</Text>
-                                        </View>
-                                    )}
-                                </View>
-                            )}
+                            <View style={styles.contextRow}>
+                                {wallet ? (
+                                    <ContextBadge
+                                        icon={goalMeta.isSharedWalletGoal ? 'account-group-outline' : 'wallet-outline'}
+                                        label={wallet.name}
+                                        inverse
+                                    />
+                                ) : null}
+                                <ContextBadge
+                                    icon={goalMeta.isSharedGoal ? 'account-group-outline' : 'account-outline'}
+                                    label={goalMeta.scopeLabel}
+                                    inverse
+                                />
+                                {sharingMembers.length > 0 ? (
+                                    <ContextBadge icon="shield-account-outline" label={`${sharingMembers.length} member`} inverse />
+                                ) : null}
+                            </View>
                         </View>
 
                         <Text style={styles.heroEmoji}>{currentGoal.emoji}</Text>
@@ -191,6 +211,7 @@ export function SavingDetailScreen() {
                             animationDelay={200}
                             style={{ width: '82%' }}
                         />
+                        <Text style={styles.heroDescription}>{goalMeta.scopeDescription}</Text>
                         {isCompleted && (
                             <View style={styles.completedBanner}>
                                 <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
@@ -214,8 +235,25 @@ export function SavingDetailScreen() {
                     ))}
                 </Animated.View>
 
+                <Animated.View entering={FadeInUp.delay(180).springify()} style={styles.contextSummaryCard}>
+                    <SectionHeader
+                        title="Konteks Ownership"
+                        subtitle="Supaya jelas target ini berada di ruang mana dan siapa yang ikut melihat."
+                    />
+                    <View style={styles.contextSummaryRow}>
+                        <View style={styles.contextSummaryItem}>
+                            <Text style={styles.contextSummaryLabel}>Scope</Text>
+                            <Text style={styles.contextSummaryValue}>{goalMeta.scopeLabel}</Text>
+                        </View>
+                        <View style={styles.contextSummaryItem}>
+                            <Text style={styles.contextSummaryLabel}>Wallet</Text>
+                            <Text style={styles.contextSummaryValue}>{wallet?.name || 'Tanpa dompet khusus'}</Text>
+                        </View>
+                    </View>
+                </Animated.View>
+
                 {!isCompleted && (
-                    <Animated.View entering={FadeInUp.delay(200).springify()}>
+                    <Animated.View entering={FadeInUp.delay(220).springify()}>
                         <SavingSimulator
                             targetAmount={currentGoal.target_amount}
                             currentAmount={currentGoal.current_amount}
@@ -225,12 +263,71 @@ export function SavingDetailScreen() {
                     </Animated.View>
                 )}
 
-                {currentLogs.length > 0 && (
-                    <Animated.View entering={FadeInUp.delay(260).springify()} style={styles.section}>
-                        <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionTitle}>Riwayat Tabungan</Text>
-                            <Text style={styles.sectionSubtitle}>{currentLogs.length} kontribusi tercatat</Text>
+                {(goalMeta.isSharedGoal || sharingMembers.length > 0 || sharingActivity.length > 0) && (
+                    <Animated.View entering={FadeInUp.delay(240).springify()} style={styles.section}>
+                        <SectionHeader
+                            title="Akses & Aktivitas Shared"
+                            subtitle="Lihat siapa yang punya akses dan perubahan penting yang tercatat."
+                        />
+                        <View style={styles.sharingCard}>
+                            {sharingMembers.length > 0 ? (
+                                <View style={styles.memberList}>
+                                    {sharingMembers.map((member) => (
+                                        <View key={member.user_email} style={styles.memberItem}>
+                                            <View style={styles.memberIcon}>
+                                                <MaterialCommunityIcons name="account-outline" size={18} color={colors.info} />
+                                            </View>
+                                            <View style={styles.memberCopy}>
+                                                <Text style={styles.memberTitle}>{member.user_email}</Text>
+                                                <Text style={styles.memberMeta}>
+                                                    {formatPermissionLabel(member.permission_level)} • dibagikan {formatDateShort(member.shared_at)}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    ))}
+                                </View>
+                            ) : (
+                                <View style={styles.inlineInfo}>
+                                    <MaterialCommunityIcons name="account-off-outline" size={18} color={colors.textSecondary} />
+                                    <Text style={styles.inlineInfoText}>Belum ada anggota tambahan dengan akses langsung ke target ini.</Text>
+                                </View>
+                            )}
+
+                            <View style={styles.sharingActivityBlock}>
+                                <Text style={styles.activityTitleLabel}>Timeline Aktivitas</Text>
+                                {sharingActivity.length > 0 ? (
+                                    <View style={styles.activityList}>
+                                        {sharingActivity.map((activity, index) => (
+                                            <View key={activity.id}>
+                                                <View style={styles.activityItem}>
+                                                    <View style={styles.activityDot} />
+                                                    <View style={styles.activityCopy}>
+                                                        <Text style={styles.activityItemTitle}>{getSharingActivityLabel(activity)}</Text>
+                                                        <Text style={styles.activityItemDescription}>{getSharingActivityDescription(activity)}</Text>
+                                                        <Text style={styles.activityItemDate}>{formatDateShort(activity.timestamp)}</Text>
+                                                    </View>
+                                                </View>
+                                                {index < sharingActivity.length - 1 && <View style={styles.activityDivider} />}
+                                            </View>
+                                        ))}
+                                    </View>
+                                ) : (
+                                    <View style={styles.inlineInfo}>
+                                        <MaterialCommunityIcons name="timeline-outline" size={18} color={colors.textSecondary} />
+                                        <Text style={styles.inlineInfoText}>Belum ada log aktivitas sharing yang perlu ditampilkan.</Text>
+                                    </View>
+                                )}
+                            </View>
                         </View>
+                    </Animated.View>
+                )}
+
+                {currentLogs.length > 0 && (
+                    <Animated.View entering={FadeInUp.delay(280).springify()} style={styles.section}>
+                        <SectionHeader
+                            title="Riwayat Tabungan"
+                            subtitle={`${currentLogs.length} kontribusi tercatat`}
+                        />
                         <View style={styles.logList}>
                             {currentLogs.map((log, idx) => (
                                 <React.Fragment key={log.id}>
@@ -383,25 +480,16 @@ const getStyles = (colors: any) => StyleSheet.create({
         flexWrap: 'wrap',
         gap: 8,
     },
-    contextChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 10,
-        paddingVertical: 7,
-        borderRadius: 999,
-        backgroundColor: 'rgba(255,255,255,0.10)',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.12)',
-    },
-    contextChipText: {
-        fontFamily: FontFamily.bodyMedium,
-        fontSize: FontSize.caption,
-        color: colors.textInverse,
-    },
     heroEmoji: { fontSize: 64 },
     heroName: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: colors.textInverse, textAlign: 'center' },
     heroProgress: { fontFamily: FontFamily.heading, fontSize: 48, color: colors.textInverse },
+    heroDescription: {
+        fontFamily: FontFamily.body,
+        fontSize: FontSize.caption,
+        color: 'rgba(255,255,255,0.86)',
+        textAlign: 'center',
+        paddingHorizontal: 12,
+    },
     completedBanner: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -447,10 +535,151 @@ const getStyles = (colors: any) => StyleSheet.create({
     },
     infoLabel: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary, marginBottom: 4 },
     infoValue: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.body, color: colors.textPrimary },
+    contextSummaryCard: {
+        backgroundColor: colors.surfaceElevated,
+        borderRadius: 24,
+        padding: 18,
+        gap: 14,
+        borderWidth: 1,
+        borderColor: colors.border,
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        elevation: 3,
+    },
+    contextSummaryRow: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    contextSummaryItem: {
+        flex: 1,
+        backgroundColor: colors.surfaceCard,
+        borderRadius: BorderRadius['2xl'],
+        padding: 14,
+        borderWidth: 1,
+        borderColor: colors.border,
+    },
+    contextSummaryLabel: {
+        fontFamily: FontFamily.body,
+        fontSize: FontSize.caption,
+        color: colors.textSecondary,
+    },
+    contextSummaryValue: {
+        fontFamily: FontFamily.bodyBold,
+        fontSize: FontSize.body,
+        color: colors.textPrimary,
+        marginTop: 4,
+    },
     section: { gap: 12 },
-    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    sectionTitle: { ...Typography.h4, color: colors.textPrimary },
-    sectionSubtitle: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary },
+    sharingCard: {
+        backgroundColor: colors.surfaceElevated,
+        borderRadius: 24,
+        padding: 18,
+        gap: 16,
+        borderWidth: 1,
+        borderColor: colors.border,
+        shadowColor: colors.shadowColor,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        elevation: 3,
+    },
+    memberList: {
+        gap: 10,
+    },
+    memberItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        padding: 14,
+        borderRadius: BorderRadius['2xl'],
+        backgroundColor: colors.surfaceCard,
+        borderWidth: 1,
+        borderColor: colors.border,
+    },
+    memberIcon: {
+        width: 38,
+        height: 38,
+        borderRadius: BorderRadius.lg,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.infoBg,
+    },
+    memberCopy: { flex: 1 },
+    memberTitle: {
+        fontFamily: FontFamily.bodyBold,
+        fontSize: FontSize.body,
+        color: colors.textPrimary,
+    },
+    memberMeta: {
+        fontFamily: FontFamily.body,
+        fontSize: FontSize.caption,
+        color: colors.textSecondary,
+        marginTop: 2,
+    },
+    sharingActivityBlock: {
+        gap: 12,
+    },
+    activityTitleLabel: {
+        fontFamily: FontFamily.headingMedium,
+        fontSize: FontSize.body,
+        color: colors.textPrimary,
+    },
+    inlineInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        padding: 14,
+        borderRadius: BorderRadius['2xl'],
+        backgroundColor: colors.surfaceCard,
+        borderWidth: 1,
+        borderColor: colors.border,
+    },
+    inlineInfoText: {
+        flex: 1,
+        fontFamily: FontFamily.body,
+        fontSize: FontSize.caption,
+        color: colors.textSecondary,
+        lineHeight: 20,
+    },
+    activityList: { gap: 0 },
+    activityItem: {
+        flexDirection: 'row',
+        gap: 12,
+        paddingVertical: 10,
+    },
+    activityDot: {
+        width: 12,
+        height: 12,
+        borderRadius: BorderRadius.full,
+        marginTop: 6,
+        backgroundColor: colors.primary,
+    },
+    activityCopy: { flex: 1 },
+    activityItemTitle: {
+        fontFamily: FontFamily.bodyBold,
+        fontSize: FontSize.body,
+        color: colors.textPrimary,
+    },
+    activityItemDescription: {
+        fontFamily: FontFamily.body,
+        fontSize: FontSize.caption,
+        color: colors.textSecondary,
+        marginTop: 2,
+        lineHeight: 20,
+    },
+    activityItemDate: {
+        fontFamily: FontFamily.body,
+        fontSize: FontSize.caption,
+        color: colors.textTertiary,
+        marginTop: 4,
+    },
+    activityDivider: {
+        height: 1,
+        backgroundColor: colors.divider,
+        marginLeft: 18,
+    },
     logList: {
         backgroundColor: colors.surfaceElevated,
         borderRadius: 24,

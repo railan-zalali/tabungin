@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 import { isValidWalletId } from "../utils/walletInvite";
 import { useAuthStore } from "../store/useAuthStore";
 import { sendWalletInviteNotification } from "../utils/notificationService";
+import { runSerializedSyncTask } from "./syncQueue";
 
 type RemoteWalletMember = WalletMember & {
   updated_at: number;
@@ -427,41 +428,43 @@ export async function fetchWalletMembersForDisplay(walletId: string): Promise<Wa
 }
 
 export async function syncAccessibleWalletsFromServer(): Promise<void> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  await runSerializedSyncTask(async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-  if (!session) {
-    return;
-  }
+    if (!session) {
+      return;
+    }
 
-  const { data: wallets, error: walletsError } = await supabase
-    .from("wallets")
-    .select("*")
-    .order("created_at", { ascending: true });
+    const { data: wallets, error: walletsError } = await supabase
+      .from("wallets")
+      .select("*")
+      .order("created_at", { ascending: true });
 
-  if (walletsError) {
-    throw walletsError;
-  }
+    if (walletsError) {
+      throw walletsError;
+    }
 
-  const remoteWallets = (wallets ?? []) as RemoteWallet[];
-  await Promise.all(remoteWallets.map((wallet) => upsertLocalWallet(wallet)));
+    const remoteWallets = (wallets ?? []) as RemoteWallet[];
+    await Promise.all(remoteWallets.map((wallet) => upsertLocalWallet(wallet)));
 
-  const walletIds = remoteWallets.map((wallet) => wallet.id);
-  if (walletIds.length === 0) {
-    return;
-  }
+    const walletIds = remoteWallets.map((wallet) => wallet.id);
+    if (walletIds.length === 0) {
+      return;
+    }
 
-  const { data: members, error: membersError } = await supabase
-    .from("wallet_members")
-    .select("*")
-    .in("wallet_id", walletIds);
+    const { data: members, error: membersError } = await supabase
+      .from("wallet_members")
+      .select("*")
+      .in("wallet_id", walletIds);
 
-  if (membersError) {
-    throw membersError;
-  }
+    if (membersError) {
+      throw membersError;
+    }
 
-  await replaceLocalWalletMembersForWallets(walletIds, (members ?? []) as RemoteWalletMember[]);
+    await replaceLocalWalletMembersForWallets(walletIds, (members ?? []) as RemoteWalletMember[]);
+  });
 }
 
 export async function inviteWalletMember(

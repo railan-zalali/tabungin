@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { NetInfoState, useNetInfo } from "@react-native-community/netinfo";
 import { v4 as uuidv4 } from "uuid";
+import { runSerializedSyncTask } from "./syncQueue";
 
 const LAST_SYNC_KEY = "tabungin_last_sync_time";
 
@@ -12,6 +13,9 @@ type SyncStatus = "synced" | "pending_create" | "pending_update" | "pending_dele
 interface SyncTable {
   tableName: string;
   columns: string[];
+  remoteColumns?: string[];
+  remoteUpdatedAtColumn?: string;
+  optional?: boolean;
 }
 
 const SYNC_TABLES: SyncTable[] = [
@@ -81,6 +85,8 @@ const SYNC_TABLES: SyncTable[] = [
       "updated_at",
       "permission_level",
     ],
+    remoteColumns: ["id", "goal_id", "wallet_id", "user_email", "shared_by", "shared_at", "created_at"],
+    remoteUpdatedAtColumn: "created_at",
   },
   {
     tableName: "sharing_activity_log",
@@ -96,12 +102,30 @@ const SYNC_TABLES: SyncTable[] = [
       "created_at",
       "updated_at",
     ],
+    optional: true,
   },
   {
     tableName: "budgets",
     columns: ["id", "category", "amount", "month", "year", "created_at", "updated_at", "wallet_id", "profile_id"],
   },
 ];
+
+const unsupportedRemoteTables = new Set<string>();
+let activeSyncPromise: Promise<void> | null = null;
+
+function isRemoteMissingTableError(error: any) {
+  return error?.code === "PGRST205" || String(error?.message || "").includes("schema cache");
+}
+
+function shouldSkipRemoteTable(table: SyncTable, error: any) {
+  if (table.optional && isRemoteMissingTableError(error)) {
+    unsupportedRemoteTables.add(table.tableName);
+    console.log(`[Sync] Skipping optional remote table ${table.tableName} because it is unavailable in Supabase.`);
+    return true;
+  }
+
+  return false;
+}
 
 export async function getLastSyncTime(): Promise<number> {
   const raw = await AsyncStorage.getItem(LAST_SYNC_KEY);
@@ -125,6 +149,9 @@ function mapRecordToSupabase(table: string, row: any): any {
   }
   if (table === "wallets") {
     if ("is_default" in record) record.is_default = Boolean(record.is_default);
+  }
+  if (table === "wallet_goals_shared") {
+    record.created_at = record.created_at ?? record.shared_at ?? Date.now();
   }
   // No boolean conversion needed for profiles or wallet_members yet
 
@@ -283,6 +310,10 @@ async function pushChanges() {
     .concat(SYNC_TABLES.filter(t => t.tableName !== 'profiles'));
 
   for (const table of orderedTables) {
+    if (unsupportedRemoteTables.has(table.tableName)) {
+      continue;
+    }
+
     // 1. Handle Pending Create & Update
     let pendingUpserts: any[] = [];
 
@@ -356,7 +387,18 @@ async function pushChanges() {
         }
       }
 
-      const { error } = await supabase.from(table.tableName).upsert(records);
+      const remoteColumns = table.remoteColumns ?? table.columns;
+      const remoteRecords = records.map((record) => {
+        const payload: Record<string, any> = {};
+        remoteColumns.forEach((column) => {
+          if (column in record) {
+            payload[column] = record[column];
+          }
+        });
+        return payload;
+      });
+
+      const { error } = await supabase.from(table.tableName).upsert(remoteRecords);
 
       if (!error) {
         const placeholders = syncedRows.map(() => "?").join(",");
@@ -373,6 +415,9 @@ async function pushChanges() {
           await ensureWalletOwnerMembership(syncedRows, user.email || '', validProfileId);
         }
       } else {
+        if (shouldSkipRemoteTable(table, error)) {
+          continue;
+        }
         console.error(`Failed to push ${table.tableName}:`, error.message);
       }
     }
@@ -389,6 +434,9 @@ async function pushChanges() {
       if (!error) {
         await db.runAsync(`DELETE FROM ${table.tableName} WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
       } else {
+        if (shouldSkipRemoteTable(table, error)) {
+          continue;
+        }
         console.error(`Failed to delete ${table.tableName}:`, error.message);
       }
     }
@@ -471,6 +519,11 @@ function mapRecordFromSupabase(table: string, row: any): any {
     if ("is_completed" in record) record.is_completed = record.is_completed ? 1 : 0;
     if ("reminder_enabled" in record) record.reminder_enabled = record.reminder_enabled ? 1 : 0;
   }
+  if (table === "wallet_goals_shared") {
+    record.created_at = record.created_at ?? record.shared_at ?? Date.now();
+    record.updated_at = record.updated_at ?? record.created_at;
+    record.permission_level = record.permission_level ?? "read_write";
+  }
 
   return record;
 }
@@ -486,13 +539,21 @@ async function pullChanges() {
   let maxUpdatedAt = lastSync;
 
   for (const table of SYNC_TABLES) {
+    if (unsupportedRemoteTables.has(table.tableName)) {
+      continue;
+    }
+
     try {
+      const remoteUpdatedAtColumn = table.remoteUpdatedAtColumn ?? "updated_at";
       const { data, error } = await supabase
         .from(table.tableName)
         .select("*")
-        .gt("updated_at", lastSync); // Ambil yang berubah sejak sync terakhir
+        .gt(remoteUpdatedAtColumn, lastSync); // Ambil yang berubah sejak sync terakhir
 
       if (error) {
+        if (shouldSkipRemoteTable(table, error)) {
+          continue;
+        }
         console.error(`Failed to pull ${table.tableName}:`, error);
         continue;
       }
@@ -554,8 +615,9 @@ async function pullChanges() {
           );
 
           // Track max updated_at
-          if (row.updated_at && row.updated_at > maxUpdatedAt) {
-            maxUpdatedAt = row.updated_at;
+          const syncMarker = row.updated_at ?? row[remoteUpdatedAtColumn] ?? row.created_at;
+          if (syncMarker && syncMarker > maxUpdatedAt) {
+            maxUpdatedAt = syncMarker;
           }
         }
       });
@@ -574,32 +636,40 @@ async function pullChanges() {
  * Fungsi utama Sync
  */
 export async function syncDatabase() {
-  try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) return; // Tidak bisa sync jika belum login
-
-    console.log("Starting sync...");
-
-    // Push first to ensure our local changes are on server
-    try {
-      await pushChanges();
-    } catch (e) {
-      console.error("Push changes failed:", e);
-    }
-
-    // Then pull to get latest updates
-    try {
-      await pullChanges();
-    } catch (e) {
-      console.error("Pull changes failed:", e);
-    }
-
-    console.log("Sync completed.");
-  } catch (e) {
-    console.error("Sync failed:", e);
+  if (activeSyncPromise) {
+    return activeSyncPromise;
   }
+
+  activeSyncPromise = runSerializedSyncTask(async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+
+      console.log("Starting sync...");
+
+      try {
+        await pushChanges();
+      } catch (e) {
+        console.error("Push changes failed:", e);
+      }
+
+      try {
+        await pullChanges();
+      } catch (e) {
+        console.error("Pull changes failed:", e);
+      }
+
+      console.log("Sync completed.");
+    } catch (e) {
+      console.error("Sync failed:", e);
+    } finally {
+      activeSyncPromise = null;
+    }
+  });
+
+  return activeSyncPromise;
 }
 
 /**

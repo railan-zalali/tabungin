@@ -11,7 +11,6 @@ import {
   StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +21,9 @@ import { formatCurrency } from '../../utils/currency';
 import { EmptyState } from '../../components/common/EmptyState';
 import type { Wallet } from '../../database/walletQueries';
 import { useTheme } from '../../store/useThemeStore';
+import { useProfileStore } from '../../store/useProfileStore';
+import { ContextBadge } from '../../components/common/ContextBadge';
+import type { WalletFlowNavigationProp } from '../../types/navigation';
 
 function resolveWalletIcon(type?: string) {
   if (type === 'bank') return 'bank-outline';
@@ -31,11 +33,12 @@ function resolveWalletIcon(type?: string) {
 }
 
 export function WalletListScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  const navigation = useNavigation<WalletFlowNavigationProp>();
   const insets = useSafeAreaInsets();
   const { wallets, loadWallets, removeWallet, isLoading, error } = useWalletStore();
   const { colors, mode, gradients } = useTheme();
   const styles = React.useMemo(() => getStyles(colors), [colors]);
+  const activeProfileId = useProfileStore((state) => state.activeProfileId);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -70,10 +73,12 @@ export function WalletListScreen() {
   };
 
   const totalBalance = wallets.reduce((sum, wallet) => sum + (wallet.balance || 0), 0);
+  const sharedWalletCount = wallets.filter((wallet) => wallet.profile_id && wallet.profile_id !== activeProfileId).length;
 
   const renderItem = ({ item }: { item: Wallet }) => {
     const iconName = resolveWalletIcon(item.type);
     const itemColor = item.color || colors.primary;
+    const isSharedWallet = Boolean(item.profile_id && item.profile_id !== activeProfileId);
 
     return (
       <TouchableOpacity
@@ -94,6 +99,11 @@ export function WalletListScreen() {
                 <Text style={[styles.walletType, { color: colors.textSecondary }]}>
                   {item.type ? item.type.toUpperCase() : 'GENERAL'}
                 </Text>
+                {isSharedWallet ? (
+                  <View style={styles.sharedContextWrap}>
+                    <ContextBadge icon="account-group-outline" label="Dompet Bersama" tone="info" />
+                  </View>
+                ) : null}
               </View>
             </View>
             {item.is_default && (
@@ -193,6 +203,12 @@ export function WalletListScreen() {
             <MaterialCommunityIcons name='credit-card-multiple-outline' size={14} color={colors.textInverse} />
             <Text style={styles.summaryChipText}>{wallets.length} dompet</Text>
           </View>
+          {sharedWalletCount > 0 ? (
+            <View style={styles.summaryChip}>
+              <MaterialCommunityIcons name='account-group-outline' size={14} color={colors.textInverse} />
+              <Text style={styles.summaryChipText}>{sharedWalletCount} bersama</Text>
+            </View>
+          ) : null}
           <View style={styles.summaryChip}>
             <MaterialCommunityIcons name='shield-account-outline' size={14} color={colors.textInverse} />
             <Text style={styles.summaryChipText}>Aman & sinkron</Text>
@@ -444,6 +460,9 @@ const getStyles = (colors: any) =>
       fontSize: 10,
       color: colors.textSecondary,
       letterSpacing: 0.5,
+    },
+    sharedContextWrap: {
+      marginTop: 8,
     },
     defaultBadge: {
       flexDirection: 'row',

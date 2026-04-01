@@ -1,5 +1,8 @@
 // Tipe navigasi React Navigation untuk Tabungin
-import type { NavigatorScreenParams } from '@react-navigation/native';
+import type { CompositeNavigationProp, NavigatorScreenParams } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { Wallet } from '../database/walletQueries';
 
 // Stack Navigator Root
 export type RootStackParamList = {
@@ -12,6 +15,8 @@ export type RootStackParamList = {
     Budget: undefined;
     Savings: NavigatorScreenParams<SavingStackParamList>;
 };
+
+export type WalletRouteParams = { wallet?: Wallet } | undefined;
 
 // Bottom Tab Navigator
 export type TabParamList = {
@@ -40,7 +45,7 @@ export type SavingStackParamList = {
 // Wallet Stack
 export type WalletStackParamList = {
     WalletList: undefined;
-    AddWallet: { wallet?: any } | undefined;
+    AddWallet: WalletRouteParams;
     QRScanner: undefined;
     JoinWallet: { walletId: string };
 };
@@ -53,7 +58,33 @@ export type SettingsStackParamList = {
     CategoryManagement: undefined;
     ExportData: undefined;
     WalletList: undefined;
-    AddWallet: { wallet?: any } | undefined;
+    AddWallet: WalletRouteParams;
     QRScanner: undefined;
     JoinWallet: { walletId: string };
 };
+
+export type DashboardNavigationProp = CompositeNavigationProp<
+    BottomTabNavigationProp<TabParamList, 'Dashboard'>,
+    NativeStackNavigationProp<RootStackParamList>
+>;
+
+export type SettingsNavigationProp = CompositeNavigationProp<
+    NativeStackNavigationProp<SettingsStackParamList, 'SettingsMain'>,
+    CompositeNavigationProp<
+        BottomTabNavigationProp<TabParamList, 'Settings'>,
+        NativeStackNavigationProp<RootStackParamList>
+    >
+>;
+
+export type SettingsChildNavigationProp<Screen extends keyof SettingsStackParamList> = CompositeNavigationProp<
+    NativeStackNavigationProp<SettingsStackParamList, Screen>,
+    CompositeNavigationProp<
+        BottomTabNavigationProp<TabParamList, 'Settings'>,
+        NativeStackNavigationProp<RootStackParamList>
+    >
+>;
+
+export type WalletFlowNavigationProp = CompositeNavigationProp<
+    NativeStackNavigationProp<WalletStackParamList, 'WalletList'>,
+    NativeStackNavigationProp<SettingsStackParamList>
+>;

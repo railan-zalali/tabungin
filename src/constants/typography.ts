@@ -1,5 +1,6 @@
 // Sistem tipografi Tabungin
 import { StyleSheet } from 'react-native';
+import type { TextSize } from '../store/useThemeStore';
 
 export const FontFamily = {
     heading: 'PlusJakartaSans_700Bold',
@@ -94,3 +95,21 @@ export const Typography = StyleSheet.create({
         letterSpacing: LetterSpacing.wide,
     },
 });
+
+const TEXT_SCALE_MAP: Record<TextSize, number> = {
+    normal: 1,
+    large: 1.08,
+    xlarge: 1.16,
+};
+
+export function getTextScale(textSize: TextSize = 'normal'): number {
+    return TEXT_SCALE_MAP[textSize] ?? 1;
+}
+
+export function scaleFontSize(size: number, textSize: TextSize = 'normal'): number {
+    return Math.round(size * getTextScale(textSize));
+}
+
+export function scaleLineHeight(lineHeight: number, textSize: TextSize = 'normal'): number {
+    return Math.round(lineHeight * getTextScale(textSize));
+}
