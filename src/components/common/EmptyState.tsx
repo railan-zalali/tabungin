@@ -15,6 +15,10 @@ interface EmptyStateProps {
     actionLabel?: string;
     onAction?: () => void;
     style?: ViewStyle;
+    tone?: 'default' | 'success' | 'warning' | 'danger' | 'info';
+    illustrationVariant?: 'soft' | 'ring';
+    compact?: boolean;
+    actionVariant?: 'primary' | 'secondary' | 'outline';
 }
 
 export function EmptyState({
@@ -25,22 +29,46 @@ export function EmptyState({
     actionLabel,
     onAction,
     style,
+    tone = 'default',
+    illustrationVariant = 'soft',
+    compact = false,
+    actionVariant = 'primary',
 }: EmptyStateProps) {
     const { colors, textSize } = useTheme();
     const styles = React.useMemo(() => getStyles(colors, textSize), [colors, textSize]);
+    const toneMap = {
+        default: { accent: colors.primary, bg: colors.panelSurface },
+        success: { accent: colors.success, bg: colors.successSurface },
+        warning: { accent: colors.warning, bg: colors.warningSurface },
+        danger: { accent: colors.danger, bg: colors.dangerSurface },
+        info: { accent: colors.info, bg: colors.infoBg },
+    };
+    const palette = toneMap[tone];
     return (
         <View
-            style={[styles.container, style]}
+            style={[
+                styles.container,
+                compact && styles.compact,
+                illustrationVariant === 'ring' && styles.containerRing,
+                { backgroundColor: palette.bg },
+                style,
+            ]}
             accessible={true}
             accessibilityLabel={`${title}${description || message ? '. ' + (description || message) : ''}`}
         >
             <View style={styles.illustrationShell}>
-                <View style={styles.illustrationHalo} />
-                <View style={styles.iconContainer}>
+                <View style={[styles.illustrationHalo, { backgroundColor: `${palette.accent}12` }]} />
+                <View
+                    style={[
+                        styles.iconContainer,
+                        illustrationVariant === 'ring' ? styles.iconContainerRing : null,
+                        { borderColor: `${palette.accent}24` },
+                    ]}
+                >
                     <MaterialCommunityIcons
                         name={icon as any}
                         size={56}
-                        color={colors.primary}
+                        color={palette.accent}
                         accessibilityElementsHidden={true}
                     />
                 </View>
@@ -57,7 +85,7 @@ export function EmptyState({
                 <Button
                     label={actionLabel}
                     onPress={onAction}
-                    variant="primary"
+                    variant={actionVariant}
                     size="md"
                     emphasis="medium"
                     style={styles.button}
@@ -84,6 +112,12 @@ const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize'
         shadowRadius: 18,
         elevation: 4,
     },
+    compact: {
+        paddingVertical: 24,
+    },
+    containerRing: {
+        borderStyle: 'dashed',
+    },
     illustrationShell: {
         width: 120,
         height: 120,
@@ -107,6 +141,9 @@ const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize'
         justifyContent: 'center',
         borderWidth: 1,
         borderColor: colors.border,
+    },
+    iconContainerRing: {
+        backgroundColor: 'transparent',
     },
     title: {
         fontFamily: FontFamily.headingMedium,

@@ -1,22 +1,13 @@
-// Onboarding Screen — 3 slide dengan animasi dan dot indicator
 import React, { useRef, useState } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    Dimensions,
-    TouchableOpacity,
-    FlatList,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, {
-    FadeIn,
-} from 'react-native-reanimated';
+import { Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
-import { FontFamily, FontSize } from '../../constants/typography';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { BorderRadius } from '../../constants/theme';
+import { FontFamily, FontSize, Typography } from '../../constants/typography';
+import { ScreenShell } from '../../components/common/ScreenShell';
 import { Button } from '../../components/common/Button';
 import { useTheme } from '../../store/useThemeStore';
 import type { RootStackParamList } from '../../types/navigation';
@@ -26,74 +17,85 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 interface Slide {
     id: string;
     icon: string;
-    iconColor: string;
     title: string;
     description: string;
-    bgColor: string;
+    accent: 'primary' | 'warning' | 'info';
 }
 
 const SLIDES: Slide[] = [
     {
-        id: '1',
-        icon: 'wallet',
-        iconColor: Colors.primary,
-        title: 'Catat Keuangan Harianmu',
-        description: 'Catat pemasukan & pengeluaranmu dengan mudah. Kelola setiap rupiah jadi lebih berarti.',
-        bgColor: Colors.primaryLight,
+        id: 'capture',
+        icon: 'wallet-outline',
+        title: 'Catat arus uang tanpa ribet',
+        description: 'Pemasukan, pengeluaran, dan dompet aktif tampil lebih jelas supaya kamu cepat paham kondisi hari ini.',
+        accent: 'primary',
     },
     {
-        id: '2',
-        icon: 'piggy-bank',
-        iconColor: Colors.secondary,
-        title: 'Wujudkan Impianmu',
-        description: 'Buat target tabungan untuk barang impianmu. Pantau progres dan capai tujuanmu lebih cepat!',
-        bgColor: Colors.secondaryLight,
+        id: 'goals',
+        icon: 'bullseye-arrow',
+        title: 'Dorong target pribadi dan bersama',
+        description: 'Tabungan, progress, dan konteks shared wallet terasa rapi sehingga tujuan lebih mudah dipantau.',
+        accent: 'warning',
     },
     {
-        id: '3',
-        icon: 'chart-donut',
-        iconColor: Colors.info,
-        title: 'Laporan Visual Lengkap',
-        description: 'Lihat laporan keuangan secara visual. Pahami kebiasaan belanjamu dan buat keputusan lebih smart.',
-        bgColor: Colors.infoLight,
+        id: 'insight',
+        icon: 'chart-box-outline',
+        title: 'Baca insight yang benar-benar berguna',
+        description: 'Snapshot, tren, dan insight keuangan membantu kamu ambil keputusan tanpa tenggelam di angka.',
+        accent: 'info',
     },
 ];
 
+function resolveSlidePalette(colors: ReturnType<typeof useTheme>['colors'], accent: Slide['accent']) {
+    switch (accent) {
+        case 'warning':
+            return { bg: colors.warningSurface, ring: colors.warningBg, text: colors.warning };
+        case 'info':
+            return { bg: colors.infoBg, ring: colors.infoLight, text: colors.info };
+        case 'primary':
+        default:
+            return { bg: colors.primaryBg, ring: colors.primaryLight, text: colors.primary };
+    }
+}
+
 export function OnboardingScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+    const flatListRef = useRef<FlatList<Slide>>(null);
     const [currentIndex, setCurrentIndex] = useState(0);
-    const flatListRef = useRef<FlatList>(null);
     const { colors, gradients } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
 
     const handleNext = () => {
         if (currentIndex < SLIDES.length - 1) {
-            flatListRef.current?.scrollToIndex({ index: currentIndex + 1 });
-            setCurrentIndex((prev) => prev + 1);
-        } else {
-            navigation.navigate('Login');
+            flatListRef.current?.scrollToIndex({ index: currentIndex + 1, animated: true });
+            return;
         }
+        navigation.navigate('Login');
     };
 
-    const handleSkip = () => navigation.navigate('Login');
-
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.bgAuraTop} pointerEvents="none" />
-            <View style={styles.bgAuraBottom} pointerEvents="none" />
-            {/* Tombol skip */}
-            <TouchableOpacity
-                style={styles.skipBtn}
-                onPress={handleSkip}
-                accessible={true}
-                accessibilityRole="button"
-                accessibilityLabel="Lewati onboarding"
-                accessibilityHint="Ketuk dua kali untuk langsung masuk ke halaman login"
-            >
-                <Text style={styles.skipText} allowFontScaling={true}>Lewati</Text>
-            </TouchableOpacity>
+        <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
+            <View style={styles.topBar}>
+                <View style={styles.brandWrap}>
+                    <LinearGradient colors={gradients.hero as unknown as [string, string, ...string[]]} style={styles.brandIcon}>
+                        <MaterialCommunityIcons name="piggy-bank-outline" size={28} color={colors.textInverse} />
+                    </LinearGradient>
+                    <View>
+                        <Text style={styles.brandTitle}>Tabungin</Text>
+                        <Text style={styles.brandSubtitle}>Rapi, tenang, dan selalu kontekstual.</Text>
+                    </View>
+                </View>
 
-            {/* Slides */}
+                <TouchableOpacity style={styles.skipBtn} onPress={() => navigation.navigate('Login')}>
+                    <Text style={styles.skipText}>Lewati</Text>
+                </TouchableOpacity>
+            </View>
+
+            <View style={styles.heroIntro}>
+                <Text style={styles.eyebrow}>Mission Control Keuangan Harian</Text>
+                <Text style={styles.heroTitle}>Biar setiap rupiah terasa jelas, bukan sekadar tercatat.</Text>
+            </View>
+
             <FlatList
                 ref={flatListRef}
                 data={SLIDES}
@@ -101,192 +103,197 @@ export function OnboardingScreen() {
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
-                scrollEnabled={true}
-                onMomentumScrollEnd={(e) => {
-                    const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-                    setCurrentIndex(idx);
+                contentContainerStyle={styles.slider}
+                onMomentumScrollEnd={(event) => {
+                    const index = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+                    setCurrentIndex(index);
                 }}
-                renderItem={({ item }) => (
-                    <Animated.View entering={FadeIn.duration(350)} style={[styles.slide, { width: SCREEN_WIDTH }]}>
-                        <View style={[styles.illustrationContainer, { backgroundColor: item.bgColor }]}>
-                            <MaterialCommunityIcons
-                                name={item.icon as any}
-                                size={100}
-                                color={item.iconColor}
-                                accessibilityElementsHidden={true}
-                            />
-                        </View>
-                        <View style={styles.storyCard}>
-                            <Text style={styles.title} allowFontScaling={true}>{item.title}</Text>
-                            <Text style={styles.description} allowFontScaling={true}>{item.description}</Text>
-                        </View>
-                    </Animated.View>
-                )}
+                renderItem={({ item, index }) => {
+                    const palette = resolveSlidePalette(colors, item.accent);
+                    return (
+                        <Animated.View entering={FadeInDown.delay(index * 80).springify()} style={[styles.slide, { width: SCREEN_WIDTH }]}>
+                            <View style={[styles.slideCard, { backgroundColor: colors.panelSurface }]}>
+                                <View style={[styles.iconStage, { backgroundColor: palette.bg }]}>
+                                    <View style={[styles.iconRing, { backgroundColor: palette.ring }]} />
+                                    <MaterialCommunityIcons name={item.icon as any} size={84} color={palette.text} />
+                                </View>
+
+                                <View style={styles.slideCopy}>
+                                    <Text style={styles.slideTitle}>{item.title}</Text>
+                                    <Text style={styles.slideDescription}>{item.description}</Text>
+                                </View>
+                            </View>
+                        </Animated.View>
+                    );
+                }}
             />
 
-            {/* Dot indicator */}
-            <View style={styles.dotsContainer} accessibilityLabel={`Slide ${currentIndex + 1} dari ${SLIDES.length}`}>
-                {SLIDES.map((_, i) => (
-                    <View
-                        key={i}
-                        style={[
-                            styles.dot,
-                            i === currentIndex ? styles.dotActive : styles.dotInactive,
-                        ]}
-                    />
-                ))}
-            </View>
+            <View style={styles.footer}>
+                <View style={styles.progressRow} accessibilityLabel={`Slide ${currentIndex + 1} dari ${SLIDES.length}`}>
+                    {SLIDES.map((slide, index) => (
+                        <View
+                            key={slide.id}
+                            style={[styles.dot, index === currentIndex ? styles.dotActive : styles.dotInactive]}
+                        />
+                    ))}
+                </View>
 
-            {/* Tombol CTA */}
-            <TouchableOpacity
-                style={styles.cta}
-                onPress={handleNext}
-                accessible={true}
-                accessibilityRole="button"
-                accessibilityLabel={currentIndex === SLIDES.length - 1 ? 'Mulai sekarang' : 'Selanjutnya'}
-            >
-                <Text style={styles.ctaText} allowFontScaling={true}>
-                    {currentIndex === SLIDES.length - 1 ? 'Mulai Sekarang 🚀' : 'Selanjutnya'}
-                </Text>
-                <MaterialCommunityIcons
-                    name="arrow-right"
-                    size={20}
-                    color={colors.textInverse}
-                    accessibilityElementsHidden={true}
+                <Button
+                    label={currentIndex === SLIDES.length - 1 ? 'Masuk ke Tabungin' : 'Lanjut'}
+                    onPress={handleNext}
+                    variant="primary"
+                    size="lg"
+                    fullWidth
                 />
-            </TouchableOpacity>
-        </SafeAreaView>
+
+                <TouchableOpacity style={styles.secondaryCta} onPress={() => navigation.navigate('Register')}>
+                    <Text style={styles.secondaryCtaText}>Belum punya akun? Buat akun baru</Text>
+                </TouchableOpacity>
+            </View>
+        </ScreenShell>
     );
 }
 
-const getStyles = (colors: any) =>
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     StyleSheet.create({
-        container: { flex: 1, backgroundColor: colors.background },
-        bgAuraTop: {
-            position: 'absolute',
-            top: -100,
-            right: -40,
-            width: 260,
-            height: 260,
-            borderRadius: 9999,
-            backgroundColor: colors.primaryLight,
-            opacity: 0.72,
+        topBar: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingHorizontal: 20,
+            paddingTop: 56,
+            paddingBottom: 12,
+            gap: 12,
         },
-        bgAuraBottom: {
-            position: 'absolute',
-            bottom: 40,
-            left: -80,
-            width: 220,
-            height: 220,
-            borderRadius: 9999,
-            backgroundColor: colors.infoBg,
-            opacity: 0.36,
+        brandWrap: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            flex: 1,
+        },
+        brandIcon: {
+            width: 48,
+            height: 48,
+            borderRadius: BorderRadius.xl,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        brandTitle: {
+            ...Typography.h4,
+            color: colors.textPrimary,
+        },
+        brandSubtitle: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+            marginTop: 2,
         },
         skipBtn: {
-            position: 'absolute',
-            top: 56,
-            right: 20,
-            zIndex: 10,
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-            minHeight: 48,
+            minHeight: 44,
+            paddingHorizontal: 14,
+            borderRadius: BorderRadius.full,
+            alignItems: 'center',
             justifyContent: 'center',
-            borderRadius: 9999,
-            backgroundColor: colors.surfaceElevated,
+            backgroundColor: colors.panelSurface,
             borderWidth: 1,
             borderColor: colors.border,
-            shadowColor: colors.shadowColor,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.06,
-            shadowRadius: 10,
-            elevation: 2,
         },
         skipText: {
-            fontFamily: FontFamily.bodyMedium,
-            fontSize: FontSize.body,
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.caption,
             color: colors.textSecondary,
         },
-        slide: {
-            flex: 1,
-            alignItems: 'center',
-            justifyContent: 'center',
-            paddingHorizontal: 28,
-            paddingTop: 90,
-            gap: 24,
+        heroIntro: {
+            paddingHorizontal: 20,
+            paddingTop: 8,
+            gap: 8,
         },
-        illustrationContainer: {
-            width: 204,
-            height: 204,
-            borderRadius: 9999,
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: 8,
+        eyebrow: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.caption,
+            color: colors.primary,
+            textTransform: 'uppercase',
+            letterSpacing: 0.4,
+        },
+        heroTitle: {
+            ...Typography.h1,
+            color: colors.textPrimary,
+        },
+        slider: {
+            paddingTop: 22,
+        },
+        slide: {
+            paddingHorizontal: 20,
+        },
+        slideCard: {
+            borderRadius: BorderRadius['5xl'],
+            padding: 24,
             borderWidth: 1,
             borderColor: colors.border,
-            backgroundColor: colors.surfaceElevated,
             shadowColor: colors.shadowColor,
             shadowOffset: { width: 0, height: 12 },
             shadowOpacity: 0.08,
-            shadowRadius: 20,
-            elevation: 4,
+            shadowRadius: 22,
+            elevation: 5,
+            gap: 22,
         },
-        storyCard: {
-            width: '100%',
-            padding: 20,
-            borderRadius: 28,
-            backgroundColor: colors.surfaceElevated,
-            borderWidth: 1,
-            borderColor: colors.border,
-            shadowColor: colors.shadowColor,
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.08,
-            shadowRadius: 16,
-            elevation: 3,
+        iconStage: {
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 260,
+            borderRadius: BorderRadius['4xl'],
+            overflow: 'hidden',
         },
-        title: {
-            fontFamily: FontFamily.heading,
-            fontSize: FontSize.h2,
+        iconRing: {
+            position: 'absolute',
+            width: 188,
+            height: 188,
+            borderRadius: BorderRadius.full,
+        },
+        slideCopy: {
+            gap: 10,
+        },
+        slideTitle: {
+            ...Typography.h2,
             color: colors.textPrimary,
-            textAlign: 'center',
-            lineHeight: 32,
         },
-        description: {
+        slideDescription: {
             fontFamily: FontFamily.body,
             fontSize: FontSize.body,
+            lineHeight: 22,
             color: colors.textSecondary,
-            textAlign: 'center',
-            lineHeight: 24,
-            marginTop: 8,
         },
-        dotsContainer: {
+        footer: {
+            paddingHorizontal: 20,
+            paddingTop: 20,
+            paddingBottom: 28,
+            gap: 16,
+        },
+        progressRow: {
             flexDirection: 'row',
             justifyContent: 'center',
             gap: 8,
-            paddingBottom: 20,
         },
-        dot: { borderRadius: 99, height: 8 },
-        dotActive: { width: 24, backgroundColor: colors.primary },
-        dotInactive: { width: 8, backgroundColor: colors.border },
-        cta: {
-            flexDirection: 'row',
+        dot: {
+            height: 8,
+            borderRadius: BorderRadius.full,
+        },
+        dotActive: {
+            width: 24,
+            backgroundColor: colors.primary,
+        },
+        dotInactive: {
+            width: 8,
+            backgroundColor: colors.border,
+        },
+        secondaryCta: {
             alignItems: 'center',
             justifyContent: 'center',
-            gap: 10,
-            backgroundColor: colors.primary,
-            marginHorizontal: 24,
-            marginBottom: 32,
-            paddingVertical: 18,
-            borderRadius: 20,
-            minHeight: 60,
-            shadowColor: colors.shadowColor,
-            shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: 0.16,
-            shadowRadius: 20,
-            elevation: 5,
+            paddingVertical: 6,
         },
-        ctaText: {
-            fontFamily: FontFamily.bodyBold,
-            fontSize: FontSize.h4,
-            color: colors.textInverse,
+        secondaryCtaText: {
+            fontFamily: FontFamily.bodyMedium,
+            fontSize: FontSize.body,
+            color: colors.textSecondary,
         },
     });

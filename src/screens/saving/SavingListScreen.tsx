@@ -1,39 +1,31 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { FontFamily, FontSize, Typography, scaleFontSize } from '../../constants/typography';
 import { BorderRadius } from '../../constants/theme';
-import { useSavingStore } from '../../store/useSavingStore';
-import { SavingGoalCard } from '../../components/saving/SavingGoalCard';
-import { SavingGoalCardSkeleton } from '../../components/common/SkeletonLoader';
-import { EmptyState } from '../../components/common/EmptyState';
 import { formatCurrency } from '../../utils/currency';
+import { getGoalComputedMeta } from '../../utils/goalSharing';
+import { useProfileStore } from '../../store/useProfileStore';
+import { useSavingStore } from '../../store/useSavingStore';
 import { useTheme } from '../../store/useThemeStore';
 import { useWalletStore } from '../../store/useWalletStore';
-import { useProfileStore } from '../../store/useProfileStore';
-import { getGoalComputedMeta } from '../../utils/goalSharing';
+import { AppScreenHeader } from '../../components/common/AppScreenHeader';
+import { ContextBadge } from '../../components/common/ContextBadge';
+import { EmptyState } from '../../components/common/EmptyState';
+import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { SectionHeader } from '../../components/common/SectionHeader';
 import { SegmentedControl } from '../../components/common/SegmentedControl';
-import { ContextBadge } from '../../components/common/ContextBadge';
+import { SavingGoalCard } from '../../components/saving/SavingGoalCard';
+import { SavingGoalCardSkeleton } from '../../components/common/SkeletonLoader';
 
 type FilterTab = 'all' | 'personal' | 'shared' | 'completed';
 
 export function SavingListScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<any>>();
-    const { colors, textSize } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors, textSize), [colors, textSize]);
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
     const { goals, isLoading, loadGoals } = useSavingStore();
     const { wallets, loadWallets } = useWalletStore();
     const activeProfileId = useProfileStore((state) => state.activeProfileId);
@@ -47,8 +39,11 @@ export function SavingListScreen() {
 
     const onRefresh = async () => {
         setRefreshing(true);
-        await Promise.all([loadGoals(), loadWallets()]);
-        setRefreshing(false);
+        try {
+            await Promise.all([loadGoals(), loadWallets()]);
+        } finally {
+            setRefreshing(false);
+        }
     };
 
     const goalsWithMeta = useMemo(
@@ -61,7 +56,7 @@ export function SavingListScreen() {
                     meta: getGoalComputedMeta(goal, wallet, activeProfileId),
                 };
             }),
-        [activeProfileId, goals, wallets]
+        [activeProfileId, goals, wallets],
     );
 
     const filteredGoals = useMemo(() => {
@@ -85,82 +80,73 @@ export function SavingListScreen() {
     const totalSaved = goals.reduce((sum, goal) => sum + goal.current_amount, 0);
     const totalTarget = goals.reduce((sum, goal) => sum + goal.target_amount, 0);
 
-    const tabFilters: { id: FilterTab; label: string }[] = [
-        { id: 'all', label: `Semua (${goals.length})` },
-        { id: 'personal', label: `Pribadi (${personalGoalsCount})` },
-        { id: 'shared', label: `Bersama (${sharedGoalsCount})` },
-        { id: 'completed', label: `Selesai (${completedGoalsCount})` },
-    ];
-
     return (
-        <ScreenShell>
-            <View style={styles.header}>
-                <TouchableOpacity
-                    onPress={() => navigation.goBack()}
-                    style={styles.backBtn}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                    <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
-                </TouchableOpacity>
-                <View style={styles.headerCenter}>
-                    <Text style={styles.headerTitle}>Target Tabungan</Text>
-                    <Text style={styles.headerSubtitle}>Pisahkan target personal, dompet bersama, dan hasil share.</Text>
-                </View>
-                <TouchableOpacity style={styles.addBtn} onPress={() => navigation.navigate('AddSavingGoal')}>
-                    <MaterialCommunityIcons name="plus" size={22} color={colors.textInverse} />
-                </TouchableOpacity>
-            </View>
+        <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
+            <AppScreenHeader
+                title="Target tabungan"
+                subtitle="Pisahkan konteks personal, shared wallet, dan target yang sudah selesai."
+                showBack
+                onBackPress={() => navigation.goBack()}
+                rightAction={{
+                    icon: 'plus',
+                    label: 'Buat target',
+                    onPress: () => navigation.navigate('AddSavingGoal'),
+                }}
+                variant="transparent"
+            />
 
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.content}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
             >
-                <Animated.View entering={FadeInDown.delay(80).springify()}>
-                    <LinearGradient colors={[colors.primary, colors.primaryDark, colors.primary]} style={styles.summaryCard}>
-                        <View style={styles.summaryGlowTop} />
-                        <View style={styles.summaryGlowBottom} />
-
-                        <View style={styles.summaryHeaderRow}>
-                            <View style={styles.summaryCopy}>
-                                <Text style={styles.summaryLabel}>Total Terkumpul</Text>
-                                <Text style={styles.summaryAmount}>{formatCurrency(totalSaved)}</Text>
-                                <Text style={styles.summarySubtext}>Dari target {formatCurrency(totalTarget)}</Text>
-                            </View>
-                            <View style={styles.summaryIcon}>
-                                <MaterialCommunityIcons name="piggy-bank-outline" size={30} color={colors.textInverse} />
-                            </View>
-                        </View>
-
-                        <View style={styles.badgeRow}>
-                            <ContextBadge icon="bullseye-arrow" label={`${activeGoalsCount} aktif`} inverse />
-                            <ContextBadge icon="account-outline" label={`${personalGoalsCount} pribadi`} inverse />
-                            <ContextBadge icon="account-group-outline" label={`${sharedGoalsCount} bersama`} inverse />
-                        </View>
-                    </LinearGradient>
-                </Animated.View>
-
-                <Animated.View entering={FadeInDown.delay(140).springify()} style={styles.filterBlock}>
-                    <SectionHeader
-                        title="Fokus Tampilan"
-                        subtitle="Pilih konteks yang ingin kamu pantau sekarang."
+                <Animated.View entering={FadeInDown.delay(60).springify()}>
+                    <HeroSummaryCard
+                        eyebrow="Ringkasan Progres"
+                        title="Total dana yang sudah terkumpul"
+                        value={formatCurrency(totalSaved)}
+                        description={`Dari target ${formatCurrency(totalTarget)} di semua goal yang kamu pantau.`}
+                        icon="piggy-bank-outline"
+                        badges={
+                            <>
+                                <ContextBadge icon="bullseye-arrow" label={`${activeGoalsCount} aktif`} inverse />
+                                <ContextBadge icon="account-outline" label={`${personalGoalsCount} pribadi`} inverse />
+                                <ContextBadge icon="account-group-outline" label={`${sharedGoalsCount} bersama`} inverse />
+                            </>
+                        }
                     />
-                    <SegmentedControl value={filterTab} options={tabFilters} onChange={setFilterTab} />
                 </Animated.View>
 
-                <View style={styles.legendRow}>
-                    <ContextBadge icon="account-outline" label="Pribadi" tone="primary" />
-                    <ContextBadge icon="account-group-outline" label="Dompet Bersama" tone="info" />
-                    <ContextBadge icon="check-circle-outline" label="Selesai" tone="success" />
-                </View>
+                <Animated.View entering={FadeInDown.delay(120).springify()} style={styles.filterBlock}>
+                    <SectionHeader
+                        title="Fokus tampilan"
+                        subtitle="Pilih dulu konteks yang ingin kamu evaluasi sekarang."
+                    />
+                    <SegmentedControl
+                        value={filterTab}
+                        onChange={setFilterTab}
+                        scrollable
+                        options={[
+                            { id: 'all', label: 'Semua', count: goals.length },
+                            { id: 'personal', label: 'Pribadi', count: personalGoalsCount },
+                            { id: 'shared', label: 'Bersama', count: sharedGoalsCount },
+                            { id: 'completed', label: 'Selesai', count: completedGoalsCount },
+                        ]}
+                    />
+                    <View style={styles.legendRow}>
+                        <ContextBadge icon="account-outline" label="Pribadi" tone="primary" />
+                        <ContextBadge icon="account-group-outline" label="Dompet bersama" tone="info" />
+                        <ContextBadge icon="check-circle-outline" label="Selesai" tone="success" />
+                    </View>
+                </Animated.View>
 
                 {isLoading && !refreshing ? (
-                    <View style={styles.listContainer}>
+                    <View style={styles.listWrap}>
                         <SavingGoalCardSkeleton />
                         <SavingGoalCardSkeleton />
                     </View>
                 ) : filteredGoals.length === 0 ? (
-                    <Animated.View entering={FadeInUp.delay(180).springify()} style={styles.emptyContainer}>
+                    <Animated.View entering={FadeInUp.delay(180).springify()} style={styles.emptyWrap}>
                         <EmptyState
                             icon={filterTab === 'completed' ? 'check-circle-outline' : 'piggy-bank-outline'}
                             title={
@@ -172,22 +158,22 @@ export function SavingListScreen() {
                                             ? 'Belum ada target personal'
                                             : 'Belum ada target'
                             }
-                            message={
+                            description={
                                 filterTab === 'shared'
-                                    ? 'Target dari dompet bersama atau hasil share akan tampil di sini.'
-                                    : 'Buat target baru atau kaitkan ke dompet yang tepat agar progresnya lebih mudah dipantau.'
+                                    ? 'Target dari dompet bersama akan muncul di sini dengan konteks ownership yang lebih jelas.'
+                                    : 'Buat satu target utama dulu supaya progres dan simulasi tabungan mulai terasa berguna.'
                             }
-                            actionLabel={filterTab === 'completed' ? undefined : 'Buat Target'}
+                            actionLabel={filterTab === 'completed' ? undefined : 'Buat target'}
                             onAction={filterTab === 'completed' ? undefined : () => navigation.navigate('AddSavingGoal')}
                         />
                     </Animated.View>
                 ) : (
-                    <View style={styles.listContainer}>
+                    <View style={styles.listWrap}>
                         {filteredGoals.map(({ goal }, index) => (
                             <SavingGoalCard
                                 key={goal.id}
                                 goal={goal}
-                                animationDelay={index * 90}
+                                animationDelay={index * 80}
                                 onPress={() => navigation.navigate('SavingDetail', { goalId: goal.id })}
                                 onAddSaving={() => navigation.navigate('SavingDetail', { goalId: goal.id })}
                             />
@@ -199,143 +185,30 @@ export function SavingListScreen() {
     );
 }
 
-const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize']) =>
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     StyleSheet.create({
-        header: {
-            flexDirection: 'row',
-            alignItems: 'center',
+        content: {
             paddingHorizontal: 20,
-            paddingVertical: 12,
-            gap: 12,
-        },
-        backBtn: {
-            width: 44,
-            height: 44,
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: BorderRadius.xl,
-            backgroundColor: colors.surfaceElevated,
-            borderWidth: 1,
-            borderColor: colors.border,
-            shadowColor: colors.shadowColor,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.06,
-            shadowRadius: 10,
-            elevation: 2,
-        },
-        headerCenter: { flex: 1 },
-        headerTitle: { ...Typography.h2, fontSize: scaleFontSize(FontSize.h2, textSize), color: colors.textPrimary },
-        headerSubtitle: {
-            fontFamily: FontFamily.body,
-            fontSize: scaleFontSize(FontSize.caption, textSize),
-            color: colors.textSecondary,
-            marginTop: 2,
-        },
-        addBtn: {
-            width: 44,
-            height: 44,
-            borderRadius: BorderRadius.xl,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: colors.primary,
-            shadowColor: colors.shadowColor,
-            shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: 0.16,
-            shadowRadius: 18,
-            elevation: 5,
-        },
-        content: { paddingBottom: 108, gap: 18 },
-        summaryCard: {
-            marginHorizontal: 20,
-            borderRadius: BorderRadius['5xl'],
-            padding: 22,
-            overflow: 'hidden',
-            gap: 14,
-            borderWidth: 1,
-            borderColor: `${colors.textInverse}29`,
-            shadowColor: colors.shadowColor,
-            shadowOffset: { width: 0, height: 14 },
-            shadowOpacity: 0.12,
-            shadowRadius: 24,
-            elevation: 6,
-        },
-        summaryGlowTop: {
-            position: 'absolute',
-            width: 170,
-            height: 170,
-            borderRadius: BorderRadius.full,
-            top: -52,
-            right: -30,
-            backgroundColor: `${colors.textInverse}1F`,
-        },
-        summaryGlowBottom: {
-            position: 'absolute',
-            width: 120,
-            height: 120,
-            borderRadius: BorderRadius.full,
-            bottom: -48,
-            left: -24,
-            backgroundColor: `${colors.textInverse}14`,
-        },
-        summaryHeaderRow: {
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 14,
-        },
-        summaryCopy: { flex: 1 },
-        summaryLabel: {
-            fontFamily: FontFamily.bodyMedium,
-            fontSize: scaleFontSize(FontSize.caption, textSize),
-            color: colors.textInverse,
-            marginBottom: 4,
-        },
-        summaryAmount: {
-            fontFamily: FontFamily.heading,
-            fontSize: scaleFontSize(30, textSize),
-            color: colors.textInverse,
-        },
-        summarySubtext: {
-            fontFamily: FontFamily.body,
-            fontSize: scaleFontSize(FontSize.caption, textSize),
-            color: 'rgba(255,255,255,0.82)',
-            marginTop: 6,
-        },
-        summaryIcon: {
-            width: 56,
-            height: 56,
-            borderRadius: BorderRadius['2xl'],
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: colors.primaryBg,
-            borderWidth: 1,
-            borderColor: colors.primaryLight,
-        },
-        badgeRow: {
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            gap: 10,
+            paddingBottom: 108,
+            gap: 18,
         },
         filterBlock: {
-            marginHorizontal: 20,
-            padding: 16,
-            borderRadius: BorderRadius['4xl'],
-            backgroundColor: colors.surfaceElevated,
+            gap: 14,
+            backgroundColor: colors.panelSurface,
             borderWidth: 1,
             borderColor: colors.border,
-            shadowColor: colors.shadowColor,
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.08,
-            shadowRadius: 16,
-            elevation: 3,
-            gap: 14,
+            borderRadius: BorderRadius['4xl'],
+            padding: 18,
         },
         legendRow: {
-            paddingHorizontal: 20,
             flexDirection: 'row',
             flexWrap: 'wrap',
-            gap: 10,
+            gap: 8,
         },
-        listContainer: { paddingHorizontal: 20, gap: 16 },
-        emptyContainer: { paddingHorizontal: 20, marginTop: 12 },
+        listWrap: {
+            gap: 12,
+        },
+        emptyWrap: {
+            paddingTop: 8,
+        },
     });

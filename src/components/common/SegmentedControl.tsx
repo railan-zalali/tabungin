@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, scaleFontSize } from '../../constants/typography';
 import { useTheme } from '../../store/useThemeStore';
@@ -7,38 +7,62 @@ import { useTheme } from '../../store/useThemeStore';
 interface SegmentOption<T extends string> {
     id: T;
     label: string;
+    icon?: string;
+    count?: number | string;
 }
 
 interface SegmentedControlProps<T extends string> {
     value: T;
     options: SegmentOption<T>[];
     onChange: (value: T) => void;
+    scrollable?: boolean;
 }
 
 export function SegmentedControl<T extends string>({
     value,
     options,
     onChange,
+    scrollable = false,
 }: SegmentedControlProps<T>) {
     const { colors, textSize } = useTheme();
     const styles = React.useMemo(() => getStyles(colors, textSize), [colors, textSize]);
 
-    return (
-        <View style={styles.container}>
+    const content = (
+        <View style={[styles.container, scrollable && styles.containerScrollable]}>
             {options.map((option) => {
                 const active = option.id === value;
                 return (
                     <TouchableOpacity
                         key={option.id}
-                        style={[styles.segment, active && styles.segmentActive]}
+                        style={[styles.segment, scrollable && styles.segmentAuto, active && styles.segmentActive]}
                         onPress={() => onChange(option.id)}
                     >
-                        <Text style={[styles.segmentLabel, active && styles.segmentLabelActive]}>{option.label}</Text>
+                        <View style={styles.segmentInner}>
+                            {option.icon ? (
+                                <Text style={[styles.segmentIcon, active && styles.segmentLabelActive]}>{option.icon}</Text>
+                            ) : null}
+                            <Text style={[styles.segmentLabel, active && styles.segmentLabelActive]}>{option.label}</Text>
+                            {option.count !== undefined ? (
+                                <View style={[styles.countBadge, active && styles.countBadgeActive]}>
+                                    <Text style={[styles.countText, active && styles.countTextActive]}>{option.count}</Text>
+                                </View>
+                            ) : null}
+                        </View>
                     </TouchableOpacity>
                 );
             })}
         </View>
     );
+
+    if (scrollable) {
+        return (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollableWrap}>
+                {content}
+            </ScrollView>
+        );
+    }
+
+    return content;
 }
 
 const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: ReturnType<typeof useTheme>['textSize']) =>
@@ -52,6 +76,12 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             borderColor: colors.border,
             gap: 4,
         },
+        containerScrollable: {
+            alignSelf: 'flex-start',
+        },
+        scrollableWrap: {
+            paddingRight: 4,
+        },
         segment: {
             flex: 1,
             paddingVertical: 10,
@@ -59,8 +89,22 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             alignItems: 'center',
             borderRadius: BorderRadius.lg,
         },
+        segmentAuto: {
+            flex: 0,
+            minWidth: 96,
+        },
         segmentActive: {
             backgroundColor: colors.background,
+            borderWidth: 1,
+            borderColor: colors.focusRing,
+        },
+        segmentInner: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+        },
+        segmentIcon: {
+            fontSize: scaleFontSize(FontSize.caption, textSize),
         },
         segmentLabel: {
             fontFamily: FontFamily.bodyMedium,
@@ -71,5 +115,23 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
         segmentLabelActive: {
             color: colors.textPrimary,
             fontFamily: FontFamily.bodyBold,
+        },
+        countBadge: {
+            minWidth: 22,
+            paddingHorizontal: 6,
+            paddingVertical: 2,
+            borderRadius: BorderRadius.full,
+            backgroundColor: colors.surface,
+        },
+        countBadgeActive: {
+            backgroundColor: colors.primaryBg,
+        },
+        countText: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: scaleFontSize(FontSize.label, textSize),
+            color: colors.textSecondary,
+        },
+        countTextActive: {
+            color: colors.primary,
         },
     });

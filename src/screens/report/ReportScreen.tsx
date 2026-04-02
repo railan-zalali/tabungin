@@ -1,40 +1,36 @@
-import React, { useEffect, useState } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TouchableOpacity,
-    ActivityIndicator,
-    StatusBar,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { FontFamily, FontSize, Typography } from '../../constants/typography';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { BorderRadius } from '../../constants/theme';
-import { useTransactionStore } from '../../store/useTransactionStore';
+import { FontFamily, FontSize, Typography } from '../../constants/typography';
+import type { CategorySummary, MonthlySummary } from '../../types/transaction';
+import { formatCurrency } from '../../utils/currency';
+import { resolveCategoryByKey } from '../../utils/categoryResolver';
 import { useCategoryStore } from '../../store/useCategoryStore';
 import { useTheme } from '../../store/useThemeStore';
-import type { CategorySummary, MonthlySummary } from '../../types/transaction';
-import { resolveCategoryByKey } from '../../utils/categoryResolver';
-import { formatCurrency } from '../../utils/currency';
+import { useTransactionStore } from '../../store/useTransactionStore';
+import { AppScreenHeader } from '../../components/common/AppScreenHeader';
 import { ContextBadge } from '../../components/common/ContextBadge';
+import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
+import { InsightPanel } from '../../components/common/InsightPanel';
+import { ScreenShell } from '../../components/common/ScreenShell';
 import { SectionHeader } from '../../components/common/SectionHeader';
+import { SegmentedControl } from '../../components/common/SegmentedControl';
+import { EmptyState } from '../../components/common/EmptyState';
 
 type PeriodFilter = 'month' | '3months' | '6months' | 'year';
 
-const PERIOD_OPTIONS: { id: PeriodFilter; label: string }[] = [
+const PERIOD_OPTIONS: Array<{ id: PeriodFilter; label: string }> = [
     { id: 'month', label: 'Bulan ini' },
-    { id: '3months', label: '3 Bulan' },
-    { id: '6months', label: '6 Bulan' },
+    { id: '3months', label: '3 bulan' },
+    { id: '6months', label: '6 bulan' },
     { id: 'year', label: 'Tahun ini' },
 ];
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
 
-function getPeriodDates(period: PeriodFilter): { start: number; end: number } {
+function getPeriodDates(period: PeriodFilter) {
     const now = new Date();
     const end = now.getTime();
     const start = new Date();
@@ -49,9 +45,43 @@ function getPeriodDates(period: PeriodFilter): { start: number; end: number } {
     return { start: start.getTime(), end };
 }
 
+function generateHTMLReport(
+    expenseCategories: CategorySummary[],
+    incomeCategories: CategorySummary[],
+    totalIncome: number,
+    totalExpense: number,
+    period: PeriodFilter,
+) {
+    const rows = expenseCategories
+        .map((item) => `<tr><td>${item.category}</td><td>Pengeluaran</td><td>${formatCurrency(item.total)}</td></tr>`)
+        .concat(incomeCategories.map((item) => `<tr><td>${item.category}</td><td>Pemasukan</td><td>${formatCurrency(item.total)}</td></tr>`))
+        .join('');
+
+    return `
+        <html>
+            <body style="font-family: Arial, sans-serif; padding: 24px;">
+                <h1>Laporan Tabungin</h1>
+                <p>Periode: ${period}</p>
+                <p>Total pemasukan: ${formatCurrency(totalIncome)}</p>
+                <p>Total pengeluaran: ${formatCurrency(totalExpense)}</p>
+                <p>Selisih: ${formatCurrency(totalIncome - totalExpense)}</p>
+                <table style="width:100%; border-collapse: collapse; margin-top: 24px;">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left; border-bottom:1px solid #ddd; padding:8px;">Kategori</th>
+                            <th style="text-align:left; border-bottom:1px solid #ddd; padding:8px;">Tipe</th>
+                            <th style="text-align:left; border-bottom:1px solid #ddd; padding:8px;">Nominal</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </body>
+        </html>
+    `;
+}
+
 export function ReportScreen() {
-    const insets = useSafeAreaInsets();
-    const { colors, gradients, isDark } = useTheme();
+    const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
     const { getCategorySummary, getMonthlyData } = useTransactionStore();
     const { categories, loadCategories } = useCategoryStore();
@@ -62,628 +92,282 @@ export function ReportScreen() {
     const [isLoading, setIsLoading] = useState(true);
     const [isExporting, setIsExporting] = useState(false);
 
-    const totalIncome = incomeCategories.reduce((sum, item) => sum + item.total, 0);
-    const totalExpense = expenseCategories.reduce((sum, item) => sum + item.total, 0);
-    const netBalance = totalIncome - totalExpense;
-    const maxMonthly = Math.max(...monthlyData.map((d) => Math.max(d.totalIncome, d.totalExpense)), 1);
-
-    useEffect(() => {
-        loadData();
-    }, [period]);
-
     useEffect(() => {
         if (categories.length === 0) {
             loadCategories();
         }
     }, [categories.length, loadCategories]);
 
-    const loadData = async () => {
-        setIsLoading(true);
-        const { start, end } = getPeriodDates(period);
-        const [exp, inc, monthly] = await Promise.all([
-            getCategorySummary('expense', start, end),
-            getCategorySummary('income', start, end),
-            getMonthlyData(),
-        ]);
-        setExpenseCategories(exp);
-        setIncomeCategories(inc);
-        setMonthlyData(monthly);
-        setIsLoading(false);
-    };
+    useEffect(() => {
+        const loadData = async () => {
+            setIsLoading(true);
+            try {
+                const { start, end } = getPeriodDates(period);
+                const [expense, income, monthly] = await Promise.all([
+                    getCategorySummary('expense', start, end),
+                    getCategorySummary('income', start, end),
+                    getMonthlyData(),
+                ]);
+                setExpenseCategories(expense);
+                setIncomeCategories(income);
+                setMonthlyData(monthly);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        loadData();
+    }, [getCategorySummary, getMonthlyData, period]);
+
+    const totalIncome = useMemo(() => incomeCategories.reduce((sum, item) => sum + item.total, 0), [incomeCategories]);
+    const totalExpense = useMemo(() => expenseCategories.reduce((sum, item) => sum + item.total, 0), [expenseCategories]);
+    const netBalance = totalIncome - totalExpense;
+    const maxMonthly = Math.max(...monthlyData.map((item) => Math.max(item.totalIncome, item.totalExpense)), 1);
 
     const handleExportPDF = async () => {
         setIsExporting(true);
         try {
-            const htmlContent = generateHTMLReport(expenseCategories, incomeCategories, totalIncome, totalExpense, period);
-            const { uri } = await Print.printToFileAsync({ html: htmlContent });
+            const html = generateHTMLReport(expenseCategories, incomeCategories, totalIncome, totalExpense, period);
+            const { uri } = await Print.printToFileAsync({ html });
             if (await Sharing.isAvailableAsync()) {
-                await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Ekspor Laporan Tabungin' });
+                await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Ekspor laporan Tabungin' });
             }
-        } catch (e) {
-            console.error('Export gagal:', e);
         } finally {
             setIsExporting(false);
         }
     };
 
-    const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
-
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
-            <View style={styles.bgAuraTop} pointerEvents="none" />
-            <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
+        <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
+            <AppScreenHeader
+                title="Laporan"
+                subtitle="Snapshot, tren, dan breakdown utama untuk membaca ritme keuanganmu."
+                rightSlot={
+                    <TouchableOpacity style={styles.exportButton} onPress={handleExportPDF} disabled={isExporting}>
+                        {isExporting ? (
+                            <ActivityIndicator size="small" color={colors.primary} />
+                        ) : (
+                            <MaterialCommunityIcons name="file-pdf-box" size={22} color={colors.primary} />
+                        )}
+                    </TouchableOpacity>
+                }
+                variant="transparent"
+            />
 
-            <View style={styles.header}>
-                <View>
-                    <Text style={styles.headerTitle}>Laporan</Text>
-                    <Text style={styles.headerSubtitle}>Insight ringkas untuk membaca ritme keuanganmu</Text>
-                </View>
-                <TouchableOpacity style={styles.exportBtn} onPress={handleExportPDF} disabled={isExporting}>
-                    {isExporting ? (
-                        <ActivityIndicator size="small" color={colors.primary} />
-                    ) : (
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+                <HeroSummaryCard
+                    eyebrow="Snapshot Periode"
+                    title="Selisih kas pada periode terpilih"
+                    value={formatCurrency(Math.abs(netBalance))}
+                    description={netBalance >= 0 ? 'Kondisi masih surplus pada rentang waktu yang sedang dibaca.' : 'Pengeluaran lebih tinggi dari pemasukan pada periode ini.'}
+                    icon="chart-areaspline"
+                    badges={
                         <>
-                            <MaterialCommunityIcons name="file-pdf-box" size={20} color={colors.primary} />
-                            <Text style={styles.exportText}>PDF</Text>
+                            <ContextBadge icon="arrow-up-circle-outline" label={formatCurrency(totalIncome)} inverse />
+                            <ContextBadge icon="arrow-down-circle-outline" label={formatCurrency(totalExpense)} inverse />
                         </>
-                    )}
-                </TouchableOpacity>
-            </View>
+                    }
+                    tone={netBalance >= 0 ? 'primary' : 'warning'}
+                />
 
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <Animated.View entering={FadeInDown.delay(70).springify()}>
-                    <LinearGradient
-                        colors={gradients.hero as unknown as [string, string, ...string[]]}
-                        style={styles.heroCard}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                    >
-                        <View style={styles.heroGlow} />
-                        <Text style={styles.heroLabel}>Ringkasan Periode</Text>
-                        <Text style={styles.heroValue}>{formatCurrency(Math.abs(netBalance))}</Text>
-                        <Text style={styles.heroSubtext}>
-                            {netBalance >= 0 ? 'Surplus kas pada periode terpilih' : 'Defisit kas pada periode terpilih'}
-                        </Text>
-                        <View style={styles.heroChips}>
-                            <View style={styles.heroChip}>
-                                <MaterialCommunityIcons name="arrow-up-circle-outline" size={14} color={colors.textInverse} />
-                                <Text style={styles.heroChipText}>{formatCurrency(totalIncome)}</Text>
-                            </View>
-                            <View style={styles.heroChip}>
-                                <MaterialCommunityIcons name="arrow-down-circle-outline" size={14} color={colors.textInverse} />
-                                <Text style={styles.heroChipText}>{formatCurrency(totalExpense)}</Text>
-                            </View>
-                        </View>
-                    </LinearGradient>
-                </Animated.View>
-
-                <Animated.View entering={FadeInDown.delay(120).springify()} style={styles.periodBlock}>
+                <View style={styles.periodCard}>
                     <SectionHeader
-                        title="Pilih Periode"
-                        subtitle="Ubah snapshot, tren, dan breakdown sesuai horizon yang ingin kamu baca."
+                        title="Pilih periode"
+                        subtitle="Ubah horizon waktu supaya snapshot dan insight tetap relevan."
                     />
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.periodRow}>
-                        {PERIOD_OPTIONS.map((item) => (
-                            <TouchableOpacity
-                                key={item.id}
-                                style={[styles.periodChip, period === item.id && styles.periodChipActive]}
-                                onPress={() => setPeriod(item.id)}
-                            >
-                                <Text style={[styles.periodChipText, period === item.id && styles.periodChipTextActive]}>
-                                    {item.label}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </Animated.View>
+                    <SegmentedControl
+                        value={period}
+                        onChange={setPeriod}
+                        scrollable
+                        options={PERIOD_OPTIONS}
+                    />
+                </View>
 
-                <Animated.View entering={FadeInUp.delay(150).springify()} style={styles.insightCard}>
-                    <View style={styles.insightHeader}>
-                        <View style={styles.insightIcon}>
-                            <MaterialCommunityIcons name="lightbulb-on-outline" size={18} color={colors.primary} />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.insightTitle}>Insight Cepat</Text>
-                            <Text style={styles.insightSubtitle}>
-                                {expenseCategories[0]
-                                    ? `Kategori terbesar saat ini adalah ${resolveCategoryByKey(expenseCategories[0].category, categories)?.name ?? expenseCategories[0].category}.`
-                                    : 'Belum ada pengeluaran yang cukup untuk dianalisis.'}
-                            </Text>
-                        </View>
-                    </View>
-                    <View style={styles.insightBadgeRow}>
-                        <ContextBadge
-                            icon={netBalance >= 0 ? 'trending-up' : 'trending-down'}
-                            label={netBalance >= 0 ? 'Surplus' : 'Defisit'}
-                            tone={netBalance >= 0 ? 'success' : 'warning'}
-                        />
-                        <ContextBadge icon="calendar-range" label={PERIOD_OPTIONS.find((item) => item.id === period)?.label || 'Bulan ini'} tone="neutral" />
-                    </View>
-                    <View style={styles.insightChipRow}>
-                        <View style={styles.insightChip}>
-                            <Text style={styles.insightChipValue}>
-                                {totalIncome > 0 ? `${Math.max(0, ((totalIncome - totalExpense) / totalIncome) * 100).toFixed(0)}%` : '0%'}
-                            </Text>
-                            <Text style={styles.insightChipLabel}>Saving rate</Text>
-                        </View>
-                        <View style={styles.insightChip}>
-                            <Text style={styles.insightChipValue}>{expenseCategories.length}</Text>
-                            <Text style={styles.insightChipLabel}>Kategori aktif</Text>
-                        </View>
-                    </View>
-                </Animated.View>
+                <InsightPanel
+                    title="Insight cepat"
+                    description={
+                        expenseCategories[0]
+                            ? `Kategori pengeluaran terbesar saat ini adalah ${resolveCategoryByKey(expenseCategories[0].category, categories)?.name ?? expenseCategories[0].category}.`
+                            : 'Belum ada pengeluaran yang cukup untuk dibaca pada periode ini.'
+                    }
+                    badges={
+                        <>
+                            <ContextBadge
+                                icon={netBalance >= 0 ? 'trending-up' : 'trending-down'}
+                                label={netBalance >= 0 ? 'Surplus' : 'Defisit'}
+                                tone={netBalance >= 0 ? 'success' : 'warning'}
+                            />
+                            <ContextBadge
+                                icon="lightning-bolt-outline"
+                                label={totalIncome > 0 ? `${Math.max(0, ((totalIncome - totalExpense) / totalIncome) * 100).toFixed(0)}% saving rate` : '0% saving rate'}
+                                tone="neutral"
+                            />
+                        </>
+                    }
+                />
 
                 {isLoading ? (
-                    <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 60 }} />
+                    <EmptyState icon="chart-box-outline" title="Menyiapkan laporan" description="Sedang memuat snapshot dan breakdown kategori." compact />
+                ) : expenseCategories.length === 0 && incomeCategories.length === 0 ? (
+                    <EmptyState
+                        icon="chart-box-outline"
+                        title="Belum ada data laporan"
+                        description="Tambahkan transaksi dulu agar snapshot dan insight mulai terbentuk."
+                    />
                 ) : (
                     <>
-                        <Animated.View entering={FadeInUp.delay(180).springify()} style={styles.summaryCard}>
-                            <View style={styles.summaryRow}>
-                                <View style={styles.summaryItem}>
-                                    <View style={styles.summaryIconRow}>
-                                        <MaterialCommunityIcons name="arrow-up-circle" size={20} color={colors.success} />
-                                        <Text style={[styles.summaryLabel, { color: colors.success }]}>Pemasukan</Text>
-                                    </View>
-                                    <Text style={styles.summaryAmount}>{formatCurrency(totalIncome)}</Text>
-                                </View>
-                                <View style={styles.summaryDivider} />
-                                <View style={styles.summaryItem}>
-                                    <View style={styles.summaryIconRow}>
-                                        <MaterialCommunityIcons name="arrow-down-circle" size={20} color={colors.danger} />
-                                        <Text style={[styles.summaryLabel, { color: colors.danger }]}>Pengeluaran</Text>
-                                    </View>
-                                    <Text style={[styles.summaryAmount, { color: colors.danger }]}>{formatCurrency(totalExpense)}</Text>
-                                </View>
-                            </View>
-                            <View style={styles.summaryBalance}>
-                                <Text style={styles.balanceLabel}>Selisih</Text>
-                                <Text style={[styles.balanceAmount, { color: netBalance >= 0 ? colors.success : colors.danger }]}>
-                                    {netBalance >= 0 ? '+' : '-'} {formatCurrency(Math.abs(netBalance))}
-                                </Text>
-                            </View>
-                        </Animated.View>
-
-                        <Animated.View entering={FadeInUp.delay(240).springify()} style={styles.chartCard}>
+                        <View style={styles.panel}>
                             <SectionHeader
-                                title="Pemasukan vs Pengeluaran"
-                                subtitle="6 bulan terakhir untuk membaca ritme naik-turun kas."
+                                title="Breakdown kategori"
+                                subtitle="Kategori dengan dampak terbesar pada periode yang sedang dibaca."
                             />
-                            <View style={styles.barChart}>
-                                {monthlyData.map((month, idx) => (
-                                    <View key={idx} style={styles.barGroup}>
-                                        <View style={styles.barsRow}>
+                            {expenseCategories.slice(0, 5).map((item) => (
+                                <View key={`expense-${item.category}`} style={styles.categoryRow}>
+                                    <View style={styles.categoryCopy}>
+                                        <Text style={styles.categoryTitle}>{resolveCategoryByKey(item.category, categories)?.name ?? item.category}</Text>
+                                        <Text style={styles.categoryMeta}>Pengeluaran</Text>
+                                    </View>
+                                    <Text style={[styles.categoryAmount, { color: colors.danger }]}>{formatCurrency(item.total)}</Text>
+                                </View>
+                            ))}
+                            {incomeCategories.slice(0, 3).map((item) => (
+                                <View key={`income-${item.category}`} style={styles.categoryRow}>
+                                    <View style={styles.categoryCopy}>
+                                        <Text style={styles.categoryTitle}>{resolveCategoryByKey(item.category, categories)?.name ?? item.category}</Text>
+                                        <Text style={styles.categoryMeta}>Pemasukan</Text>
+                                    </View>
+                                    <Text style={[styles.categoryAmount, { color: colors.success }]}>{formatCurrency(item.total)}</Text>
+                                </View>
+                            ))}
+                        </View>
+
+                        <View style={styles.panel}>
+                            <SectionHeader
+                                title="Tren bulanan"
+                                subtitle="Perbandingan cepat pemasukan dan pengeluaran beberapa bulan terakhir."
+                            />
+                            <View style={styles.chartRow}>
+                                {monthlyData.slice(-6).map((month, index) => (
+                                    <View key={`${month.month}-${index}`} style={styles.chartGroup}>
+                                        <View style={styles.barPair}>
                                             <View
                                                 style={[
-                                                    styles.bar,
-                                                    { height: Math.max((month.totalIncome / maxMonthly) * 110, 6), backgroundColor: colors.success },
+                                                    styles.chartBar,
+                                                    {
+                                                        height: Math.max((month.totalIncome / maxMonthly) * 110, 6),
+                                                        backgroundColor: colors.success,
+                                                    },
                                                 ]}
                                             />
                                             <View
                                                 style={[
-                                                    styles.bar,
-                                                    { height: Math.max((month.totalExpense / maxMonthly) * 110, 6), backgroundColor: colors.danger },
+                                                    styles.chartBar,
+                                                    {
+                                                        height: Math.max((month.totalExpense / maxMonthly) * 110, 6),
+                                                        backgroundColor: colors.danger,
+                                                    },
                                                 ]}
                                             />
                                         </View>
-                                        <Text style={styles.barLabel}>{MONTH_NAMES[month.month - 1]}</Text>
+                                        <Text style={styles.chartLabel}>{MONTH_LABELS[Math.max(0, month.month - 1)]}</Text>
                                     </View>
                                 ))}
                             </View>
-                            <View style={styles.legend}>
-                                <View style={styles.legendItem}>
-                                    <View style={[styles.legendDot, { backgroundColor: colors.success }]} />
-                                    <Text style={styles.legendText}>Pemasukan</Text>
-                                </View>
-                                <View style={styles.legendItem}>
-                                    <View style={[styles.legendDot, { backgroundColor: colors.danger }]} />
-                                    <Text style={styles.legendText}>Pengeluaran</Text>
-                                </View>
-                            </View>
-                        </Animated.View>
-
-                        {expenseCategories.length > 0 && (
-                            <Animated.View entering={FadeInUp.delay(300).springify()} style={styles.tableCard}>
-                                <SectionHeader
-                                    title="Breakdown Pengeluaran"
-                                    subtitle="Kategori dominan di periode ini untuk membaca fokus pengeluaran."
-                                />
-
-                                {expenseCategories.map((cat, index) => {
-                                    const categoryInfo = resolveCategoryByKey(cat.category, categories);
-                                    return (
-                                        <View key={cat.category}>
-                                            <View style={styles.tableRow}>
-                                                <View style={styles.catInfo}>
-                                                    <View style={[styles.catIconBox, { backgroundColor: `${categoryInfo?.color || colors.textSecondary}20` }]}>
-                                                        <MaterialCommunityIcons
-                                                            name={(categoryInfo?.icon ?? 'tag') as any}
-                                                            size={16}
-                                                            color={categoryInfo?.color ?? colors.textSecondary}
-                                                        />
-                                                    </View>
-                                                    <Text style={styles.catName} numberOfLines={1}>{categoryInfo?.name ?? cat.category}</Text>
-                                                </View>
-
-                                                <View style={styles.catRight}>
-                                                    <Text style={styles.catAmount}>{formatCurrency(cat.total)}</Text>
-                                                    <Text style={styles.catPercent}>{cat.percentage.toFixed(0)}%</Text>
-                                                </View>
-                                            </View>
-
-                                            <View style={styles.catBarBg}>
-                                                <View
-                                                    style={[
-                                                        styles.catBarFill,
-                                                        { width: `${cat.percentage}%`, backgroundColor: categoryInfo?.color ?? colors.primary },
-                                                    ]}
-                                                />
-                                            </View>
-
-                                            {index < expenseCategories.length - 1 && <View style={styles.rowDivider} />}
-                                        </View>
-                                    );
-                                })}
-                            </Animated.View>
-                        )}
+                        </View>
                     </>
                 )}
             </ScrollView>
-        </View>
+        </ScreenShell>
     );
 }
 
-function generateHTMLReport(
-    expense: CategorySummary[],
-    income: CategorySummary[],
-    totalIncome: number,
-    totalExpense: number,
-    period: PeriodFilter
-): string {
-    const periodLabel = PERIOD_OPTIONS_MAP[period];
-    return `
-    <!DOCTYPE html>
-    <html lang="id">
-    <head><meta charset="UTF-8"><title>Laporan Tabungin</title>
-    <style>
-      body { font-family: sans-serif; padding: 32px; color: #1A1A2E; }
-      h1 { color: #16A34A; } h2 { color: #333; margin-top: 24px; }
-      .summary { display: flex; gap: 32px; margin: 16px 0; }
-      .item { flex: 1; }
-      .income { color: #16A34A; } .expense { color: #DC2626; }
-      table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-      th, td { border: 1px solid #E5E7EB; padding: 8px 12px; text-align: left; }
-      th { background: #F7F9FC; }
-    </style></head>
-    <body>
-      <h1>Laporan Keuangan - ${periodLabel}</h1>
-      <p>Digenerate oleh Tabungin • ${new Date().toLocaleDateString('id-ID')}</p>
-      <div class="summary">
-        <div class="item"><p>Pemasukan</p><h2 class="income">Rp ${totalIncome.toLocaleString('id-ID')}</h2></div>
-        <div class="item"><p>Pengeluaran</p><h2 class="expense">Rp ${totalExpense.toLocaleString('id-ID')}</h2></div>
-        <div class="item"><p>Selisih</p><h2 class="${totalIncome - totalExpense >= 0 ? 'income' : 'expense'}">Rp ${Math.abs(totalIncome - totalExpense).toLocaleString('id-ID')}</h2></div>
-      </div>
-      <h2>Pengeluaran per Kategori</h2>
-      <table><tr><th>Kategori</th><th>Total</th><th>%</th></tr>
-        ${expense.map((c) => `<tr><td>${c.category}</td><td>Rp ${c.total.toLocaleString('id-ID')}</td><td>${c.percentage.toFixed(1)}%</td></tr>`).join('')}
-      </table>
-    </body></html>
-  `;
-}
-
-const PERIOD_OPTIONS_MAP = {
-    month: 'Bulan Ini',
-    '3months': '3 Bulan Terakhir',
-    '6months': '6 Bulan Terakhir',
-    year: 'Tahun Ini',
-};
-
-const getStyles = (colors: any) => StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.background },
-    bgAuraTop: {
-        position: 'absolute',
-        top: -120,
-        right: -34,
-        width: 260,
-        height: 260,
-        borderRadius: BorderRadius.full,
-        backgroundColor: colors.primaryLight,
-        opacity: 0.48,
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        gap: 12,
-    },
-    headerTitle: { ...Typography.h2, color: colors.textPrimary },
-    headerSubtitle: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
-        color: colors.textSecondary,
-        marginTop: 2,
-    },
-    exportBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        borderRadius: BorderRadius.xl,
-        backgroundColor: colors.surfaceElevated,
-        borderWidth: 1,
-        borderColor: colors.border,
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.06,
-        shadowRadius: 10,
-        elevation: 2,
-    },
-    exportText: {
-        fontFamily: FontFamily.bodyBold,
-        fontSize: FontSize.caption,
-        color: colors.primary,
-    },
-    content: { padding: 20, gap: 20, paddingBottom: 100 },
-    heroCard: {
-        borderRadius: BorderRadius['5xl'],
-        padding: 22,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.12)',
-    },
-    heroGlow: {
-        position: 'absolute',
-        width: 170,
-        height: 170,
-        borderRadius: 85,
-        top: -55,
-        right: -26,
-        backgroundColor: 'rgba(255,255,255,0.10)',
-    },
-    heroLabel: {
-        fontFamily: FontFamily.bodyMedium,
-        fontSize: FontSize.caption,
-        color: colors.textInverse,
-    },
-    heroValue: {
-        fontFamily: FontFamily.heading,
-        fontSize: FontSize.display,
-        color: colors.textInverse,
-        marginTop: 8,
-    },
-    heroSubtext: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.body,
-        color: colors.textInverse,
-        marginTop: 6,
-    },
-    heroChips: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 10,
-        marginTop: 16,
-    },
-    heroChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 999,
-        backgroundColor: 'rgba(255,255,255,0.10)',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.12)',
-    },
-    heroChipText: {
-        fontFamily: FontFamily.bodyMedium,
-        fontSize: FontSize.caption,
-        color: colors.textInverse,
-    },
-    periodBlock: {
-        backgroundColor: colors.surfaceElevated,
-        borderRadius: BorderRadius['4xl'],
-        padding: 16,
-        borderWidth: 1,
-        borderColor: colors.border,
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.08,
-        shadowRadius: 16,
-        elevation: 3,
-    },
-    blockTitle: {
-        fontFamily: FontFamily.headingMedium,
-        fontSize: FontSize.body,
-        color: colors.textPrimary,
-        marginBottom: 12,
-    },
-    periodRow: { flexDirection: 'row', gap: 8, paddingBottom: 4 },
-    periodChip: {
-        paddingHorizontal: 16,
-        paddingVertical: 9,
-        borderRadius: BorderRadius.full,
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: colors.border,
-    },
-    periodChipActive: {
-        backgroundColor: colors.background,
-        borderColor: `${colors.primary}25`,
-    },
-    periodChipText: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
-        color: colors.textSecondary,
-    },
-    periodChipTextActive: {
-        color: colors.primaryDark,
-        fontFamily: FontFamily.bodyBold,
-    },
-    insightCard: {
-        backgroundColor: colors.surfaceElevated,
-        borderRadius: BorderRadius['4xl'],
-        padding: 16,
-        gap: 14,
-        borderWidth: 1,
-        borderColor: colors.border,
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.08,
-        shadowRadius: 16,
-        elevation: 3,
-    },
-    insightHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    insightIcon: {
-        width: 38,
-        height: 38,
-        borderRadius: BorderRadius.lg,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.primaryBg,
-        borderWidth: 1,
-        borderColor: `${colors.primary}24`,
-    },
-    insightTitle: {
-        fontFamily: FontFamily.headingMedium,
-        fontSize: FontSize.body,
-        color: colors.textPrimary,
-    },
-    insightSubtitle: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
-        color: colors.textSecondary,
-        lineHeight: 20,
-        marginTop: 2,
-    },
-    insightChipRow: {
-        flexDirection: 'row',
-        gap: 10,
-    },
-    insightBadgeRow: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-    },
-    insightChip: {
-        flex: 1,
-        padding: 14,
-        borderRadius: BorderRadius['3xl'],
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: colors.border,
-        gap: 4,
-    },
-    insightChipValue: {
-        fontFamily: FontFamily.heading,
-        fontSize: FontSize.h3,
-        color: colors.textPrimary,
-    },
-    insightChipLabel: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
-        color: colors.textSecondary,
-    },
-    summaryCard: {
-        backgroundColor: colors.surfaceElevated,
-        borderRadius: BorderRadius['4xl'],
-        padding: 20,
-        gap: 16,
-        borderWidth: 1,
-        borderColor: colors.border,
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.08,
-        shadowRadius: 16,
-        elevation: 3,
-    },
-    summaryRow: { flexDirection: 'row', gap: 12 },
-    summaryItem: { flex: 1, gap: 8 },
-    summaryIconRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    summaryLabel: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.caption },
-    summaryAmount: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: colors.textPrimary },
-    summaryDivider: { width: 1, backgroundColor: colors.divider },
-    summaryBalance: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingTop: 12,
-        borderTopWidth: 1,
-        borderTopColor: colors.divider,
-    },
-    balanceLabel: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: colors.textSecondary },
-    balanceAmount: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4 },
-    chartCard: {
-        backgroundColor: colors.surfaceElevated,
-        borderRadius: BorderRadius['4xl'],
-        padding: 20,
-        gap: 16,
-        borderWidth: 1,
-        borderColor: colors.border,
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.08,
-        shadowRadius: 16,
-        elevation: 3,
-    },
-    cardHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: 12,
-    },
-    chartTitle: { ...Typography.h4, color: colors.textPrimary },
-    cardHint: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
-        color: colors.textSecondary,
-    },
-    barChart: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 150, paddingTop: 12 },
-    barGroup: { flex: 1, alignItems: 'center', gap: 8 },
-    barsRow: { flexDirection: 'row', gap: 5, alignItems: 'flex-end', height: 118 },
-    bar: { width: 12, borderRadius: BorderRadius.sm },
-    barLabel: { fontFamily: FontFamily.body, fontSize: 10, color: colors.textSecondary },
-    legend: { flexDirection: 'row', gap: 20, justifyContent: 'center' },
-    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    legendDot: { width: 8, height: 8, borderRadius: 4 },
-    legendText: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary },
-    tableCard: {
-        backgroundColor: colors.surfaceElevated,
-        borderRadius: BorderRadius['4xl'],
-        padding: 20,
-        gap: 16,
-        borderWidth: 1,
-        borderColor: colors.border,
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.08,
-        shadowRadius: 16,
-        elevation: 3,
-    },
-    tableRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 8,
-    },
-    catInfo: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-    catIconBox: {
-        width: 34,
-        height: 34,
-        borderRadius: BorderRadius.lg,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    catName: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.body, color: colors.textPrimary, flex: 1 },
-    catRight: { alignItems: 'flex-end' },
-    catAmount: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.caption, color: colors.textPrimary },
-    catPercent: { fontFamily: FontFamily.body, fontSize: 10, color: colors.textSecondary },
-    catBarBg: { height: 7, backgroundColor: colors.surfaceInset, borderRadius: BorderRadius.sm, overflow: 'hidden' },
-    catBarFill: { height: 7, borderRadius: BorderRadius.sm },
-    rowDivider: { height: 1, backgroundColor: colors.divider, marginVertical: 12 },
-});
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+    StyleSheet.create({
+        exportButton: {
+            width: 44,
+            height: 44,
+            borderRadius: BorderRadius.xl,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.panelSurface,
+            borderWidth: 1,
+            borderColor: colors.border,
+        },
+        content: {
+            paddingHorizontal: 20,
+            paddingBottom: 108,
+            gap: 18,
+        },
+        periodCard: {
+            gap: 14,
+            backgroundColor: colors.panelSurface,
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: BorderRadius['4xl'],
+            padding: 18,
+        },
+        panel: {
+            backgroundColor: colors.panelSurface,
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: BorderRadius['4xl'],
+            padding: 18,
+            gap: 12,
+        },
+        categoryRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            paddingVertical: 10,
+            borderBottomWidth: 1,
+            borderBottomColor: colors.divider,
+        },
+        categoryCopy: {
+            flex: 1,
+        },
+        categoryTitle: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.body,
+            color: colors.textPrimary,
+        },
+        categoryMeta: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+            marginTop: 3,
+        },
+        categoryAmount: {
+            fontFamily: FontFamily.headingMedium,
+            fontSize: FontSize.body,
+        },
+        chartRow: {
+            flexDirection: 'row',
+            alignItems: 'flex-end',
+            justifyContent: 'space-between',
+            gap: 10,
+            minHeight: 150,
+            paddingTop: 18,
+        },
+        chartGroup: {
+            flex: 1,
+            alignItems: 'center',
+            gap: 8,
+        },
+        barPair: {
+            flexDirection: 'row',
+            alignItems: 'flex-end',
+            gap: 4,
+            height: 118,
+        },
+        chartBar: {
+            width: 12,
+            borderTopLeftRadius: BorderRadius.sm,
+            borderTopRightRadius: BorderRadius.sm,
+        },
+        chartLabel: {
+            fontFamily: FontFamily.bodyMedium,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+        },
+    });

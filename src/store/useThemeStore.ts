@@ -124,6 +124,22 @@ export function useTheme() {
         heroStart: mix(primaryColor, isDark ? '#FFFFFF' : neutralBase.surface, isDark ? 0.08 : 0.10),
         heroEnd: primaryDark,
         heroSoft: primaryStrong,
+        pageHeader: rgba(neutralBase.surfaceElevated, isDark ? 0.88 : 0.78),
+        heroSurface: mix(primaryColor, neutralBase.surfaceElevated, isDark ? 0.18 : 0.08),
+        heroOverlay: rgba(primaryColor, isDark ? 0.22 : 0.1),
+        panelSurface: neutralBase.surfaceElevated,
+        panelSurfaceAlt: neutralBase.surfaceAlt,
+        interactiveIdle: neutralBase.surface,
+        interactiveActive: mix(primaryColor, neutralBase.surface, isDark ? 0.2 : 0.12),
+        successSurface: isDark ? rgba(BaseColors.success, 0.22) : mix(BaseColors.success, neutralBase.surface, 0.1),
+        warningSurface: isDark ? rgba(BaseColors.warning, 0.22) : mix(BaseColors.warning, neutralBase.surface, 0.12),
+        dangerSurface: isDark ? rgba(BaseColors.danger, 0.22) : mix(BaseColors.danger, neutralBase.surface, 0.1),
+        focusRing: rgba(primaryColor, isDark ? 0.34 : 0.2),
+        stickyHeader: rgba(neutralBase.background, isDark ? 0.92 : 0.88),
+        tabBarGlass: isDark ? rgba('#0F1916', 0.88) : rgba('#FFFFFF', 0.88),
+        formFieldBg: isDark ? rgba('#FFFFFF', 0.04) : neutralBase.surface,
+        formFieldError: isDark ? rgba(BaseColors.danger, 0.2) : mix(BaseColors.danger, neutralBase.surface, 0.08),
+        listRowPressed: isDark ? rgba('#FFFFFF', 0.06) : rgba(primaryColor, 0.05),
     };
 
     const gradients = {
@@ -132,6 +148,8 @@ export function useTheme() {
         success: [rgba(BaseColors.success, 0.12), rgba(BaseColors.success, 0.03)] as const,
         warning: [rgba(BaseColors.warning, 0.12), rgba(BaseColors.warning, 0.03)] as const,
         info: [rgba(BaseColors.info, 0.12), rgba(BaseColors.info, 0.03)] as const,
+        premiumPanel: [colors.panelSurface, colors.surfaceGlass] as const,
+        heroMuted: [colors.heroSurface, colors.surfaceElevated, colors.heroOverlay] as const,
     };
 
     return { colors, gradients, motion: Motion, isDark, mode, textSize, textScale: getTextScale(textSize) };
