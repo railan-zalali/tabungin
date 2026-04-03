@@ -31,7 +31,8 @@
         }
       ],
       "expo-camera",
-      "expo-sharing"
+      "expo-sharing",
+      "expo-build-properties"
     ],
     "extra": {
       "eas": {

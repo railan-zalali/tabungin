@@ -34,7 +34,11 @@ export const useRecurringStore = create<RecurringState>((set, get) => ({
       const userId = useAuthStore.getState().user?.id;
       if (!userId) return;
 
-      await syncRemoteRecurringTransactions(userId);
+      try {
+        await syncRemoteRecurringTransactions(userId);
+      } catch (error) {
+        console.warn('Recurring sync skipped, falling back to local cache:', error);
+      }
       const transactions = await fetchLocalRecurringTransactions(userId);
       set({ recurringTransactions: transactions });
     } finally {
@@ -48,7 +52,11 @@ export const useRecurringStore = create<RecurringState>((set, get) => ({
       const userId = useAuthStore.getState().user?.id;
       if (!userId) return;
 
-      await syncRemoteRecurringTransactions(userId);
+      try {
+        await syncRemoteRecurringTransactions(userId);
+      } catch (error) {
+        console.warn('Recurring sync skipped, falling back to local cache:', error);
+      }
       const transactions = await fetchActiveRecurringTransactions(userId);
       set({ recurringTransactions: transactions });
     } finally {
@@ -64,6 +72,9 @@ export const useRecurringStore = create<RecurringState>((set, get) => ({
       ...transaction,
       user_id: userId,
     });
+    syncRemoteRecurringTransactions(userId).catch((error) => {
+      console.warn('Recurring background sync failed after add:', error);
+    });
 
     set((state) => ({
       recurringTransactions: [...state.recurringTransactions, newTransaction].sort(
@@ -74,6 +85,12 @@ export const useRecurringStore = create<RecurringState>((set, get) => ({
 
   updateRecurringTransaction: async (id, updates) => {
     await updateRecurringTransaction(id, updates);
+    const userId = useAuthStore.getState().user?.id;
+    if (userId) {
+      syncRemoteRecurringTransactions(userId).catch((error) => {
+        console.warn('Recurring background sync failed after update:', error);
+      });
+    }
 
     set((state) => ({
       recurringTransactions: state.recurringTransactions.map((tx) =>
@@ -84,6 +101,12 @@ export const useRecurringStore = create<RecurringState>((set, get) => ({
 
   deleteRecurringTransaction: async (id) => {
     await deleteRecurringTransaction(id);
+    const userId = useAuthStore.getState().user?.id;
+    if (userId) {
+      syncRemoteRecurringTransactions(userId).catch((error) => {
+        console.warn('Recurring background sync failed after delete:', error);
+      });
+    }
 
     set((state) => ({
       recurringTransactions: state.recurringTransactions.filter((tx) => tx.id !== id),

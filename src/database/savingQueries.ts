@@ -16,6 +16,18 @@ function mapGoalRow(r: RawGoalRow): SavingGoal {
     return { ...r, is_completed: Boolean(r.is_completed), reminder_enabled: Boolean(r.reminder_enabled) };
 }
 
+export async function getCurrentSharingActorId(): Promise<string> {
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user?.id) {
+        throw new Error('Authenticated user not found');
+    }
+
+    return user.id;
+}
+
 /**
  * Ambil semua saving goals
  * Filter out pending_delete
@@ -189,19 +201,13 @@ export async function fetchSavingLogs(goalId: string): Promise<SavingLog[]> {
  */
 export async function setGoalPermission(goalId: string, userEmail: string, permissionLevel: string): Promise<void> {
     const userEmailLower = userEmail.toLowerCase();
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .eq('id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
-
-    if (!profile) throw new Error('Profile not found');
+    const actorId = await getCurrentSharingActorId();
 
     const { error } = await supabase.rpc('set_goal_permission', {
         p_goal_id: goalId,
         p_user_email: userEmailLower,
         p_permission_level: permissionLevel,
-        p_performed_by: profile.user_id,
+        p_performed_by: actorId,
     });
 
     if (error) throw error;
@@ -209,18 +215,12 @@ export async function setGoalPermission(goalId: string, userEmail: string, permi
 
 export async function revokeGoalSharing(goalId: string, userEmail: string): Promise<void> {
     const userEmailLower = userEmail.toLowerCase();
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .eq('id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
-
-    if (!profile) throw new Error('Profile not found');
+    const actorId = await getCurrentSharingActorId();
 
     const { error } = await supabase.rpc('revoke_goal_sharing', {
         p_goal_id: goalId,
         p_user_email: userEmailLower,
-        p_performed_by: profile.user_id,
+        p_performed_by: actorId,
     });
 
     if (error) throw error;

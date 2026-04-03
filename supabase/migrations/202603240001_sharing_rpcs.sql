@@ -10,13 +10,14 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
+    v_now BIGINT := FLOOR(EXTRACT(EPOCH FROM NOW()) * 1000);
     v_result JSON;
 BEGIN
     UPDATE wallet_goals_shared
     SET permission_level = p_permission_level,
-        updated_at = EXTRACT(EPOCH FROM NOW()) * 1000
-    WHERE goal_id = p_goal_id
-    AND user_email = p_user_email;
+        updated_at = v_now
+    WHERE goal_id::TEXT = p_goal_id
+    AND lower(user_email) = lower(trim(p_user_email));
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Goal sharing not found for user %', p_user_email;
@@ -37,15 +38,15 @@ BEGIN
     )
     VALUES (
         gen_random_uuid()::TEXT,
-        p_goal_id,
-        (SELECT wallet_id FROM saving_goals WHERE id = p_goal_id),
-        p_user_email,
+        p_goal_id::UUID,
+        (SELECT wallet_id FROM saving_goals WHERE id::TEXT = p_goal_id),
+        lower(trim(p_user_email)),
         'permission_changed',
         p_performed_by,
         jsonb_build_object('from', 'unknown', 'to', p_permission_level)::TEXT,
-        EXTRACT(EPOCH FROM NOW()) * 1000,
-        EXTRACT(EPOCH FROM NOW()) * 1000,
-        EXTRACT(EPOCH FROM NOW()) * 1000
+        v_now,
+        v_now,
+        v_now
     );
 
     v_result := jsonb_build_object(
@@ -68,13 +69,14 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-    v_wallet_id TEXT;
+    v_now BIGINT := FLOOR(EXTRACT(EPOCH FROM NOW()) * 1000);
+    v_wallet_id UUID;
     v_result JSON;
 BEGIN
     -- Get wallet_id before deleting
     SELECT wallet_id INTO v_wallet_id
     FROM saving_goals
-    WHERE id = p_goal_id;
+    WHERE id::TEXT = p_goal_id;
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Goal not found';
@@ -82,8 +84,8 @@ BEGIN
 
     -- Delete sharing record
     DELETE FROM wallet_goals_shared
-    WHERE goal_id = p_goal_id
-    AND user_email = p_user_email;
+    WHERE goal_id::TEXT = p_goal_id
+    AND lower(user_email) = lower(trim(p_user_email));
 
     -- Log the action
     INSERT INTO sharing_activity_log (
@@ -100,15 +102,15 @@ BEGIN
     )
     VALUES (
         gen_random_uuid()::TEXT,
-        p_goal_id,
+        p_goal_id::UUID,
         v_wallet_id,
-        p_user_email,
+        lower(trim(p_user_email)),
         'revoked',
         p_performed_by,
         NULL,
-        EXTRACT(EPOCH FROM NOW()) * 1000,
-        EXTRACT(EPOCH FROM NOW()) * 1000,
-        EXTRACT(EPOCH FROM NOW()) * 1000
+        v_now,
+        v_now,
+        v_now
     );
 
     v_result := jsonb_build_object(
@@ -138,7 +140,7 @@ BEGIN
         )
     ) INTO v_result
     FROM wallet_goals_shared
-    WHERE goal_id = p_goal_id;
+    WHERE goal_id::TEXT = p_goal_id;
 
     IF v_result IS NULL THEN
         v_result := '[]'::JSON;

@@ -18,6 +18,11 @@ export interface TransactionCategory {
   updated_at: number | null;
 }
 
+type LocalCategoryRow = Omit<TransactionCategory, 'is_default'> & {
+  is_default: number | boolean;
+  sync_status?: 'synced' | 'pending_create' | 'pending_update' | 'pending_delete';
+};
+
 function normalizeCategoryIcon<
   T extends Pick<TransactionCategory, 'icon'> & Partial<Pick<TransactionCategory, 'is_default'>>
 >(category: T): T {
@@ -36,27 +41,94 @@ function normalizeCategoryIcon<
   return normalizedCategory;
 }
 
+function mapLocalCategoryRow(row: LocalCategoryRow): TransactionCategory {
+  return normalizeCategoryIcon({
+    ...row,
+    is_default: Boolean(row.is_default),
+  });
+}
+
+async function pushPendingCategories(userId: string): Promise<void> {
+  const db = await getInitializedDatabase();
+  const pendingUpserts = await db.getAllAsync<LocalCategoryRow>(
+    `SELECT * FROM transaction_categories
+     WHERE user_id = ? AND sync_status IN ('pending_create', 'pending_update')`,
+    [userId],
+  );
+
+  if (pendingUpserts.length > 0) {
+    const payload = pendingUpserts.map((row) => ({
+      id: row.id,
+      user_id: row.user_id,
+      name: row.name,
+      type: row.type,
+      icon: resolveMaterialIcon(row.icon),
+      color: row.color,
+      is_default: row.is_default ? 1 : 0,
+      created_at: row.created_at,
+      updated_at: row.updated_at ?? row.created_at,
+    }));
+
+    const { error } = await supabase.from('transaction_categories').upsert(payload);
+    if (error) {
+      console.error('[Category Sync] Failed to push pending categories:', error);
+      throw error;
+    }
+
+    const ids = pendingUpserts.map((row) => row.id);
+    await db.runAsync(
+      `UPDATE transaction_categories
+       SET sync_status = 'synced'
+       WHERE id IN (${ids.map(() => '?').join(',')})`,
+      ids,
+    );
+  }
+
+  const pendingDeletes = await db.getAllAsync<{ id: string }>(
+    `SELECT id FROM transaction_categories
+     WHERE user_id = ? AND sync_status = 'pending_delete'`,
+    [userId],
+  );
+
+  if (pendingDeletes.length > 0) {
+    const ids = pendingDeletes.map((row) => row.id);
+    const { error } = await supabase.from('transaction_categories').delete().in('id', ids);
+    if (error) {
+      console.error('[Category Sync] Failed to delete pending categories:', error);
+      throw error;
+    }
+
+    await db.runAsync(
+      `DELETE FROM transaction_categories WHERE id IN (${ids.map(() => '?').join(',')})`,
+      ids,
+    );
+  }
+}
+
 // Local queries
 export async function fetchLocalCategories(userId: string, type?: CategoryType): Promise<TransactionCategory[]> {
   const db = await getInitializedDatabase();
 
   if (type) {
-    const categories = await db.getAllAsync<TransactionCategory>(
+    const categories = await db.getAllAsync<LocalCategoryRow>(
       `SELECT * FROM transaction_categories
-       WHERE user_id = ? AND (type = ? OR type = 'both')
+       WHERE user_id = ?
+         AND sync_status != 'pending_delete'
+         AND (type = ? OR type = 'both')
        ORDER BY is_default DESC, name ASC`,
       [userId, type]
     );
-    return categories.map(normalizeCategoryIcon);
+    return categories.map(mapLocalCategoryRow);
   }
 
-  const categories = await db.getAllAsync<TransactionCategory>(
+  const categories = await db.getAllAsync<LocalCategoryRow>(
     `SELECT * FROM transaction_categories
      WHERE user_id = ?
+       AND sync_status != 'pending_delete'
      ORDER BY is_default DESC, name ASC`,
     [userId]
   );
-  return categories.map(normalizeCategoryIcon);
+  return categories.map(mapLocalCategoryRow);
 }
 
 export async function insertCategory(category: Omit<TransactionCategory, 'id' | 'created_at' | 'is_default'>): Promise<TransactionCategory> {
@@ -77,11 +149,11 @@ export async function insertCategory(category: Omit<TransactionCategory, 'id' | 
       normalizedCategory.icon,
       normalizedCategory.color,
       now,
-      normalizedCategory.updated_at,
+      now,
     ]
   );
 
-  return { ...normalizedCategory, id, created_at: now, is_default: false };
+  return { ...normalizedCategory, id, created_at: now, updated_at: now, is_default: false };
 }
 
 export async function updateCategory(id: string, updates: Partial<Omit<TransactionCategory, 'id' | 'user_id' | 'created_at' | 'is_default'>>): Promise<void> {
@@ -111,6 +183,10 @@ export async function updateCategory(id: string, updates: Partial<Omit<Transacti
   }
 
   fields.push('updated_at = ?');
+  fields.push(`sync_status = CASE
+    WHEN sync_status = 'pending_create' THEN 'pending_create'
+    ELSE 'pending_update'
+  END`);
   values.push(Date.now());
   values.push(id);
 
@@ -122,11 +198,30 @@ export async function updateCategory(id: string, updates: Partial<Omit<Transacti
 
 export async function deleteCategory(id: string): Promise<void> {
   const db = await getInitializedDatabase();
-  await db.runAsync('DELETE FROM transaction_categories WHERE id = ?', [id]);
+  const existing = await db.getFirstAsync<{ sync_status: string }>(
+    'SELECT sync_status FROM transaction_categories WHERE id = ?',
+    [id],
+  );
+
+  if (!existing) return;
+
+  if (existing.sync_status === 'pending_create') {
+    await db.runAsync('DELETE FROM transaction_categories WHERE id = ?', [id]);
+    return;
+  }
+
+  await db.runAsync(
+    `UPDATE transaction_categories
+     SET sync_status = 'pending_delete', updated_at = ?
+     WHERE id = ?`,
+    [Date.now(), id],
+  );
 }
 
 // Remote sync
 export async function syncRemoteCategories(userId: string): Promise<void> {
+  await pushPendingCategories(userId);
+
   const { data, error } = await supabase
     .from('transaction_categories')
     .select('*')
@@ -137,27 +232,41 @@ export async function syncRemoteCategories(userId: string): Promise<void> {
   if (error) throw error;
 
   const db = await getInitializedDatabase();
-  await db.withTransactionAsync(async () => {
-    for (const cat of (data ?? [])) {
-      const normalizedCategory = normalizeCategoryIcon(cat);
-      await db.runAsync(
-        `INSERT OR REPLACE INTO transaction_categories
-         (id, user_id, name, type, icon, color, is_default, created_at, updated_at, sync_status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`,
-        [
-          normalizedCategory.id,
-          normalizedCategory.user_id,
-          normalizedCategory.name,
-          normalizedCategory.type,
-          normalizedCategory.icon,
-          normalizedCategory.color,
-          normalizedCategory.is_default ? 1 : 0,
-          normalizedCategory.created_at,
-          normalizedCategory.updated_at,
-        ]
-      );
-    }
-  });
+  try {
+    await db.withTransactionAsync(async () => {
+      for (const cat of (data ?? [])) {
+        const existing = await db.getFirstAsync<{ sync_status: string }>(
+          'SELECT sync_status FROM transaction_categories WHERE id = ?',
+          [cat.id],
+        );
+
+        if (existing && existing.sync_status !== 'synced') {
+          continue;
+        }
+
+        const normalizedCategory = normalizeCategoryIcon(cat);
+        await db.runAsync(
+          `INSERT OR REPLACE INTO transaction_categories
+           (id, user_id, name, type, icon, color, is_default, created_at, updated_at, sync_status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`,
+          [
+            normalizedCategory.id,
+            normalizedCategory.user_id,
+            normalizedCategory.name,
+            normalizedCategory.type,
+            normalizedCategory.icon,
+            normalizedCategory.color,
+            normalizedCategory.is_default ? 1 : 0,
+            normalizedCategory.created_at,
+            normalizedCategory.updated_at,
+          ]
+        );
+      }
+    });
+  } catch (syncError) {
+    console.error('[Category Sync] Failed to persist remote categories locally:', syncError);
+    throw syncError;
+  }
 }
 
 // Initialize default categories for new user

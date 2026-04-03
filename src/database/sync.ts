@@ -85,8 +85,18 @@ const SYNC_TABLES: SyncTable[] = [
       "updated_at",
       "permission_level",
     ],
-    remoteColumns: ["id", "goal_id", "wallet_id", "user_email", "shared_by", "shared_at", "created_at"],
-    remoteUpdatedAtColumn: "created_at",
+    remoteColumns: [
+      "id",
+      "goal_id",
+      "wallet_id",
+      "user_email",
+      "shared_by",
+      "shared_at",
+      "created_at",
+      "updated_at",
+      "permission_level",
+    ],
+    remoteUpdatedAtColumn: "updated_at",
   },
   {
     tableName: "sharing_activity_log",
@@ -152,6 +162,8 @@ function mapRecordToSupabase(table: string, row: any): any {
   }
   if (table === "wallet_goals_shared") {
     record.created_at = record.created_at ?? record.shared_at ?? Date.now();
+    record.updated_at = record.updated_at ?? record.created_at;
+    record.permission_level = record.permission_level ?? "read_write";
   }
   // No boolean conversion needed for profiles or wallet_members yet
 

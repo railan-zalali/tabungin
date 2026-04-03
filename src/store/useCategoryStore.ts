@@ -81,6 +81,9 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
     if (!userId) return;
 
     const newCategory = await insertCategory({ ...category, user_id: userId });
+    syncRemoteCategories(userId).catch((error) => {
+      console.warn('Category background sync failed after add:', error);
+    });
 
     set((state) => {
       const updated = [...state.categories, newCategory];
@@ -94,6 +97,12 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
 
   updateCategory: async (id, updates) => {
     await updateCategory(id, updates);
+    const userId = useAuthStore.getState().user?.id;
+    if (userId) {
+      syncRemoteCategories(userId).catch((error) => {
+        console.warn('Category background sync failed after update:', error);
+      });
+    }
 
     set((state) => {
       const updated = state.categories.map((cat) =>
@@ -110,6 +119,12 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
 
   deleteCategory: async (id) => {
     await deleteCategory(id);
+    const userId = useAuthStore.getState().user?.id;
+    if (userId) {
+      syncRemoteCategories(userId).catch((error) => {
+        console.warn('Category background sync failed after delete:', error);
+      });
+    }
 
     set((state) => {
       const updated = state.categories.filter((cat) => cat.id !== id);

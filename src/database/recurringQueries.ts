@@ -25,25 +25,104 @@ export interface RecurringTransaction {
   updated_at: number;
 }
 
+type LocalRecurringRow = Omit<RecurringTransaction, 'is_active'> & {
+  is_active: number | boolean;
+  sync_status?: 'synced' | 'pending_create' | 'pending_update' | 'pending_delete';
+};
+
+function mapLocalRecurringRow(row: LocalRecurringRow): RecurringTransaction {
+  return {
+    ...row,
+    is_active: Boolean(row.is_active),
+  };
+}
+
+async function pushPendingRecurringTransactions(userId: string): Promise<void> {
+  const db = await getInitializedDatabase();
+  const pendingUpserts = await db.getAllAsync<LocalRecurringRow>(
+    `SELECT * FROM recurring_transactions
+     WHERE user_id = ? AND sync_status IN ('pending_create', 'pending_update')`,
+    [userId],
+  );
+
+  if (pendingUpserts.length > 0) {
+    const payload = pendingUpserts.map((row) => ({
+      id: row.id,
+      user_id: row.user_id,
+      wallet_id: row.wallet_id,
+      category: row.category,
+      amount: row.amount,
+      type: row.type,
+      note: row.note,
+      frequency: row.frequency,
+      day_of_month: row.day_of_month,
+      day_of_week: row.day_of_week,
+      start_date: row.start_date,
+      end_date: row.end_date,
+      next_occurrence: row.next_occurrence,
+      is_active: row.is_active ? 1 : 0,
+      last_generated_at: row.last_generated_at,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    }));
+
+    const { error } = await supabase.from('recurring_transactions').upsert(payload);
+    if (error) {
+      console.error('[Recurring Sync] Failed to push pending recurring transactions:', error);
+      throw error;
+    }
+
+    const ids = pendingUpserts.map((row) => row.id);
+    await db.runAsync(
+      `UPDATE recurring_transactions
+       SET sync_status = 'synced'
+       WHERE id IN (${ids.map(() => '?').join(',')})`,
+      ids,
+    );
+  }
+
+  const pendingDeletes = await db.getAllAsync<{ id: string }>(
+    `SELECT id FROM recurring_transactions
+     WHERE user_id = ? AND sync_status = 'pending_delete'`,
+    [userId],
+  );
+
+  if (pendingDeletes.length > 0) {
+    const ids = pendingDeletes.map((row) => row.id);
+    const { error } = await supabase.from('recurring_transactions').delete().in('id', ids);
+    if (error) {
+      console.error('[Recurring Sync] Failed to delete pending recurring transactions:', error);
+      throw error;
+    }
+
+    await db.runAsync(
+      `DELETE FROM recurring_transactions WHERE id IN (${ids.map(() => '?').join(',')})`,
+      ids,
+    );
+  }
+}
+
 // Local queries
 export async function fetchLocalRecurringTransactions(userId: string): Promise<RecurringTransaction[]> {
   const db = await getInitializedDatabase();
-  return db.getAllAsync<RecurringTransaction>(
+  const rows = await db.getAllAsync<LocalRecurringRow>(
     `SELECT * FROM recurring_transactions
-     WHERE user_id = ?
+     WHERE user_id = ? AND sync_status != 'pending_delete'
      ORDER BY next_occurrence ASC`,
     [userId]
   );
+  return rows.map(mapLocalRecurringRow);
 }
 
 export async function fetchActiveRecurringTransactions(userId: string): Promise<RecurringTransaction[]> {
   const db = await getInitializedDatabase();
-  return db.getAllAsync<RecurringTransaction>(
+  const rows = await db.getAllAsync<LocalRecurringRow>(
     `SELECT * FROM recurring_transactions
-     WHERE user_id = ? AND is_active = 1
+     WHERE user_id = ? AND is_active = 1 AND sync_status != 'pending_delete'
      ORDER BY next_occurrence ASC`,
     [userId]
   );
+  return rows.map(mapLocalRecurringRow);
 }
 
 export async function insertRecurringTransaction(transaction: Omit<RecurringTransaction, 'id' | 'created_at' | 'updated_at'>): Promise<RecurringTransaction> {
@@ -133,6 +212,10 @@ export async function updateRecurringTransaction(id: string, updates: Partial<Re
   }
 
   fields.push('updated_at = ?');
+  fields.push(`sync_status = CASE
+    WHEN sync_status = 'pending_create' THEN 'pending_create'
+    ELSE 'pending_update'
+  END`);
   values.push(Date.now());
   values.push(id);
 
@@ -144,7 +227,24 @@ export async function updateRecurringTransaction(id: string, updates: Partial<Re
 
 export async function deleteRecurringTransaction(id: string): Promise<void> {
   const db = await getInitializedDatabase();
-  await db.runAsync('DELETE FROM recurring_transactions WHERE id = ?', [id]);
+  const existing = await db.getFirstAsync<{ sync_status: string }>(
+    'SELECT sync_status FROM recurring_transactions WHERE id = ?',
+    [id],
+  );
+
+  if (!existing) return;
+
+  if (existing.sync_status === 'pending_create') {
+    await db.runAsync('DELETE FROM recurring_transactions WHERE id = ?', [id]);
+    return;
+  }
+
+  await db.runAsync(
+    `UPDATE recurring_transactions
+     SET sync_status = 'pending_delete', updated_at = ?
+     WHERE id = ?`,
+    [Date.now(), id],
+  );
 }
 
 export function calculateNextOccurrence(
@@ -185,6 +285,8 @@ export function calculateNextOccurrence(
 
 // Remote sync
 export async function syncRemoteRecurringTransactions(userId: string): Promise<void> {
+  await pushPendingRecurringTransactions(userId);
+
   const { data, error } = await supabase
     .from('recurring_transactions')
     .select('*')
@@ -194,35 +296,49 @@ export async function syncRemoteRecurringTransactions(userId: string): Promise<v
   if (error) throw error;
 
   const db = await getInitializedDatabase();
-  await db.withTransactionAsync(async () => {
-    for (const tx of (data ?? [])) {
-      await db.runAsync(
-        `INSERT OR REPLACE INTO recurring_transactions
-         (id, user_id, wallet_id, category, amount, type, note, frequency,
-          day_of_month, day_of_week, start_date, end_date, next_occurrence,
-          is_active, last_generated_at, created_at, updated_at, sync_status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`,
-        [
-          tx.id,
-          tx.user_id,
-          tx.wallet_id,
-          tx.category,
-          tx.amount,
-          tx.type,
-          tx.note,
-          tx.frequency,
-          tx.day_of_month,
-          tx.day_of_week,
-          tx.start_date,
-          tx.end_date,
-          tx.next_occurrence,
-          tx.is_active ? 1 : 0,
-          tx.last_generated_at,
-          tx.created_at,
-          tx.updated_at,
-        ]
-      );
-    }
-  });
+  try {
+    await db.withTransactionAsync(async () => {
+      for (const tx of (data ?? [])) {
+        const existing = await db.getFirstAsync<{ sync_status: string }>(
+          'SELECT sync_status FROM recurring_transactions WHERE id = ?',
+          [tx.id],
+        );
+
+        if (existing && existing.sync_status !== 'synced') {
+          continue;
+        }
+
+        await db.runAsync(
+          `INSERT OR REPLACE INTO recurring_transactions
+           (id, user_id, wallet_id, category, amount, type, note, frequency,
+            day_of_month, day_of_week, start_date, end_date, next_occurrence,
+            is_active, last_generated_at, created_at, updated_at, sync_status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`,
+          [
+            tx.id,
+            tx.user_id,
+            tx.wallet_id,
+            tx.category,
+            tx.amount,
+            tx.type,
+            tx.note,
+            tx.frequency,
+            tx.day_of_month,
+            tx.day_of_week,
+            tx.start_date,
+            tx.end_date,
+            tx.next_occurrence,
+            tx.is_active ? 1 : 0,
+            tx.last_generated_at,
+            tx.created_at,
+            tx.updated_at,
+          ]
+        );
+      }
+    });
+  } catch (syncError) {
+    console.error('[Recurring Sync] Failed to persist remote recurring transactions locally:', syncError);
+    throw syncError;
+  }
 }
 
