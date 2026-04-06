@@ -20,8 +20,11 @@ export interface SavingGoal {
     reminder_enabled: boolean;
     reminder_time: string | null; // format HH:mm
     created_at: number;
+    updated_at?: number;
     wallet_id?: string;
     profile_id?: string;
+    owner_user_id?: string | null;
+    created_by_user_id?: string | null;
 }
 
 export interface SavingLog {
@@ -49,7 +52,7 @@ export interface GoalSharingActivity {
     goal_id: string;
     wallet_id: string;
     user_email: string;
-    action: 'shared' | 'revoked' | 'permission_changed' | 'access_granted';
+    action: 'shared' | 'revoked' | 'permission_changed' | 'access_granted' | 'goal_created' | 'contribution_added';
     performed_by: string;
     metadata: string | null;
     timestamp: number;
@@ -65,6 +68,10 @@ export interface SavingGoalComputedMeta {
     isSharedGoal: boolean;
     isSharedWalletGoal: boolean;
     isSharedDirectGoal: boolean;
+    currentUserPermission: GoalPermissionLevel;
+    canEdit: boolean;
+    canContribute: boolean;
+    canManageSharing: boolean;
 }
 
 export interface SimulationResult {

@@ -15,7 +15,7 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 
 // ─── VERSI SCHEMA SAAT INI ─────────────────────────────────────────
 // Naikkan angka ini setiap kali ada perubahan schema database
-const CURRENT_DB_VERSION = 13;
+const CURRENT_DB_VERSION = 14;
 
 // ─── DAFTAR MIGRASI ───────────────────────────────────────────────
 // Key = nomor versi target, value = SQL yang dijalankan untuk upgrade ke versi itu
@@ -283,6 +283,53 @@ const MIGRATIONS: Record<number, string[]> = {
         `CREATE INDEX IF NOT EXISTS idx_sharing_activity_log_wallet_id ON sharing_activity_log (wallet_id);`,
         `CREATE INDEX IF NOT EXISTS idx_sharing_activity_log_timestamp ON sharing_activity_log (timestamp DESC);`,
     ],
+    14: [
+        // Versi 14: Reminder center + explicit shared goal ownership
+        `ALTER TABLE saving_goals ADD COLUMN owner_user_id TEXT;`,
+        `ALTER TABLE saving_goals ADD COLUMN created_by_user_id TEXT;`,
+        `ALTER TABLE budgets ADD COLUMN reminder_enabled INTEGER NOT NULL DEFAULT 0;`,
+        `ALTER TABLE budgets ADD COLUMN reminder_time TEXT;`,
+        `ALTER TABLE recurring_transactions ADD COLUMN reminder_enabled INTEGER NOT NULL DEFAULT 0;`,
+        `ALTER TABLE recurring_transactions ADD COLUMN reminder_offset_minutes INTEGER NOT NULL DEFAULT 60;`,
+        `CREATE TABLE IF NOT EXISTS app_reminders (
+            id TEXT PRIMARY KEY NOT NULL,
+            user_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            note TEXT,
+            target_screen TEXT,
+            target_params TEXT,
+            frequency TEXT NOT NULL CHECK(frequency IN ('once', 'daily', 'weekly', 'monthly')),
+            trigger_at INTEGER NOT NULL,
+            time_of_day TEXT,
+            day_of_week INTEGER,
+            day_of_month INTEGER,
+            is_enabled INTEGER NOT NULL DEFAULT 1,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL,
+            sync_status TEXT DEFAULT 'pending_create'
+        );`,
+        `CREATE INDEX IF NOT EXISTS idx_app_reminders_user ON app_reminders (user_id);`,
+        `CREATE INDEX IF NOT EXISTS idx_app_reminders_trigger ON app_reminders (is_enabled, trigger_at);`,
+        `CREATE TABLE IF NOT EXISTS _notifications_new (
+            id TEXT PRIMARY KEY NOT NULL,
+            user_id TEXT NOT NULL,
+            type TEXT NOT NULL CHECK(type IN ('goal_reminder', 'goal_completed', 'budget_warning', 'budget_reminder', 'recurring_reminder', 'manual_reminder', 'wallet_invite', 'app_update_available')),
+            title TEXT NOT NULL,
+            body TEXT NOT NULL,
+            data TEXT,
+            is_read INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL,
+            sync_status TEXT DEFAULT 'synced'
+        );`,
+        `INSERT INTO _notifications_new (id, user_id, type, title, body, data, is_read, created_at, sync_status)
+         SELECT id, user_id, type, title, body, data, is_read, created_at, COALESCE(sync_status, 'synced')
+         FROM notifications;`,
+        `DROP TABLE notifications;`,
+        `ALTER TABLE _notifications_new RENAME TO notifications;`,
+        `CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications (user_id);`,
+        `CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications (created_at DESC);`,
+        `CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications (user_id, is_read, created_at DESC);`,
+    ],
 };
 
 const SCHEMA_GUARDS: string[] = [
@@ -325,7 +372,7 @@ const SCHEMA_GUARDS: string[] = [
     `CREATE TABLE IF NOT EXISTS notifications (
         id TEXT PRIMARY KEY NOT NULL,
         user_id TEXT NOT NULL,
-        type TEXT NOT NULL CHECK(type IN ('goal_reminder', 'goal_completed', 'budget_warning', 'wallet_invite')),
+        type TEXT NOT NULL CHECK(type IN ('goal_reminder', 'goal_completed', 'budget_warning', 'budget_reminder', 'recurring_reminder', 'manual_reminder', 'wallet_invite', 'app_update_available')),
         title TEXT NOT NULL,
         body TEXT NOT NULL,
         data TEXT,
@@ -383,6 +430,8 @@ const SCHEMA_GUARDS: string[] = [
         next_occurrence INTEGER NOT NULL,
         is_active INTEGER NOT NULL DEFAULT 1,
         last_generated_at INTEGER,
+        reminder_enabled INTEGER NOT NULL DEFAULT 0,
+        reminder_offset_minutes INTEGER NOT NULL DEFAULT 60,
         created_at INTEGER NOT NULL,
         updated_at INTEGER,
         sync_status TEXT DEFAULT 'synced'
@@ -405,6 +454,25 @@ const SCHEMA_GUARDS: string[] = [
     );`,
     `CREATE INDEX IF NOT EXISTS idx_categories_user ON transaction_categories (user_id);`,
     `CREATE INDEX IF NOT EXISTS idx_categories_type ON transaction_categories (user_id, type);`,
+    `CREATE TABLE IF NOT EXISTS app_reminders (
+        id TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        note TEXT,
+        target_screen TEXT,
+        target_params TEXT,
+        frequency TEXT NOT NULL CHECK(frequency IN ('once', 'daily', 'weekly', 'monthly')),
+        trigger_at INTEGER NOT NULL,
+        time_of_day TEXT,
+        day_of_week INTEGER,
+        day_of_month INTEGER,
+        is_enabled INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        sync_status TEXT DEFAULT 'pending_create'
+    );`,
+    `CREATE INDEX IF NOT EXISTS idx_app_reminders_user ON app_reminders (user_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_app_reminders_trigger ON app_reminders (is_enabled, trigger_at);`,
 ];
 
 // ─── RUNNER MIGRASI ───────────────────────────────────────────────
@@ -448,7 +516,7 @@ async function runSchemaGuards(database: SQLite.SQLiteDatabase): Promise<void> {
                 sql: `CREATE TABLE IF NOT EXISTS notifications (
                     id TEXT PRIMARY KEY NOT NULL,
                     user_id TEXT NOT NULL,
-                    type TEXT NOT NULL CHECK(type IN ('goal_reminder', 'goal_completed', 'budget_warning', 'wallet_invite')),
+                    type TEXT NOT NULL CHECK(type IN ('goal_reminder', 'goal_completed', 'budget_warning', 'budget_reminder', 'recurring_reminder', 'manual_reminder', 'wallet_invite', 'app_update_available')),
                     title TEXT NOT NULL,
                     body TEXT NOT NULL,
                     data TEXT,
@@ -507,11 +575,13 @@ async function runSchemaGuards(database: SQLite.SQLiteDatabase): Promise<void> {
                     next_occurrence INTEGER NOT NULL,
                     is_active INTEGER NOT NULL DEFAULT 1,
                     last_generated_at INTEGER,
+                    reminder_enabled INTEGER NOT NULL DEFAULT 0,
+                    reminder_offset_minutes INTEGER NOT NULL DEFAULT 60,
                     created_at INTEGER NOT NULL,
                     updated_at INTEGER,
                     sync_status TEXT DEFAULT 'synced'
                 );`,
-                requiredColumns: ['user_id', 'category', 'amount', 'type', 'frequency', 'next_occurrence', 'is_active']
+                requiredColumns: ['user_id', 'category', 'amount', 'type', 'frequency', 'next_occurrence', 'is_active', 'reminder_enabled', 'reminder_offset_minutes']
             },
             transaction_categories: {
                 sql: `CREATE TABLE IF NOT EXISTS transaction_categories (
@@ -527,6 +597,26 @@ async function runSchemaGuards(database: SQLite.SQLiteDatabase): Promise<void> {
                     sync_status TEXT DEFAULT 'synced'
                 );`,
                 requiredColumns: ['user_id', 'name', 'type', 'icon', 'color', 'is_default']
+            },
+            app_reminders: {
+                sql: `CREATE TABLE IF NOT EXISTS app_reminders (
+                    id TEXT PRIMARY KEY NOT NULL,
+                    user_id TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    note TEXT,
+                    target_screen TEXT,
+                    target_params TEXT,
+                    frequency TEXT NOT NULL CHECK(frequency IN ('once', 'daily', 'weekly', 'monthly')),
+                    trigger_at INTEGER NOT NULL,
+                    time_of_day TEXT,
+                    day_of_week INTEGER,
+                    day_of_month INTEGER,
+                    is_enabled INTEGER NOT NULL DEFAULT 1,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    sync_status TEXT DEFAULT 'pending_create'
+                );`,
+                requiredColumns: ['user_id', 'title', 'frequency', 'trigger_at', 'is_enabled', 'created_at', 'updated_at']
             }
         };
 
@@ -584,7 +674,7 @@ export async function initDatabase(): Promise<void> {
 
             // [SELF-HEALING] Pastikan tabel baru tersedia (untuk mengatasi inkonsistensi versi migrasi)
             const tablesToCheck = ['transactions', 'saving_goals', 'saving_logs', 'budgets'];
-            const newTables = ['notifications', 'wallet_goals_shared', 'sharing_activity_log', 'recurring_transactions', 'transaction_categories'];
+            const newTables = ['notifications', 'wallet_goals_shared', 'sharing_activity_log', 'recurring_transactions', 'transaction_categories', 'app_reminders'];
 
             // Cek tabel-tabel yang perlu repair kolom
             for (const table of tablesToCheck) {
@@ -629,10 +719,22 @@ export async function initDatabase(): Promise<void> {
                         const columnNames = columns.map(c => c.name);
 
                         // Cek user_id untuk tabel yang butuh
-                        if (['notifications', 'recurring_transactions', 'transaction_categories'].includes(table)) {
+                        if (['notifications', 'recurring_transactions', 'transaction_categories', 'app_reminders'].includes(table)) {
                             if (!columnNames.includes('user_id')) {
                                 console.log(`[DB Repair] Menambahkan user_id ke ${table}`);
                                 await database.execAsync(`ALTER TABLE ${table} ADD COLUMN user_id TEXT`);
+                            }
+                        }
+
+                        if (table === 'recurring_transactions') {
+                            if (!columnNames.includes('reminder_enabled')) {
+                                console.log('[DB Repair] Menambahkan reminder_enabled ke recurring_transactions');
+                                await database.execAsync('ALTER TABLE recurring_transactions ADD COLUMN reminder_enabled INTEGER NOT NULL DEFAULT 0');
+                            }
+
+                            if (!columnNames.includes('reminder_offset_minutes')) {
+                                console.log('[DB Repair] Menambahkan reminder_offset_minutes ke recurring_transactions');
+                                await database.execAsync('ALTER TABLE recurring_transactions ADD COLUMN reminder_offset_minutes INTEGER NOT NULL DEFAULT 60');
                             }
                         }
 
@@ -647,10 +749,51 @@ export async function initDatabase(): Promise<void> {
                                 await database.execAsync("ALTER TABLE wallet_goals_shared ADD COLUMN permission_level TEXT DEFAULT 'read_write'");
                             }
                         }
+
+                        if (table === 'app_reminders') {
+                            if (!columnNames.includes('target_params')) {
+                                console.log('[DB Repair] Menambahkan target_params ke app_reminders');
+                                await database.execAsync('ALTER TABLE app_reminders ADD COLUMN target_params TEXT');
+                            }
+                        }
                     }
                 } catch (e) {
                     console.error(`[DB Repair] Gagal memeriksa tabel baru ${table}:`, e);
                 }
+            }
+
+            try {
+                const savingGoalColumns = await database.getAllAsync<{name: string}>('PRAGMA table_info(saving_goals)');
+                const savingGoalColumnNames = savingGoalColumns.map(c => c.name);
+
+                if (!savingGoalColumnNames.includes('owner_user_id')) {
+                    console.log('[DB Repair] Menambahkan owner_user_id ke saving_goals');
+                    await database.execAsync('ALTER TABLE saving_goals ADD COLUMN owner_user_id TEXT');
+                }
+
+                if (!savingGoalColumnNames.includes('created_by_user_id')) {
+                    console.log('[DB Repair] Menambahkan created_by_user_id ke saving_goals');
+                    await database.execAsync('ALTER TABLE saving_goals ADD COLUMN created_by_user_id TEXT');
+                }
+            } catch (e) {
+                console.error('[DB Repair] Gagal memeriksa ownership saving_goals:', e);
+            }
+
+            try {
+                const budgetColumns = await database.getAllAsync<{name: string}>('PRAGMA table_info(budgets)');
+                const budgetColumnNames = budgetColumns.map(c => c.name);
+
+                if (!budgetColumnNames.includes('reminder_enabled')) {
+                    console.log('[DB Repair] Menambahkan reminder_enabled ke budgets');
+                    await database.execAsync('ALTER TABLE budgets ADD COLUMN reminder_enabled INTEGER NOT NULL DEFAULT 0');
+                }
+
+                if (!budgetColumnNames.includes('reminder_time')) {
+                    console.log('[DB Repair] Menambahkan reminder_time ke budgets');
+                    await database.execAsync('ALTER TABLE budgets ADD COLUMN reminder_time TEXT');
+                }
+            } catch (e) {
+                console.error('[DB Repair] Gagal memeriksa reminder budget:', e);
             }
 
             // Inisialisasi Default Wallet jika belum ada (untuk migrasi ke v5)
@@ -753,6 +896,7 @@ export async function clearAllData(): Promise<void> {
     
     await database.withTransactionAsync(async () => {
         await database.runAsync('DELETE FROM notifications');
+        await database.runAsync('DELETE FROM app_reminders');
         await database.runAsync('DELETE FROM recurring_transactions');
         await database.runAsync('DELETE FROM transaction_categories');
         await database.runAsync('DELETE FROM sharing_activity_log');

@@ -10,6 +10,7 @@ import {
   syncRemoteRecurringTransactions,
 } from '../database/recurringQueries';
 import { useAuthStore } from './useAuthStore';
+import { rescheduleCrossFeatureReminders } from '../utils/notificationService';
 
 interface RecurringState {
   recurringTransactions: RecurringTransaction[];
@@ -75,6 +76,9 @@ export const useRecurringStore = create<RecurringState>((set, get) => ({
     syncRemoteRecurringTransactions(userId).catch((error) => {
       console.warn('Recurring background sync failed after add:', error);
     });
+    rescheduleCrossFeatureReminders().catch((error) => {
+      console.warn('Recurring reminder reschedule failed after add:', error);
+    });
 
     set((state) => ({
       recurringTransactions: [...state.recurringTransactions, newTransaction].sort(
@@ -91,6 +95,9 @@ export const useRecurringStore = create<RecurringState>((set, get) => ({
         console.warn('Recurring background sync failed after update:', error);
       });
     }
+    rescheduleCrossFeatureReminders().catch((error) => {
+      console.warn('Recurring reminder reschedule failed after update:', error);
+    });
 
     set((state) => ({
       recurringTransactions: state.recurringTransactions.map((tx) =>
@@ -107,6 +114,9 @@ export const useRecurringStore = create<RecurringState>((set, get) => ({
         console.warn('Recurring background sync failed after delete:', error);
       });
     }
+    rescheduleCrossFeatureReminders().catch((error) => {
+      console.warn('Recurring reminder reschedule failed after delete:', error);
+    });
 
     set((state) => ({
       recurringTransactions: state.recurringTransactions.filter((tx) => tx.id !== id),
@@ -119,6 +129,9 @@ export const useRecurringStore = create<RecurringState>((set, get) => ({
 
     const isActive = !transaction.is_active;
     await updateRecurringTransaction(id, { is_active: isActive });
+    rescheduleCrossFeatureReminders().catch((error) => {
+      console.warn('Recurring reminder reschedule failed after toggle:', error);
+    });
 
     set((state) => ({
       recurringTransactions: state.recurringTransactions.map((tx) =>

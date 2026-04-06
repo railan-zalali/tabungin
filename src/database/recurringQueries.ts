@@ -2,6 +2,7 @@
 import { getInitializedDatabase } from './schema';
 import { supabase } from '../lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
+import { runSerializedSyncTask } from './syncQueue';
 
 export type RecurringFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly';
 
@@ -21,6 +22,8 @@ export interface RecurringTransaction {
   next_occurrence: number;
   is_active: boolean;
   last_generated_at: number | null;
+  reminder_enabled: boolean;
+  reminder_offset_minutes: number;
   created_at: number;
   updated_at: number;
 }
@@ -30,10 +33,14 @@ type LocalRecurringRow = Omit<RecurringTransaction, 'is_active'> & {
   sync_status?: 'synced' | 'pending_create' | 'pending_update' | 'pending_delete';
 };
 
+const activeRecurringSyncs = new Map<string, Promise<void>>();
+
 function mapLocalRecurringRow(row: LocalRecurringRow): RecurringTransaction {
   return {
     ...row,
     is_active: Boolean(row.is_active),
+    reminder_enabled: Boolean((row as any).reminder_enabled),
+    reminder_offset_minutes: Number((row as any).reminder_offset_minutes ?? 60),
   };
 }
 
@@ -62,6 +69,8 @@ async function pushPendingRecurringTransactions(userId: string): Promise<void> {
       next_occurrence: row.next_occurrence,
       is_active: row.is_active ? 1 : 0,
       last_generated_at: row.last_generated_at,
+      reminder_enabled: row.reminder_enabled ? 1 : 0,
+      reminder_offset_minutes: row.reminder_offset_minutes,
       created_at: row.created_at,
       updated_at: row.updated_at,
     }));
@@ -134,8 +143,8 @@ export async function insertRecurringTransaction(transaction: Omit<RecurringTran
     `INSERT INTO recurring_transactions (
       id, user_id, wallet_id, category, amount, type, note, frequency,
       day_of_month, day_of_week, start_date, end_date, next_occurrence,
-      is_active, last_generated_at, created_at, updated_at, sync_status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_create')`,
+      is_active, last_generated_at, reminder_enabled, reminder_offset_minutes, created_at, updated_at, sync_status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_create')`,
     [
       id,
       transaction.user_id,
@@ -152,6 +161,8 @@ export async function insertRecurringTransaction(transaction: Omit<RecurringTran
       transaction.next_occurrence,
       transaction.is_active ? 1 : 0,
       transaction.last_generated_at,
+      transaction.reminder_enabled ? 1 : 0,
+      transaction.reminder_offset_minutes,
       now,
       now,
     ]
@@ -209,6 +220,14 @@ export async function updateRecurringTransaction(id: string, updates: Partial<Re
   if (updates.last_generated_at !== undefined) {
     fields.push('last_generated_at = ?');
     values.push(updates.last_generated_at);
+  }
+  if (updates.reminder_enabled !== undefined) {
+    fields.push('reminder_enabled = ?');
+    values.push(updates.reminder_enabled ? 1 : 0);
+  }
+  if (updates.reminder_offset_minutes !== undefined) {
+    fields.push('reminder_offset_minutes = ?');
+    values.push(updates.reminder_offset_minutes);
   }
 
   fields.push('updated_at = ?');
@@ -285,60 +304,89 @@ export function calculateNextOccurrence(
 
 // Remote sync
 export async function syncRemoteRecurringTransactions(userId: string): Promise<void> {
-  await pushPendingRecurringTransactions(userId);
-
-  const { data, error } = await supabase
-    .from('recurring_transactions')
-    .select('*')
-    .eq('user_id', userId)
-    .order('next_occurrence', { ascending: true });
-
-  if (error) throw error;
-
-  const db = await getInitializedDatabase();
-  try {
-    await db.withTransactionAsync(async () => {
-      for (const tx of (data ?? [])) {
-        const existing = await db.getFirstAsync<{ sync_status: string }>(
-          'SELECT sync_status FROM recurring_transactions WHERE id = ?',
-          [tx.id],
-        );
-
-        if (existing && existing.sync_status !== 'synced') {
-          continue;
-        }
-
-        await db.runAsync(
-          `INSERT OR REPLACE INTO recurring_transactions
-           (id, user_id, wallet_id, category, amount, type, note, frequency,
-            day_of_month, day_of_week, start_date, end_date, next_occurrence,
-            is_active, last_generated_at, created_at, updated_at, sync_status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`,
-          [
-            tx.id,
-            tx.user_id,
-            tx.wallet_id,
-            tx.category,
-            tx.amount,
-            tx.type,
-            tx.note,
-            tx.frequency,
-            tx.day_of_month,
-            tx.day_of_week,
-            tx.start_date,
-            tx.end_date,
-            tx.next_occurrence,
-            tx.is_active ? 1 : 0,
-            tx.last_generated_at,
-            tx.created_at,
-            tx.updated_at,
-          ]
-        );
-      }
-    });
-  } catch (syncError) {
-    console.error('[Recurring Sync] Failed to persist remote recurring transactions locally:', syncError);
-    throw syncError;
+  const activeSync = activeRecurringSyncs.get(userId);
+  if (activeSync) {
+    return activeSync;
   }
+
+  const syncPromise = runSerializedSyncTask(async () => {
+    await pushPendingRecurringTransactions(userId);
+
+    const { data, error } = await supabase
+      .from('recurring_transactions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('next_occurrence', { ascending: true });
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      return;
+    }
+
+    const db = await getInitializedDatabase();
+    try {
+      await db.withTransactionAsync(async () => {
+        for (const tx of data) {
+          const existing = await db.getFirstAsync<{ sync_status: string }>(
+            'SELECT sync_status FROM recurring_transactions WHERE id = ?',
+            [tx.id],
+          );
+
+          if (existing && existing.sync_status !== 'synced') {
+            continue;
+          }
+
+          await db.runAsync(
+            `INSERT OR REPLACE INTO recurring_transactions
+             (id, user_id, wallet_id, category, amount, type, note, frequency,
+             day_of_month, day_of_week, start_date, end_date, next_occurrence,
+              is_active, last_generated_at, reminder_enabled, reminder_offset_minutes, created_at, updated_at, sync_status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`,
+            [
+              tx.id,
+              tx.user_id,
+              tx.wallet_id,
+              tx.category,
+              tx.amount,
+              tx.type,
+              tx.note,
+              tx.frequency,
+              tx.day_of_month,
+              tx.day_of_week,
+              tx.start_date,
+              tx.end_date,
+              tx.next_occurrence,
+              tx.is_active ? 1 : 0,
+              tx.last_generated_at,
+              tx.reminder_enabled ? 1 : 0,
+              tx.reminder_offset_minutes ?? 60,
+              tx.created_at,
+              tx.updated_at,
+            ]
+          );
+        }
+      });
+    } catch (syncError) {
+      console.error('[Recurring Sync] Failed to persist remote recurring transactions locally:', syncError);
+      throw syncError;
+    }
+  }).finally(() => {
+    activeRecurringSyncs.delete(userId);
+  });
+
+  activeRecurringSyncs.set(userId, syncPromise);
+  return syncPromise;
+}
+
+export async function fetchRecurringReminderCandidates(userId: string): Promise<RecurringTransaction[]> {
+  const db = await getInitializedDatabase();
+  const rows = await db.getAllAsync<LocalRecurringRow>(
+    `SELECT * FROM recurring_transactions
+     WHERE user_id = ? AND sync_status != 'pending_delete' AND is_active = 1 AND reminder_enabled = 1
+     ORDER BY next_occurrence ASC`,
+    [userId],
+  );
+  return rows.map(mapLocalRecurringRow);
 }
 

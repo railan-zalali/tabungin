@@ -9,6 +9,8 @@ export interface Budget {
     amount: number;
     month: number;  // 1-12
     year: number;
+    reminder_enabled: boolean;
+    reminder_time: string | null;
     created_at: number;
 }
 
@@ -35,7 +37,12 @@ export async function fetchBudgetsWithSpent(month: number, year: number): Promis
     );
 
     const result: BudgetWithSpent[] = [];
-    for (const b of rows) {
+    for (const budgetRow of rows) {
+        const b = {
+            ...budgetRow,
+            reminder_enabled: Boolean((budgetRow as any).reminder_enabled),
+            reminder_time: (budgetRow as any).reminder_time ?? null,
+        };
         const spentRow = await db.getFirstAsync<{ total: number }>(
             `SELECT COALESCE(SUM(amount), 0) as total FROM transactions
              WHERE type = 'expense' AND category = ? AND date >= ? AND date <= ? AND sync_status != 'pending_delete'`,
@@ -56,7 +63,11 @@ export async function upsertBudget(
     category: string,
     amount: number,
     month: number,
-    year: number
+    year: number,
+    options?: {
+        reminder_enabled?: boolean;
+        reminder_time?: string | null;
+    }
 ): Promise<Budget> {
     const db = await getInitializedDatabase();
     const existing = await db.getFirstAsync<Budget>(
@@ -65,11 +76,18 @@ export async function upsertBudget(
     );
 
     if (existing) {
+        const nextReminderEnabled = options?.reminder_enabled ?? existing.reminder_enabled;
+        const nextReminderTime = options?.reminder_time ?? existing.reminder_time;
         await db.runAsync(
-            "UPDATE budgets SET amount = ?, sync_status = 'pending_update', updated_at = ? WHERE id = ?",
-            [amount, Date.now(), existing.id]
+            "UPDATE budgets SET amount = ?, reminder_enabled = ?, reminder_time = ?, sync_status = 'pending_update', updated_at = ? WHERE id = ?",
+            [amount, nextReminderEnabled ? 1 : 0, nextReminderTime || null, Date.now(), existing.id]
         );
-        return { ...existing, amount };
+        return {
+            ...existing,
+            amount,
+            reminder_enabled: nextReminderEnabled,
+            reminder_time: nextReminderTime,
+        };
     }
 
     const id = uuidv4();
@@ -78,10 +96,19 @@ export async function upsertBudget(
     const sync_status = 'pending_create';
     
     await db.runAsync(
-        'INSERT INTO budgets (id, category, amount, month, year, created_at, updated_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [id, category, amount, month, year, created_at, updated_at, sync_status]
+        'INSERT INTO budgets (id, category, amount, month, year, reminder_enabled, reminder_time, created_at, updated_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [id, category, amount, month, year, options?.reminder_enabled ? 1 : 0, options?.reminder_time || null, created_at, updated_at, sync_status]
     );
-    return { id, category, amount, month, year, created_at };
+    return {
+        id,
+        category,
+        amount,
+        month,
+        year,
+        reminder_enabled: options?.reminder_enabled ?? false,
+        reminder_time: options?.reminder_time ?? null,
+        created_at,
+    };
 }
 
 /**
@@ -134,5 +161,21 @@ export async function fetchBudgetSummary(month: number, year: number): Promise<{
         totalSpent: spentTotal?.total ?? 0,
         categoriesOver,
     };
+}
+
+export async function fetchBudgetReminderCandidates(month: number, year: number): Promise<Budget[]> {
+    const db = await getInitializedDatabase();
+    const rows = await db.getAllAsync<any>(
+        `SELECT * FROM budgets
+         WHERE month = ? AND year = ? AND sync_status != 'pending_delete' AND reminder_enabled = 1
+         ORDER BY category ASC`,
+        [month, year],
+    );
+
+    return rows.map((row) => ({
+        ...row,
+        reminder_enabled: Boolean(row.reminder_enabled),
+        reminder_time: row.reminder_time ?? null,
+    }));
 }
 

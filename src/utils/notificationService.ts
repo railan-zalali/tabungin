@@ -10,6 +10,10 @@ import { v4 as uuidv4 } from 'uuid';
 import type { SavingGoal } from '../types/saving';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/useAuthStore';
+import type { AppReminder } from '../database/reminderQueries';
+import { fetchEnabledAppReminders } from '../database/reminderQueries';
+import { fetchBudgetReminderCandidates } from '../database/budgetQueries';
+import { fetchRecurringReminderCandidates, type RecurringTransaction } from '../database/recurringQueries';
 
 // Konfigurasi bagaimana notifikasi ditampilkan saat app foreground
 setNotificationHandler({
@@ -105,6 +109,206 @@ export async function rescheduleAllReminders(goals: SavingGoal[]): Promise<void>
     }
 }
 
+function toTimeParts(timeText: string | null | undefined, fallbackHour = 8, fallbackMinute = 0) {
+    if (!timeText) {
+        return { hour: fallbackHour, minute: fallbackMinute };
+    }
+
+    const [hourText, minuteText] = timeText.split(':');
+    const hour = Number(hourText);
+    const minute = Number(minuteText);
+    return {
+        hour: Number.isFinite(hour) ? hour : fallbackHour,
+        minute: Number.isFinite(minute) ? minute : fallbackMinute,
+    };
+}
+
+export async function scheduleBudgetReminder(reminder: {
+    id: string;
+    category: string;
+    month: number;
+    year: number;
+    reminder_time: string | null;
+}): Promise<void> {
+    const granted = await requestNotificationPermission();
+    if (!granted) return;
+
+    const { hour, minute } = toTimeParts(reminder.reminder_time, 9, 0);
+
+    await cancelScheduledNotificationAsync(`budget_reminder_${reminder.id}`);
+    await scheduleNotificationAsync({
+        identifier: `budget_reminder_${reminder.id}`,
+        content: {
+            title: 'Budget Reminder',
+            body: `Pantau budget kategori ${reminder.category} untuk ${reminder.month}/${reminder.year}.`,
+            data: {
+                category: reminder.category,
+                reminderId: reminder.id,
+                targetScreen: 'Budget',
+            },
+            sound: true,
+        },
+        trigger: {
+            type: SchedulableTriggerInputTypes.MONTHLY,
+            day: 1,
+            hour,
+            minute,
+        } as any,
+    });
+}
+
+export async function scheduleRecurringReminder(recurring: RecurringTransaction): Promise<void> {
+    const granted = await requestNotificationPermission();
+    if (!granted) return;
+
+    const triggerDate = new Date(
+        recurring.next_occurrence - Math.max(5, recurring.reminder_offset_minutes) * 60 * 1000,
+    );
+    const scheduledAt = triggerDate.getTime();
+    if (scheduledAt <= Date.now()) return;
+
+    await cancelScheduledNotificationAsync(`recurring_reminder_${recurring.id}`);
+    await scheduleNotificationAsync({
+        identifier: `recurring_reminder_${recurring.id}`,
+        content: {
+            title: 'Pengingat transaksi berulang',
+            body: `${recurring.category} akan dijalankan sebentar lagi.`,
+            data: {
+                recurringId: recurring.id,
+                targetScreen: 'RecurringTransaction',
+            },
+            sound: true,
+        },
+        trigger: {
+            type: SchedulableTriggerInputTypes.DATE,
+            date: triggerDate,
+        } as any,
+    });
+}
+
+export async function scheduleManualReminder(reminder: AppReminder): Promise<void> {
+    if (!reminder.is_enabled) return;
+
+    const granted = await requestNotificationPermission();
+    if (!granted) return;
+
+    await cancelScheduledNotificationAsync(`manual_reminder_${reminder.id}`);
+
+    if (reminder.frequency === 'once') {
+        await scheduleNotificationAsync({
+            identifier: `manual_reminder_${reminder.id}`,
+            content: {
+                title: reminder.title,
+                body: reminder.note || 'Pengingat dari Tabungin',
+                data: {
+                    reminderId: reminder.id,
+                    targetScreen: reminder.target_screen,
+                    ...reminder.target_params,
+                },
+                sound: true,
+            },
+            trigger: {
+                type: SchedulableTriggerInputTypes.DATE,
+                date: new Date(reminder.trigger_at),
+            } as any,
+        });
+        return;
+    }
+
+    const { hour, minute } = toTimeParts(reminder.time_of_day, 8, 0);
+    const baseContent = {
+        title: reminder.title,
+        body: reminder.note || 'Pengingat dari Tabungin',
+        data: {
+            reminderId: reminder.id,
+            targetScreen: reminder.target_screen,
+            ...reminder.target_params,
+        },
+        sound: true,
+    };
+
+    if (reminder.frequency === 'daily') {
+        await scheduleNotificationAsync({
+            identifier: `manual_reminder_${reminder.id}`,
+            content: baseContent,
+            trigger: {
+                type: SchedulableTriggerInputTypes.DAILY,
+                hour,
+                minute,
+            },
+        });
+        return;
+    }
+
+    if (reminder.frequency === 'weekly') {
+        await scheduleNotificationAsync({
+            identifier: `manual_reminder_${reminder.id}`,
+            content: baseContent,
+            trigger: {
+                type: SchedulableTriggerInputTypes.WEEKLY,
+                weekday: (reminder.day_of_week ?? 1) + 1,
+                hour,
+                minute,
+            } as any,
+        });
+        return;
+    }
+
+    await scheduleNotificationAsync({
+        identifier: `manual_reminder_${reminder.id}`,
+        content: baseContent,
+        trigger: {
+            type: SchedulableTriggerInputTypes.MONTHLY,
+            day: reminder.day_of_month ?? 1,
+            hour,
+            minute,
+        } as any,
+    });
+}
+
+export async function rescheduleCrossFeatureReminders(): Promise<void> {
+    try {
+        const user = useAuthStore.getState().user;
+        if (!user?.id) return;
+
+        const now = new Date();
+        const budgets = await fetchBudgetReminderCandidates(now.getMonth() + 1, now.getFullYear());
+        const recurring = await fetchRecurringReminderCandidates(user.id);
+        const manualReminders = await fetchEnabledAppReminders(user.id);
+
+        const scheduled = await getAllScheduledNotificationsAsync();
+        for (const notification of scheduled) {
+            if (
+                notification.identifier.startsWith('budget_reminder_') ||
+                notification.identifier.startsWith('recurring_reminder_') ||
+                notification.identifier.startsWith('manual_reminder_')
+            ) {
+                await cancelScheduledNotificationAsync(notification.identifier);
+            }
+        }
+
+        for (const budget of budgets) {
+            await scheduleBudgetReminder({
+                id: budget.id,
+                category: budget.category,
+                month: budget.month,
+                year: budget.year,
+                reminder_time: budget.reminder_time,
+            });
+        }
+
+        for (const recurringItem of recurring) {
+            await scheduleRecurringReminder(recurringItem);
+        }
+
+        for (const reminder of manualReminders) {
+            await scheduleManualReminder(reminder);
+        }
+    } catch (error) {
+        console.warn('[Notifikasi] Gagal menyiapkan reminder lintas fitur:', error);
+    }
+}
+
 /**
  * Kirim notifikasi langsung (untuk konfirmasi goal tercapai)
  */
@@ -178,7 +382,7 @@ export async function sendWalletInviteNotification(walletName: string, sharedBy:
  * Helper untuk menyimpan notifikasi ke database
  */
 async function saveNotificationToDatabase(
-    type: 'goal_reminder' | 'goal_completed' | 'budget_warning' | 'wallet_invite',
+    type: 'goal_reminder' | 'goal_completed' | 'budget_warning' | 'budget_reminder' | 'recurring_reminder' | 'manual_reminder' | 'wallet_invite' | 'app_update_available',
     title: string,
     body: string,
     data?: any

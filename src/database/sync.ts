@@ -66,6 +66,8 @@ const SYNC_TABLES: SyncTable[] = [
       "updated_at",
       "wallet_id",
       "profile_id",
+      "owner_user_id",
+      "created_by_user_id",
     ],
   },
   {
@@ -116,7 +118,50 @@ const SYNC_TABLES: SyncTable[] = [
   },
   {
     tableName: "budgets",
-    columns: ["id", "category", "amount", "month", "year", "created_at", "updated_at", "wallet_id", "profile_id"],
+    columns: ["id", "category", "amount", "month", "year", "reminder_enabled", "reminder_time", "created_at", "updated_at", "wallet_id", "profile_id"],
+  },
+  {
+    tableName: "recurring_transactions",
+    columns: [
+      "id",
+      "user_id",
+      "wallet_id",
+      "category",
+      "amount",
+      "type",
+      "note",
+      "frequency",
+      "day_of_month",
+      "day_of_week",
+      "start_date",
+      "end_date",
+      "next_occurrence",
+      "is_active",
+      "last_generated_at",
+      "reminder_enabled",
+      "reminder_offset_minutes",
+      "created_at",
+      "updated_at",
+    ],
+  },
+  {
+    tableName: "app_reminders",
+    columns: [
+      "id",
+      "user_id",
+      "title",
+      "note",
+      "target_screen",
+      "target_params",
+      "frequency",
+      "trigger_at",
+      "time_of_day",
+      "day_of_week",
+      "day_of_month",
+      "is_enabled",
+      "created_at",
+      "updated_at",
+    ],
   },
 ];
 
@@ -157,8 +202,21 @@ function mapRecordToSupabase(table: string, row: any): any {
     if ("is_completed" in record) record.is_completed = Boolean(record.is_completed);
     if ("reminder_enabled" in record) record.reminder_enabled = Boolean(record.reminder_enabled);
   }
+  if (table === "budgets") {
+    if ("reminder_enabled" in record) record.reminder_enabled = Boolean(record.reminder_enabled);
+  }
   if (table === "wallets") {
     if ("is_default" in record) record.is_default = Boolean(record.is_default);
+  }
+  if (table === "recurring_transactions") {
+    if ("is_active" in record) record.is_active = Boolean(record.is_active);
+    if ("reminder_enabled" in record) record.reminder_enabled = Boolean(record.reminder_enabled);
+    record.reminder_offset_minutes = record.reminder_offset_minutes ?? 60;
+  }
+  if (table === "app_reminders") {
+    if ("is_enabled" in record) record.is_enabled = Boolean(record.is_enabled);
+    record.target_params =
+      typeof record.target_params === "string" ? record.target_params : JSON.stringify(record.target_params ?? null);
   }
   if (table === "wallet_goals_shared") {
     record.created_at = record.created_at ?? record.shared_at ?? Date.now();
@@ -530,6 +588,17 @@ function mapRecordFromSupabase(table: string, row: any): any {
   if (table === "saving_goals") {
     if ("is_completed" in record) record.is_completed = record.is_completed ? 1 : 0;
     if ("reminder_enabled" in record) record.reminder_enabled = record.reminder_enabled ? 1 : 0;
+  }
+  if (table === "budgets") {
+    if ("reminder_enabled" in record) record.reminder_enabled = record.reminder_enabled ? 1 : 0;
+  }
+  if (table === "recurring_transactions") {
+    if ("is_active" in record) record.is_active = record.is_active ? 1 : 0;
+    if ("reminder_enabled" in record) record.reminder_enabled = record.reminder_enabled ? 1 : 0;
+    record.reminder_offset_minutes = record.reminder_offset_minutes ?? 60;
+  }
+  if (table === "app_reminders") {
+    if ("is_enabled" in record) record.is_enabled = record.is_enabled ? 1 : 0;
   }
   if (table === "wallet_goals_shared") {
     record.created_at = record.created_at ?? record.shared_at ?? Date.now();

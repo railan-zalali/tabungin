@@ -7,6 +7,7 @@ import {
     fetchBudgetSummary,
     type BudgetWithSpent,
 } from '../database/budgetQueries';
+import { rescheduleCrossFeatureReminders } from '../utils/notificationService';
 
 interface BudgetState {
     budgets: BudgetWithSpent[];
@@ -18,7 +19,13 @@ interface BudgetState {
     categoriesOver: number;
 
     loadBudgets: (month?: number, year?: number) => Promise<void>;
-    saveBudget: (category: string, amount: number, month?: number, year?: number) => Promise<void>;
+    saveBudget: (
+        category: string,
+        amount: number,
+        month?: number,
+        year?: number,
+        options?: { reminder_enabled?: boolean; reminder_time?: string | null }
+    ) => Promise<void>;
     removeBudget: (id: string) => Promise<void>;
     refreshSummary: () => Promise<void>;
 }
@@ -52,17 +59,19 @@ export const useBudgetStore = create<BudgetState>((set, get) => {
             }
         },
 
-        saveBudget: async (category, amount, month?, year?) => {
+        saveBudget: async (category, amount, month?, year?, options?) => {
             const m = month ?? get().currentMonth;
             const y = year ?? get().currentYear;
-            await upsertBudget(category, amount, m, y);
+            await upsertBudget(category, amount, m, y, options);
             await get().loadBudgets(m, y);
+            await rescheduleCrossFeatureReminders();
         },
 
         removeBudget: async (id) => {
             await deleteBudget(id);
             set((state) => ({ budgets: state.budgets.filter((b) => b.id !== id) }));
             await get().refreshSummary();
+            await rescheduleCrossFeatureReminders();
         },
 
         refreshSummary: async () => {

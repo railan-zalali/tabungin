@@ -28,6 +28,101 @@ export async function getCurrentSharingActorId(): Promise<string> {
     return user.id;
 }
 
+async function getCurrentSharingActorContext(): Promise<{ id: string | null; email: string | null }> {
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    return {
+        id: user?.id ?? null,
+        email: user?.email?.toLowerCase() ?? null,
+    };
+}
+
+function mapWalletRoleToPermission(role: 'owner' | 'editor' | 'viewer'): GoalSharingMember['permission_level'] {
+    return role === 'viewer' ? 'read_only' : 'read_write';
+}
+
+async function insertLocalSharingActivity(
+    db: Awaited<ReturnType<typeof getInitializedDatabase>>,
+    activity: Omit<GoalSharingActivity, 'sync_status'>
+): Promise<void> {
+    await db.runAsync(
+        `INSERT OR REPLACE INTO sharing_activity_log
+         (id, goal_id, wallet_id, user_email, action, performed_by, metadata, timestamp, created_at, updated_at, sync_status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_create')`,
+        [
+            activity.id,
+            activity.goal_id,
+            activity.wallet_id,
+            activity.user_email,
+            activity.action,
+            activity.performed_by,
+            activity.metadata,
+            activity.timestamp,
+            activity.created_at,
+            activity.updated_at,
+        ],
+    );
+}
+
+async function ensureGoalSharedWithWalletMembers(
+    db: Awaited<ReturnType<typeof getInitializedDatabase>>,
+    goal: Pick<SavingGoal, 'id' | 'wallet_id' | 'created_at' | 'updated_at'>,
+    actorEmail: string | null,
+): Promise<void> {
+    if (!goal.wallet_id) return;
+    const walletId = goal.wallet_id;
+
+    const members = await db.getAllAsync<{
+        user_email: string;
+        role: 'owner' | 'editor' | 'viewer';
+        status: string;
+    }>(
+        `SELECT user_email, role, status
+         FROM wallet_members
+         WHERE wallet_id = ? AND sync_status != 'pending_delete'`,
+        [goal.wallet_id],
+    );
+
+    const activeMembers = members.filter((member) => member.status === 'active');
+    const timestamp = goal.updated_at ?? goal.created_at ?? Date.now();
+
+    for (const member of activeMembers) {
+        const normalizedEmail = member.user_email.toLowerCase();
+        if (actorEmail && normalizedEmail === actorEmail) {
+            continue;
+        }
+
+        const existingShare = await db.getFirstAsync<{ id: string }>(
+            `SELECT id FROM wallet_goals_shared
+             WHERE goal_id = ? AND lower(user_email) = lower(?)`,
+            [goal.id, normalizedEmail],
+        );
+
+        if (existingShare) {
+            continue;
+        }
+
+        await db.runAsync(
+            `INSERT INTO wallet_goals_shared
+             (id, goal_id, wallet_id, user_email, shared_by, shared_at, created_at, updated_at, permission_level, sync_status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_create')`,
+            [
+                uuidv4(),
+                goal.id,
+                walletId,
+                normalizedEmail,
+                actorEmail || 'system',
+                timestamp,
+                timestamp,
+                timestamp,
+                mapWalletRoleToPermission(member.role),
+            ],
+        );
+    }
+}
+
 /**
  * Ambil semua saving goals
  * Filter out pending_delete
@@ -106,23 +201,52 @@ export async function insertSavingGoal(
     const created_at = Date.now();
     const updated_at = created_at;
     const sync_status = 'pending_create';
+    const actor = await getCurrentSharingActorContext();
+    const ownerUserId = actor.id;
+    const createdByUserId = actor.id;
 
     await db.runAsync(
         `INSERT INTO saving_goals
      (id, name, target_amount, current_amount, emoji, photo_uri, saving_per_period, period_type,
-      color, start_date, estimated_date, is_completed, reminder_enabled, reminder_time, created_at, updated_at, sync_status, wallet_id, profile_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      color, start_date, estimated_date, is_completed, reminder_enabled, reminder_time, created_at, updated_at, sync_status, wallet_id, profile_id, owner_user_id, created_by_user_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             id, data.name, data.target_amount, data.current_amount, data.emoji,
             data.photo_uri || null, data.saving_per_period, data.period_type,
             data.color, data.start_date, data.estimated_date,
             data.is_completed ? 1 : 0, data.reminder_enabled ? 1 : 0,
             data.reminder_time || null, created_at, updated_at, sync_status,
-            data.wallet_id || null, data.profile_id || null
+            data.wallet_id || null, data.profile_id || null, ownerUserId, createdByUserId
         ]
     );
 
-    return { id, created_at, ...data };
+    await ensureGoalSharedWithWalletMembers(
+        db,
+        {
+            id,
+            wallet_id: data.wallet_id,
+            created_at,
+            updated_at,
+        },
+        actor.email,
+    );
+
+    if (data.wallet_id) {
+        await insertLocalSharingActivity(db, {
+            id: uuidv4(),
+            goal_id: id,
+            wallet_id: data.wallet_id,
+            user_email: actor.email || '',
+            action: 'goal_created',
+            performed_by: actor.id || actor.email || 'system',
+            metadata: JSON.stringify({ source: 'shared_wallet_goal_create' }),
+            timestamp: created_at,
+            created_at,
+            updated_at,
+        });
+    }
+
+    return { id, created_at, ...data, owner_user_id: ownerUserId, created_by_user_id: createdByUserId };
 }
 
 /**
@@ -158,6 +282,21 @@ export async function updateSavingGoal(
     const values = [...Object.values(mapped), Date.now(), id];
     
     await db.runAsync(`UPDATE saving_goals SET ${fields} WHERE id = ?`, values);
+
+    const actor = await getCurrentSharingActorContext();
+    const updatedGoal = await fetchSavingGoalById(id);
+    if (updatedGoal?.wallet_id) {
+        await ensureGoalSharedWithWalletMembers(
+            db,
+            {
+                id: updatedGoal.id,
+                wallet_id: updatedGoal.wallet_id,
+                created_at: updatedGoal.created_at,
+                updated_at: Date.now(),
+            },
+            actor.email,
+        );
+    }
 }
 
 /**
@@ -254,6 +393,7 @@ export async function insertSavingLog(
     const id = uuidv4();
     const created_at = Date.now();
     const updated_at = created_at;
+    let goalWalletId: string | null = null;
 
     // Lakukan INSERT + UPDATE dalam satu transaction agar atomic
     await db.withTransactionAsync(async () => {
@@ -274,7 +414,29 @@ export async function insertSavingLog(
              WHERE id = ? AND is_completed = 0 AND current_amount >= target_amount`,
             [updated_at, data.goal_id]
         );
+
+        const goal = await db.getFirstAsync<{ wallet_id: string | null }>(
+            'SELECT wallet_id FROM saving_goals WHERE id = ?',
+            [data.goal_id],
+        );
+        goalWalletId = goal?.wallet_id ?? null;
     });
+
+    if (goalWalletId) {
+        const actor = await getCurrentSharingActorContext();
+        await insertLocalSharingActivity(db, {
+            id: uuidv4(),
+            goal_id: data.goal_id,
+            wallet_id: goalWalletId,
+            user_email: actor.email || '',
+            action: 'contribution_added',
+            performed_by: actor.id || actor.email || 'system',
+            metadata: JSON.stringify({ amount: data.amount, note: data.note || null }),
+            timestamp: data.date,
+            created_at,
+            updated_at,
+        });
+    }
 
     return { id, created_at, ...data };
 }

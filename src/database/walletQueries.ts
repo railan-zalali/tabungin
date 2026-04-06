@@ -269,6 +269,27 @@ export interface WalletMember {
   created_at: number;
 }
 
+export async function fetchWalletMemberRole(
+  walletId: string,
+  userEmail: string,
+): Promise<WalletMember['role'] | null> {
+  try {
+    const db = await getInitializedDatabase();
+    const member = await db.getFirstAsync<{ role: WalletMember['role'] }>(
+      `SELECT role FROM wallet_members
+       WHERE wallet_id = ? AND lower(user_email) = lower(?) AND sync_status != 'pending_delete'
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [walletId, userEmail],
+    );
+
+    return member?.role ?? null;
+  } catch (error) {
+    console.error('Error fetching wallet member role:', error);
+    return null;
+  }
+}
+
 /**
  * Ambil daftar anggota dompet
  */

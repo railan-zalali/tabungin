@@ -13,6 +13,8 @@ import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
 import { TabNavigator } from './TabNavigator';
 import { SavingStackNavigator } from './SavingStackNavigator';
 import { BudgetScreen } from '../screens/budget/BudgetScreen';
+import { rescheduleCrossFeatureReminders } from '../utils/notificationService';
+import { checkForAppUpdate } from '../utils/updateService';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -24,6 +26,17 @@ export function RootNavigator() {
     useEffect(() => {
         loadSession();
     }, [loadSession]);
+
+    useEffect(() => {
+        if (!isLoggedIn) return;
+
+        rescheduleCrossFeatureReminders().catch((error) => {
+            console.warn('[Startup] Failed to reschedule cross-feature reminders:', error);
+        });
+        checkForAppUpdate().catch((error) => {
+            console.warn('[Startup] Failed to check app update:', error);
+        });
+    }, [isLoggedIn]);
 
     if (isLoading) {
         return (

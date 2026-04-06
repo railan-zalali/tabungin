@@ -2,6 +2,7 @@ import type { Wallet } from '../database/walletQueries';
 import type {
     GoalSharingActivity,
     GoalSharingMember,
+    GoalPermissionLevel,
     GoalScope,
     SavingGoal,
     SavingGoalComputedMeta,
@@ -15,18 +16,15 @@ export function getGoalScope(
     goal: SavingGoal,
     wallet: Wallet | undefined,
     activeProfileId: string | null,
-    sharingMembers: GoalSharingMember[] = []
+    sharingMembers: GoalSharingMember[] = [],
+    currentUserId?: string | null,
 ): GoalScope {
-    if (sharingMembers.length > 0) {
-        return 'shared_direct';
-    }
-
-    if (goal.profile_id && activeProfileId && goal.profile_id !== activeProfileId && !hasWalletAccessFromOtherProfile(wallet, activeProfileId)) {
-        return 'shared_direct';
-    }
-
     if (goal.wallet_id && hasWalletAccessFromOtherProfile(wallet, activeProfileId)) {
         return 'shared_wallet';
+    }
+
+    if (goal.owner_user_id && currentUserId && goal.owner_user_id !== currentUserId) {
+        return 'shared_direct';
     }
 
     return 'personal';
@@ -60,9 +58,13 @@ export function getGoalComputedMeta(
     goal: SavingGoal,
     wallet: Wallet | undefined,
     activeProfileId: string | null,
-    sharingMembers: GoalSharingMember[] = []
+    sharingMembers: GoalSharingMember[] = [],
+    currentUserId?: string | null,
+    walletRole?: 'owner' | 'editor' | 'viewer' | null,
+    currentUserEmail?: string | null,
 ): SavingGoalComputedMeta {
-    const scope = getGoalScope(goal, wallet, activeProfileId, sharingMembers);
+    const scope = getGoalScope(goal, wallet, activeProfileId, sharingMembers, currentUserId);
+    const currentUserPermission = getGoalPermissionLevel(goal, sharingMembers, currentUserId, walletRole, currentUserEmail);
 
     return {
         scope,
@@ -71,7 +73,38 @@ export function getGoalComputedMeta(
         isSharedGoal: scope !== 'personal',
         isSharedWalletGoal: scope === 'shared_wallet',
         isSharedDirectGoal: scope === 'shared_direct',
+        currentUserPermission,
+        canEdit: currentUserPermission === 'admin' || currentUserPermission === 'read_write',
+        canContribute: currentUserPermission === 'admin' || currentUserPermission === 'read_write',
+        canManageSharing: currentUserPermission === 'admin',
     };
+}
+
+export function getGoalPermissionLevel(
+    goal: SavingGoal,
+    sharingMembers: GoalSharingMember[] = [],
+    currentUserId?: string | null,
+    walletRole?: 'owner' | 'editor' | 'viewer' | null,
+    currentUserEmail?: string | null,
+): GoalPermissionLevel {
+    if (goal.owner_user_id && currentUserId && goal.owner_user_id === currentUserId) {
+        return 'admin';
+    }
+
+    if (walletRole === 'owner' || walletRole === 'editor') {
+        return 'read_write';
+    }
+
+    if (walletRole === 'viewer') {
+        return 'read_only';
+    }
+
+    const normalizedCurrentEmail = currentUserEmail?.toLowerCase();
+    const currentShare = normalizedCurrentEmail
+        ? sharingMembers.find((member) => member.user_email.toLowerCase() === normalizedCurrentEmail)
+        : null;
+
+    return currentShare?.permission_level ?? 'read_only';
 }
 
 export function getSharingActivityLabel(activity: GoalSharingActivity): string {
@@ -82,6 +115,10 @@ export function getSharingActivityLabel(activity: GoalSharingActivity): string {
             return 'Akses dicabut';
         case 'access_granted':
             return 'Akses diberikan';
+        case 'goal_created':
+            return 'Target dibuat';
+        case 'contribution_added':
+            return 'Tabungan ditambahkan';
         case 'shared':
         default:
             return 'Target dibagikan';
@@ -99,6 +136,10 @@ export function getSharingActivityDescription(activity: GoalSharingActivity): st
             return `${actor} mencabut akses ${recipient}.`;
         case 'access_granted':
             return `${recipient} mendapatkan akses ke target ini.`;
+        case 'goal_created':
+            return `${actor} membuat target ini untuk konteks bersama.`;
+        case 'contribution_added':
+            return `${actor} menambahkan kontribusi ke target ini.`;
         case 'shared':
         default:
             return `${actor} membagikan target ini ke ${recipient}.`;

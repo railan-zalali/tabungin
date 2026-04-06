@@ -1,4 +1,12 @@
-export type NotificationType = 'goal_reminder' | 'goal_completed' | 'budget_warning' | 'wallet_invite';
+export type NotificationType =
+    | 'goal_reminder'
+    | 'goal_completed'
+    | 'budget_warning'
+    | 'budget_reminder'
+    | 'recurring_reminder'
+    | 'manual_reminder'
+    | 'wallet_invite'
+    | 'app_update_available';
 
 export interface Notification {
   id: string;
@@ -14,6 +22,10 @@ export interface Notification {
 export interface NotificationData {
   goalId?: string;
   category?: string;
+  recurringId?: string;
+  reminderId?: string;
   walletId?: string;
+  targetScreen?: string;
+  updateUrl?: string;
   [key: string]: any;
 }

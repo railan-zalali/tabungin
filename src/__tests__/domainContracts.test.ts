@@ -1,8 +1,8 @@
-jest.mock('../schema', () => ({
+jest.mock('../database/schema', () => ({
   getInitializedDatabase: jest.fn(),
 }));
 
-jest.mock('../../lib/supabase', () => ({
+jest.mock('../lib/supabase', () => ({
   supabase: {
     from: jest.fn(),
     rpc: jest.fn(),
@@ -12,7 +12,7 @@ jest.mock('../../lib/supabase', () => ({
   },
 }));
 
-jest.mock('../../utils/materialIcon', () => ({
+jest.mock('../utils/materialIcon', () => ({
   resolveMaterialIcon: jest.fn((name?: string | null) => name ?? 'tag'),
 }));
 
@@ -20,11 +20,11 @@ jest.mock('uuid', () => ({
   v4: jest.fn(() => 'test-uuid'),
 }));
 
-import { getInitializedDatabase } from '../schema';
-import { supabase } from '../../lib/supabase';
-import { deleteCategory, syncRemoteCategories } from '../categoryQueries';
-import { syncRemoteRecurringTransactions } from '../recurringQueries';
-import { revokeGoalSharing, setGoalPermission } from '../savingQueries';
+import { getInitializedDatabase } from '../database/schema';
+import { supabase } from '../lib/supabase';
+import { deleteCategory, syncRemoteCategories } from '../database/categoryQueries';
+import { syncRemoteRecurringTransactions } from '../database/recurringQueries';
+import { revokeGoalSharing, setGoalPermission } from '../database/savingQueries';
 
 type DbMock = {
   getAllAsync: jest.Mock;
@@ -42,7 +42,7 @@ function createDbMock(): DbMock {
   };
 }
 
-describe('sync stability repairs', () => {
+describe('domain contracts', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -60,7 +60,7 @@ describe('sync stability repairs', () => {
     );
   });
 
-  it('syncs remote categories with the corrected local insert arity', async () => {
+  it('preserves local insert arity for remote category sync', async () => {
     const db = createDbMock();
     db.getAllAsync
       .mockResolvedValueOnce([
@@ -81,10 +81,7 @@ describe('sync stability repairs', () => {
     db.getFirstAsync.mockResolvedValue(null);
     (getInitializedDatabase as jest.Mock).mockResolvedValue(db);
 
-    const categoryQuery = {
-      eq: jest.fn(),
-      order: jest.fn(),
-    };
+    const categoryQuery = { eq: jest.fn(), order: jest.fn() };
     categoryQuery.eq.mockReturnValue(categoryQuery);
     categoryQuery.order
       .mockReturnValueOnce(categoryQuery)
@@ -106,15 +103,10 @@ describe('sync stability repairs', () => {
       });
 
     (supabase.from as jest.Mock).mockImplementation((table: string) => {
-      if (table !== 'transaction_categories') {
-        throw new Error(`Unexpected table ${table}`);
-      }
-
+      if (table !== 'transaction_categories') throw new Error(`Unexpected table ${table}`);
       return {
         upsert: jest.fn().mockResolvedValue({ error: null }),
-        delete: jest.fn().mockReturnValue({
-          in: jest.fn().mockResolvedValue({ error: null }),
-        }),
+        delete: jest.fn().mockReturnValue({ in: jest.fn().mockResolvedValue({ error: null }) }),
         select: jest.fn().mockReturnValue(categoryQuery),
       };
     });
@@ -129,7 +121,7 @@ describe('sync stability repairs', () => {
     expect(insertCall?.[1]).toHaveLength(9);
   });
 
-  it('syncs remote recurring transactions with the corrected local insert arity', async () => {
+  it('preserves local insert arity for recurring transaction sync', async () => {
     const db = createDbMock();
     db.getAllAsync
       .mockResolvedValueOnce([
@@ -158,10 +150,7 @@ describe('sync stability repairs', () => {
     db.getFirstAsync.mockResolvedValue(null);
     (getInitializedDatabase as jest.Mock).mockResolvedValue(db);
 
-    const recurringQuery = {
-      eq: jest.fn(),
-      order: jest.fn(),
-    };
+    const recurringQuery = { eq: jest.fn(), order: jest.fn() };
     recurringQuery.eq.mockReturnValue(recurringQuery);
     recurringQuery.order.mockResolvedValue({
       data: [
@@ -189,15 +178,10 @@ describe('sync stability repairs', () => {
     });
 
     (supabase.from as jest.Mock).mockImplementation((table: string) => {
-      if (table !== 'recurring_transactions') {
-        throw new Error(`Unexpected table ${table}`);
-      }
-
+      if (table !== 'recurring_transactions') throw new Error(`Unexpected table ${table}`);
       return {
         upsert: jest.fn().mockResolvedValue({ error: null }),
-        delete: jest.fn().mockReturnValue({
-          in: jest.fn().mockResolvedValue({ error: null }),
-        }),
+        delete: jest.fn().mockReturnValue({ in: jest.fn().mockResolvedValue({ error: null }) }),
         select: jest.fn().mockReturnValue(recurringQuery),
       };
     });
@@ -209,17 +193,11 @@ describe('sync stability repairs', () => {
     );
 
     expect(insertCall).toBeDefined();
-    expect(insertCall?.[1]).toHaveLength(17);
+    expect(insertCall?.[1]).toHaveLength(19);
   });
 
   it('uses the authenticated user id when calling sharing RPCs', async () => {
-    (supabase.auth.getUser as jest.Mock).mockResolvedValue({
-      data: {
-        user: {
-          id: 'auth-user-1',
-        },
-      },
-    });
+    (supabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: { id: 'auth-user-1' } } });
     (supabase.rpc as jest.Mock).mockResolvedValue({ error: null });
 
     await setGoalPermission('goal-1', 'member@example.com', 'read_only');

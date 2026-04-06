@@ -13,6 +13,8 @@ import { AppScreenHeader } from '../../components/common/AppScreenHeader';
 import { ContextBadge } from '../../components/common/ContextBadge';
 import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
 import { ScreenShell } from '../../components/common/ScreenShell';
+import { useResponsiveMetrics } from '../../utils/responsive';
+import { getSemanticColors } from '../../utils/semanticColors';
 
 interface SettingRowProps {
     icon: string;
@@ -26,19 +28,12 @@ interface SettingRowProps {
 function SettingRow({ icon, tone, title, subtitle, onPress, rightElement }: SettingRowProps) {
     const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
-    const toneMap = {
-        primary: { bg: colors.primaryBg, fg: colors.primary },
-        success: { bg: colors.successBg, fg: colors.success },
-        warning: { bg: colors.warningBg, fg: colors.warning },
-        danger: { bg: colors.dangerBg, fg: colors.danger },
-        info: { bg: colors.infoBg, fg: colors.info },
-    };
-    const palette = toneMap[tone];
+    const palette = getSemanticColors(colors, tone);
 
     return (
         <TouchableOpacity style={styles.settingRow} onPress={onPress} disabled={!onPress && !rightElement}>
-            <View style={[styles.settingIcon, { backgroundColor: palette.bg }]}>
-                <MaterialCommunityIcons name={icon as any} size={20} color={palette.fg} />
+            <View style={[styles.settingIcon, { backgroundColor: palette.softBg, borderColor: palette.border }]}>
+                <MaterialCommunityIcons name={icon as any} size={20} color={palette.icon} />
             </View>
             <View style={styles.settingCopy}>
                 <Text style={styles.settingTitle}>{title}</Text>
@@ -64,6 +59,7 @@ export function SettingsScreen() {
     const navigation = useNavigation<SettingsNavigationProp>();
     const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const metrics = useResponsiveMetrics();
     const { user, hapticEnabled, setHapticEnabled, logout } = useAuthStore();
     const { unreadCount } = useNotificationStore();
     const { mode, setMode, textSize, setTextSize } = useThemeStore();
@@ -179,7 +175,11 @@ export function SettingsScreen() {
                             ].map((option) => (
                                 <TouchableOpacity
                                     key={option.id}
-                                    style={[styles.textSizeButton, textSize === option.id ? styles.textSizeButtonActive : null]}
+                                    style={[
+                                        styles.textSizeButton,
+                                        { minWidth: metrics.widthClass === 'compact' ? '30%' : 104 },
+                                        textSize === option.id ? styles.textSizeButtonActive : null,
+                                    ]}
                                     onPress={() => setTextSize(option.id as typeof textSize)}
                                 >
                                     <Text style={[styles.textSizeButtonText, textSize === option.id ? styles.textSizeButtonTextActive : null]}>
@@ -237,6 +237,30 @@ export function SettingsScreen() {
                         title="Ekspor data"
                         subtitle="Pilih cakupan dan format export untuk backup atau analisis."
                         onPress={() => navigation.navigate('ExportData')}
+                    />
+                    <View style={styles.divider} />
+                    <SettingRow
+                        icon="database-import-outline"
+                        tone="success"
+                        title="Import data"
+                        subtitle="Gabungkan backup JSON Tabungin atau CSV transaksi tanpa menimpa data lama."
+                        onPress={() => navigation.navigate('ImportData')}
+                    />
+                    <View style={styles.divider} />
+                    <SettingRow
+                        icon="bell-cog-outline"
+                        tone="warning"
+                        title="Reminder Center"
+                        subtitle="Kelola reminder target, budget, transaksi berulang, dan reminder manual."
+                        onPress={() => navigation.navigate('ReminderCenter')}
+                    />
+                    <View style={styles.divider} />
+                    <SettingRow
+                        icon="update"
+                        tone="info"
+                        title="Pembaruan aplikasi"
+                        subtitle="Cek versi terbaru, release notes, dan link unduh resmi."
+                        onPress={() => navigation.navigate('AppUpdate')}
                     />
                 </SettingSection>
 
@@ -336,6 +360,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             borderRadius: BorderRadius.xl,
             alignItems: 'center',
             justifyContent: 'center',
+            borderWidth: 1,
         },
         settingCopy: {
             flex: 1,
@@ -363,13 +388,13 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         },
         textSizeRow: {
             flexDirection: 'row',
+            flexWrap: 'wrap',
             gap: 8,
             paddingHorizontal: 16,
             paddingBottom: 12,
             paddingLeft: 72,
         },
         textSizeButton: {
-            flex: 1,
             minHeight: 38,
             alignItems: 'center',
             justifyContent: 'center',

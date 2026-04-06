@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from './Button';
 import { BorderRadius } from '../../constants/theme';
@@ -12,6 +12,9 @@ interface PrimaryActionBarProps {
     secondaryLabel?: string;
     onSecondaryPress?: () => void;
     offset?: number;
+    absolute?: boolean;
+    containerStyle?: ViewStyle;
+    barStyle?: ViewStyle;
 }
 
 export function PrimaryActionBar({
@@ -21,14 +24,24 @@ export function PrimaryActionBar({
     secondaryLabel,
     onSecondaryPress,
     offset = 0,
+    absolute = true,
+    containerStyle,
+    barStyle,
 }: PrimaryActionBarProps) {
     const insets = useSafeAreaInsets();
     const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
 
     return (
-        <View style={[styles.wrap, { paddingBottom: insets.bottom + 12 + offset }]}>
-            <View style={styles.bar}>
+        <View
+            style={[
+                styles.wrap,
+                absolute ? styles.absoluteWrap : styles.inlineWrap,
+                { paddingBottom: insets.bottom + 12 + offset },
+                containerStyle,
+            ]}
+        >
+            <View style={[styles.bar, barStyle]}>
                 {secondaryLabel && onSecondaryPress ? (
                     <Button label={secondaryLabel} onPress={onSecondaryPress} variant="outline" style={{ flex: 1 }} />
                 ) : null}
@@ -48,15 +61,20 @@ export function PrimaryActionBar({
 const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     StyleSheet.create({
         wrap: {
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: 0,
             paddingHorizontal: 20,
             paddingTop: 14,
             backgroundColor: colors.stickyHeader,
             borderTopWidth: 1,
             borderTopColor: colors.glassStroke,
+        },
+        absoluteWrap: {
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+        },
+        inlineWrap: {
+            marginTop: 'auto',
         },
         bar: {
             flexDirection: 'row',

@@ -36,6 +36,14 @@ function resolveNotificationTone(type: string, colors: ReturnType<typeof useThem
             return { icon: 'party-popper', bg: colors.successBg, fg: colors.success };
         case 'budget_warning':
             return { icon: 'alert-circle-outline', bg: colors.dangerBg, fg: colors.danger };
+        case 'budget_reminder':
+            return { icon: 'chart-pie', bg: colors.infoBg, fg: colors.info };
+        case 'recurring_reminder':
+            return { icon: 'autorenew', bg: colors.primaryBg, fg: colors.primary };
+        case 'manual_reminder':
+            return { icon: 'bell-cog-outline', bg: colors.warningBg, fg: colors.warning };
+        case 'app_update_available':
+            return { icon: 'update', bg: colors.successBg, fg: colors.success };
         case 'wallet_invite':
             return { icon: 'account-group-outline', bg: colors.primaryBg, fg: colors.primary };
         default:
@@ -112,6 +120,22 @@ export function NotificationScreen() {
     const handleNotificationPress = useCallback((notification: NotificationType) => {
         if (notification.data?.goalId) {
             navigation.navigate('Savings', { screen: 'SavingDetail', params: { goalId: notification.data.goalId } });
+            return;
+        }
+        if (notification.data?.targetScreen === 'Budget') {
+            navigation.navigate('Budget');
+            return;
+        }
+        if (notification.data?.targetScreen === 'RecurringTransaction') {
+            navigation.navigate('Transactions', { screen: 'RecurringTransaction' });
+            return;
+        }
+        if (notification.data?.targetScreen === 'ReminderCenter') {
+            navigation.navigate('ReminderCenter');
+            return;
+        }
+        if (notification.data?.targetScreen === 'AppUpdate') {
+            navigation.navigate('AppUpdate');
             return;
         }
         if (notification.data?.walletId) {

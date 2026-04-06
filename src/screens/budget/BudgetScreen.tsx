@@ -1,33 +1,38 @@
 import React, { useEffect, useState } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TouchableOpacity,
-    TextInput,
     ActivityIndicator,
     Alert,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { FontFamily, FontSize } from '../../constants/typography';
-import { useBudgetStore } from '../../store/useBudgetStore';
-import { EXPENSE_CATEGORIES } from '../../constants/categories';
-import { formatRupiah, formatInputRupiah, parseRupiah } from '../../utils/currency';
-import { Button } from '../../components/common/Button';
-import { useTheme } from '../../store/useThemeStore';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BorderRadius, Shadow } from '../../constants/theme';
+import { FontFamily, FontSize, Typography } from '../../constants/typography';
+import { BorderRadius } from '../../constants/theme';
+import { EXPENSE_CATEGORIES } from '../../constants/categories';
+import { formatInputRupiah, formatRupiah, parseRupiah } from '../../utils/currency';
+import { useBudgetStore } from '../../store/useBudgetStore';
+import { useTheme } from '../../store/useThemeStore';
+import { useResponsiveMetrics } from '../../utils/responsive';
+import { AppScreenHeader } from '../../components/common/AppScreenHeader';
+import { Button } from '../../components/common/Button';
 import { EmptyState } from '../../components/common/EmptyState';
+import { FormSection } from '../../components/common/FormSection';
+import { Input } from '../../components/common/Input';
+import { PrimaryActionBar } from '../../components/common/PrimaryActionBar';
+import { ScreenShell } from '../../components/common/ScreenShell';
+import { SectionHeader } from '../../components/common/SectionHeader';
 
 export function BudgetScreen() {
     const navigation = useNavigation();
     const { budgets, loadBudgets, saveBudget, removeBudget, isLoading, totalBudget, totalSpent } = useBudgetStore();
-    const { colors, isDark, gradients } = useTheme();
+    const { colors, gradients } = useTheme();
+    const metrics = useResponsiveMetrics();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
-    
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [amountInput, setAmountInput] = useState('');
     const [isEditing, setIsEditing] = useState(false);
@@ -36,11 +41,22 @@ export function BudgetScreen() {
         loadBudgets();
     }, [loadBudgets]);
 
+    const budgetLeft = totalBudget - totalSpent;
+    const usagePercent = Math.min(100, (totalSpent / (totalBudget || 1)) * 100);
+    const showEditor = isEditing || budgets.length === 0;
+
+    const resetEditor = () => {
+        setSelectedCategory(null);
+        setAmountInput('');
+        setIsEditing(false);
+    };
+
     const handleSave = async () => {
         if (!selectedCategory) {
             Alert.alert('Error', 'Pilih kategori terlebih dahulu');
             return;
         }
+
         const amount = parseRupiah(amountInput);
         if (amount <= 0) {
             Alert.alert('Error', 'Nominal harus lebih dari 0');
@@ -48,14 +64,12 @@ export function BudgetScreen() {
         }
 
         await saveBudget(selectedCategory, amount);
-        setSelectedCategory(null);
-        setAmountInput('');
-        setIsEditing(false);
+        resetEditor();
     };
 
     const handleEdit = (category: string, amount: number) => {
         setSelectedCategory(category);
-        setAmountInput(amount.toString());
+        setAmountInput(formatInputRupiah(String(amount)));
         setIsEditing(true);
     };
 
@@ -66,220 +80,349 @@ export function BudgetScreen() {
         ]);
     };
 
-    const expenseCategories = EXPENSE_CATEGORIES;
-    const budgetLeft = totalBudget - totalSpent;
-    const usagePercent = Math.min(100, (totalSpent / (totalBudget || 1)) * 100);
-
     return (
-        <SafeAreaView style={styles.safe}>
-            <View style={styles.bgAuraTop} pointerEvents="none" />
-            <View style={styles.bgAuraBottom} pointerEvents="none" />
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
-                </TouchableOpacity>
-                <View style={styles.headerCenter}>
-                    <Text style={styles.title}>Budget Bulanan</Text>
-                    <Text style={styles.subtitle}>Kontrol pengeluaran per kategori dengan lebih jelas.</Text>
-                </View>
-                <TouchableOpacity style={styles.headerAction} onPress={() => setIsEditing(true)}>
-                    <MaterialCommunityIcons name="plus" size={20} color={colors.primary} />
-                </TouchableOpacity>
-            </View>
+        <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
+            <AppScreenHeader
+                title="Budget Bulanan"
+                subtitle="Kontrol pengeluaran per kategori dengan pola yang lebih rapi dan mudah dibaca."
+                showBack
+                onBackPress={() => navigation.goBack()}
+                rightAction={
+                    showEditor
+                        ? undefined
+                        : {
+                              icon: 'plus',
+                              label: 'Atur budget baru',
+                              onPress: () => setIsEditing(true),
+                          }
+                }
+            />
 
-            <ScrollView contentContainerStyle={styles.content}>
-                {/* Summary */}
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[
+                    styles.content,
+                    {
+                        paddingHorizontal: metrics.horizontalPadding,
+                        paddingBottom: showEditor ? 168 : 40,
+                    },
+                ]}
+            >
                 <LinearGradient
                     colors={gradients.hero as unknown as [string, string, ...string[]]}
-                    style={styles.summaryCard}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
+                    style={styles.heroCard}
                 >
-                    <Text style={styles.summaryTitle}>Total Budget Bulan Ini</Text>
-                    <Text style={styles.summaryAmount}>{formatRupiah(totalBudget)}</Text>
-                    <Text style={styles.summarySubtitle}>
+                    <Text style={styles.heroEyebrow}>Ringkasan Budget</Text>
+                    <Text style={styles.heroValue}>{formatRupiah(totalBudget)}</Text>
+                    <Text style={styles.heroSubtitle}>
                         {budgetLeft >= 0 ? `Sisa ${formatRupiah(budgetLeft)}` : `Melebihi ${formatRupiah(Math.abs(budgetLeft))}`}
                     </Text>
-                    <View style={styles.progressContainer}>
-                        <View style={styles.progressBar}>
-                            <View style={[
-                                styles.progressFill, 
-                                { width: `${usagePercent}%` },
-                                totalSpent > totalBudget ? { backgroundColor: colors.danger } : {}
-                            ]} />
+                    <View style={styles.progressTrack}>
+                        <View
+                            style={[
+                                styles.progressFill,
+                                {
+                                    width: `${usagePercent}%`,
+                                    backgroundColor: totalSpent > totalBudget ? colors.danger : colors.primaryLight,
+                                },
+                            ]}
+                        />
+                    </View>
+                    <View style={styles.summaryRow}>
+                        <View style={styles.summaryItem}>
+                            <Text style={styles.summaryLabel}>Terpakai</Text>
+                            <Text style={styles.summaryValue}>{formatRupiah(totalSpent)}</Text>
                         </View>
-                        <View style={styles.summaryMetaRow}>
-                            <Text style={styles.summaryMetaText}>Terpakai: {formatRupiah(totalSpent)}</Text>
-                            <Text style={styles.summaryMetaText}>Sisa: {formatRupiah(Math.max(0, budgetLeft))}</Text>
+                        <View style={styles.summaryItem}>
+                            <Text style={styles.summaryLabel}>Sisa aman</Text>
+                            <Text style={styles.summaryValue}>{formatRupiah(Math.max(0, budgetLeft))}</Text>
                         </View>
                     </View>
                 </LinearGradient>
 
-                {/* Form Add/Edit */}
-                {isEditing ? (
-                    <View style={styles.formCard}>
-                        <Text style={styles.formTitle}>Atur Budget Kategori</Text>
-                        
-                        <Text style={styles.label}>Pilih Kategori:</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
-                            {expenseCategories.map(cat => (
-                                <TouchableOpacity 
-                                    key={cat.id}
-                                    style={[styles.catChip, selectedCategory === cat.id && styles.catChipActive]}
-                                    onPress={() => setSelectedCategory(cat.id)}
-                                >
-                                    <MaterialCommunityIcons name={cat.icon as any} size={16} color={selectedCategory === cat.id ? colors.textInverse : colors.textPrimary} />
-                                    <Text style={[styles.catChipText, selectedCategory === cat.id && { color: colors.textInverse }]}>{cat.name}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
+                {showEditor ? (
+                    <FormSection
+                        title={selectedCategory ? 'Perbarui budget kategori' : 'Atur budget kategori'}
+                        subtitle="Pilih kategori prioritas lalu tetapkan batas yang realistis untuk bulan berjalan."
+                    >
+                        <View style={styles.chipWrap}>
+                            {EXPENSE_CATEGORIES.map((category) => {
+                                const active = selectedCategory === category.id;
+                                return (
+                                    <TouchableOpacity
+                                        key={category.id}
+                                        style={[styles.categoryChip, active ? styles.categoryChipActive : null]}
+                                        onPress={() => setSelectedCategory(category.id)}
+                                        activeOpacity={0.9}
+                                    >
+                                        <MaterialCommunityIcons
+                                            name={category.icon as any}
+                                            size={16}
+                                            color={active ? colors.textInverse : colors.textSecondary}
+                                        />
+                                        <Text style={[styles.categoryChipText, active ? styles.categoryChipTextActive : null]}>
+                                            {category.name}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
 
-                        <Text style={styles.label}>Nominal (Rp):</Text>
-                        <TextInput
-                            style={styles.input}
+                        <Input
+                            label="Nominal Budget"
                             value={amountInput}
-                            onChangeText={v => setAmountInput(formatInputRupiah(v))}
+                            onChangeText={(value) => setAmountInput(formatInputRupiah(value))}
                             keyboardType="numeric"
                             placeholder="0"
-                            placeholderTextColor={colors.textDisabled}
+                            leftIcon="cash"
+                            hint="Nominal akan dipakai sebagai batas kategori untuk bulan aktif."
                         />
-
-                        <View style={styles.formActions}>
-                            <Button label="Batal" onPress={() => { setIsEditing(false); setSelectedCategory(null); setAmountInput(''); }} variant="outline" style={{ flex: 1 }} />
-                            <Button label="Simpan" onPress={handleSave} variant="primary" style={{ flex: 1 }} />
-                        </View>
-                    </View>
+                    </FormSection>
                 ) : (
-                    <View style={styles.ctaCard}>
-                        <View style={styles.ctaInfo}>
-                            <Text style={styles.ctaTitle}>Buat budget baru</Text>
-                            <Text style={styles.ctaSubtitle}>Pilih kategori prioritas dan beri batas yang realistis.</Text>
-                        </View>
+                    <FormSection
+                        title="Tambah budget baru"
+                        subtitle="Buat batas baru kapan saja tanpa harus meninggalkan ringkasan yang sedang dibaca."
+                    >
                         <Button label="Atur Budget" onPress={() => setIsEditing(true)} variant="primary" />
-                    </View>
+                    </FormSection>
                 )}
 
-                {/* List Budgets */}
-                <Text style={styles.sectionTitle}>Budget Aktif</Text>
+                <SectionHeader
+                    title="Budget Aktif"
+                    subtitle="Daftar kategori yang sudah punya batas pengeluaran."
+                    actionLabel={budgets.length > 0 && !showEditor ? 'Tambah' : undefined}
+                    onAction={budgets.length > 0 && !showEditor ? () => setIsEditing(true) : undefined}
+                />
+
                 {isLoading ? (
-                    <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
+                    <View style={styles.loadingWrap}>
+                        <ActivityIndicator size="large" color={colors.primary} />
+                    </View>
                 ) : budgets.length === 0 ? (
                     <EmptyState
                         icon="chart-pie"
                         title="Belum ada budget"
-                        message="Atur batas pengeluaran per kategori agar belanja tetap terkendali."
+                        description="Atur batas pengeluaran per kategori agar belanja tetap terkendali."
                         actionLabel="Atur Budget"
                         onAction={() => setIsEditing(true)}
                     />
                 ) : (
-                    budgets.map(b => (
-                        <View key={b.id} style={styles.budgetCard}>
-                            <View style={styles.budgetHeader}>
-                                <Text style={styles.budgetCat}>{b.category}</Text>
-                                <View style={styles.budgetActions}>
-                                    <TouchableOpacity onPress={() => handleEdit(b.category, b.amount)}>
-                                        <MaterialCommunityIcons name="pencil" size={20} color={colors.info} />
-                                    </TouchableOpacity>
-                                    <TouchableOpacity onPress={() => handleDelete(b.id)}>
-                                        <MaterialCommunityIcons name="delete" size={20} color={colors.danger} style={{ marginLeft: 12 }} />
-                                    </TouchableOpacity>
+                    <View style={styles.listWrap}>
+                        {budgets.map((budget) => (
+                            <View key={budget.id} style={styles.budgetCard}>
+                                <View style={styles.budgetHeader}>
+                                    <View style={styles.budgetCopy}>
+                                        <Text style={styles.budgetCategory}>{budget.category}</Text>
+                                        <Text style={styles.budgetAmount}>{formatRupiah(budget.amount)}</Text>
+                                    </View>
+                                    <View style={styles.actionRow}>
+                                        <TouchableOpacity onPress={() => handleEdit(budget.category, budget.amount)} style={styles.iconButton}>
+                                            <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.info} />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => handleDelete(budget.id)} style={styles.iconButton}>
+                                            <MaterialCommunityIcons name="delete-outline" size={20} color={colors.danger} />
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+
+                                <View style={styles.progressTrackLight}>
+                                    <View
+                                        style={[
+                                            styles.progressFillLight,
+                                            {
+                                                width: `${Math.min(100, budget.percentage)}%`,
+                                                backgroundColor: budget.spent > budget.amount ? colors.danger : colors.primary,
+                                            },
+                                        ]}
+                                    />
+                                </View>
+
+                                <View style={styles.metaRow}>
+                                    <Text style={styles.metaText}>Terpakai {formatRupiah(budget.spent)}</Text>
+                                    <Text style={[styles.metaText, budget.spent > budget.amount ? styles.metaDanger : null]}>
+                                        Sisa {formatRupiah(budget.amount - budget.spent)}
+                                    </Text>
                                 </View>
                             </View>
-                            
-                            <Text style={styles.budgetAmount}>{formatRupiah(b.amount)}</Text>
-                            
-                            <View style={styles.progressContainer}>
-                                <View style={styles.progressBar}>
-                                    <View style={[
-                                        styles.progressFill, 
-                                        { width: `${Math.min(100, b.percentage)}%` },
-                                        b.spent > b.amount ? { backgroundColor: colors.danger } : {}
-                                    ]} />
-                                </View>
-                                <View style={styles.progressLabels}>
-                                    <Text style={styles.progressText}>Terpakai: {formatRupiah(b.spent)}</Text>
-                                    <Text style={[styles.progressText, b.spent > b.amount && { color: colors.danger }]}>Sisa: {formatRupiah(b.amount - b.spent)}</Text>
-                                </View>
-                            </View>
-                        </View>
-                    ))
+                        ))}
+                    </View>
                 )}
             </ScrollView>
-        </SafeAreaView>
+
+            {showEditor ? (
+                <PrimaryActionBar
+                    primaryLabel="Simpan Budget"
+                    onPrimaryPress={handleSave}
+                    secondaryLabel="Batal"
+                    onSecondaryPress={resetEditor}
+                />
+            ) : null}
+        </ScreenShell>
     );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-    safe: { flex: 1, backgroundColor: colors.background },
-    bgAuraTop: {
-        position: 'absolute',
-        top: -110,
-        right: -30,
-        width: 240,
-        height: 240,
-        borderRadius: BorderRadius.full,
-        backgroundColor: colors.primaryLight,
-        opacity: 0.55,
-    },
-    bgAuraBottom: {
-        position: 'absolute',
-        bottom: 120,
-        left: -60,
-        width: 200,
-        height: 200,
-        borderRadius: BorderRadius.full,
-        backgroundColor: colors.infoBg,
-        opacity: 0.3,
-    },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12, gap: 12 },
-    headerCenter: { flex: 1 },
-    headerAction: {
-        width: 44,
-        height: 44,
-        borderRadius: BorderRadius.xl,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.surfaceElevated,
-        borderWidth: 1,
-        borderColor: colors.border,
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.06,
-        shadowRadius: 10,
-        elevation: 2,
-    },
-    backBtn: { width: 44, height: 44, borderRadius: BorderRadius.xl, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border, shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 10, elevation: 2 },
-    title: { fontFamily: FontFamily.heading, fontSize: FontSize.h3, color: colors.textPrimary },
-    subtitle: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary, marginTop: 2 },
-    content: { padding: 20, gap: 16, paddingBottom: 40 },
-    summaryCard: { padding: 20, borderRadius: BorderRadius['5xl'], gap: 8, overflow: 'hidden', borderWidth: 1, borderColor: `${colors.textInverse}2E`, ...Shadow.md },
-    summaryTitle: { fontFamily: FontFamily.bodyMedium, color: colors.textInverse },
-    summaryAmount: { fontFamily: FontFamily.heading, fontSize: 32, color: colors.textInverse, marginVertical: 2 },
-    summarySubtitle: { fontFamily: FontFamily.body, color: colors.textInverse },
-    progressContainer: { gap: 8, marginTop: 12 },
-    progressBar: { height: 8, backgroundColor: `${colors.textInverse}33`, borderRadius: 999, overflow: 'hidden' },
-    progressFill: { height: '100%', backgroundColor: colors.primaryLight, borderRadius: 999 },
-    summaryMetaRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-    summaryMetaText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.caption, color: colors.textInverse },
-    formCard: { backgroundColor: colors.surfaceElevated, padding: 16, borderRadius: BorderRadius['4xl'], gap: 12, borderWidth: 1, borderColor: colors.border, shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 3 },
-    ctaCard: { backgroundColor: colors.surfaceElevated, padding: 16, borderRadius: BorderRadius['4xl'], gap: 14, borderWidth: 1, borderColor: colors.border, shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 3 },
-    ctaInfo: { gap: 4 },
-    ctaTitle: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: colors.textPrimary },
-    ctaSubtitle: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary },
-    formTitle: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: colors.textPrimary },
-    label: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.body, color: colors.textSecondary },
-    categoryScroll: { flexDirection: 'row', marginBottom: 8 },
-    catChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: BorderRadius.full, backgroundColor: colors.surface, marginRight: 8, borderWidth: 1, borderColor: colors.border },
-    catChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-    catChipText: { fontFamily: FontFamily.bodyMedium, color: colors.textPrimary },
-    input: { backgroundColor: colors.surface, borderRadius: BorderRadius.xl, padding: 12, borderWidth: 1, borderColor: colors.border, fontFamily: FontFamily.bodyBold, fontSize: FontSize.h3, color: colors.textPrimary },
-    formActions: { flexDirection: 'row', gap: 12, marginTop: 8 },
-    sectionTitle: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: colors.textPrimary, marginTop: 8 },
-    budgetCard: { backgroundColor: colors.surfaceElevated, padding: 16, borderRadius: BorderRadius['4xl'], gap: 8, borderWidth: 1, borderColor: colors.border, shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 3 },
-    budgetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    budgetCat: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: colors.textPrimary },
-    budgetActions: { flexDirection: 'row' },
-    budgetAmount: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.h3, color: colors.primary },
-    progressLabels: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-    progressText: { fontFamily: FontFamily.body, fontSize: 12, color: colors.textSecondary },
-});
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+    StyleSheet.create({
+        content: {
+            gap: 18,
+            paddingTop: 20,
+        },
+        heroCard: {
+            borderRadius: BorderRadius['5xl'],
+            padding: 22,
+            gap: 10,
+            overflow: 'hidden',
+            borderWidth: 1,
+            borderColor: `${colors.textInverse}26`,
+        },
+        heroEyebrow: {
+            fontFamily: FontFamily.bodyMedium,
+            fontSize: FontSize.caption,
+            color: colors.textInverse,
+            textTransform: 'uppercase',
+            letterSpacing: 0.6,
+        },
+        heroValue: {
+            fontFamily: FontFamily.heading,
+            fontSize: 32,
+            color: colors.textInverse,
+        },
+        heroSubtitle: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.body,
+            color: colors.textInverse,
+        },
+        progressTrack: {
+            height: 10,
+            borderRadius: BorderRadius.full,
+            backgroundColor: 'rgba(255,255,255,0.24)',
+            overflow: 'hidden',
+            marginTop: 4,
+        },
+        progressFill: {
+            height: '100%',
+            borderRadius: BorderRadius.full,
+        },
+        summaryRow: {
+            flexDirection: 'row',
+            gap: 12,
+            marginTop: 6,
+        },
+        summaryItem: {
+            flex: 1,
+            backgroundColor: 'rgba(255,255,255,0.14)',
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.18)',
+            borderRadius: BorderRadius['2xl'],
+            padding: 14,
+        },
+        summaryLabel: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: 'rgba(255,255,255,0.82)',
+        },
+        summaryValue: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.body,
+            color: colors.textInverse,
+            marginTop: 4,
+        },
+        chipWrap: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 10,
+        },
+        categoryChip: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+            borderRadius: BorderRadius.full,
+            backgroundColor: colors.surfaceAlt,
+            borderWidth: 1,
+            borderColor: colors.border,
+        },
+        categoryChipActive: {
+            backgroundColor: colors.primary,
+            borderColor: colors.primary,
+        },
+        categoryChipText: {
+            fontFamily: FontFamily.bodyMedium,
+            fontSize: FontSize.caption,
+            color: colors.textPrimary,
+        },
+        categoryChipTextActive: {
+            color: colors.textInverse,
+        },
+        loadingWrap: {
+            paddingVertical: 28,
+        },
+        listWrap: {
+            gap: 12,
+        },
+        budgetCard: {
+            backgroundColor: colors.panelSurface,
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: BorderRadius['4xl'],
+            padding: 18,
+            gap: 12,
+        },
+        budgetHeader: {
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 12,
+        },
+        budgetCopy: {
+            flex: 1,
+            gap: 4,
+        },
+        budgetCategory: {
+            ...Typography.h4,
+            color: colors.textPrimary,
+        },
+        budgetAmount: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.body,
+            color: colors.primary,
+        },
+        actionRow: {
+            flexDirection: 'row',
+            gap: 8,
+        },
+        iconButton: {
+            width: 36,
+            height: 36,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: BorderRadius.xl,
+            backgroundColor: colors.surfaceAlt,
+        },
+        progressTrackLight: {
+            height: 10,
+            borderRadius: BorderRadius.full,
+            backgroundColor: colors.surfaceMuted,
+            overflow: 'hidden',
+        },
+        progressFillLight: {
+            height: '100%',
+            borderRadius: BorderRadius.full,
+        },
+        metaRow: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            gap: 12,
+        },
+        metaText: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+        },
+        metaDanger: {
+            color: colors.danger,
+        },
+    });

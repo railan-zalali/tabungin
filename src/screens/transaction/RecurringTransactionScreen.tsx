@@ -122,6 +122,8 @@ export function RecurringTransactionScreen() {
         next_occurrence: firstOccurrence,
         is_active: true,
         last_generated_at: null,
+        reminder_enabled: false,
+        reminder_offset_minutes: 60,
       });
 
       setShowAddModal(false);

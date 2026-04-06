@@ -28,6 +28,7 @@ import { SavingGoalCard } from '../../components/saving/SavingGoalCard';
 import { TransactionItem } from '../../components/transaction/TransactionItem';
 import { ProfileSwitcher } from '../../components/profile/ProfileSwitcher';
 import { SavingGoalCardSkeleton, TransactionItemSkeleton } from '../../components/common/SkeletonLoader';
+import { useResponsiveMetrics } from '../../utils/responsive';
 
 interface QuickAction {
     id: string;
@@ -61,6 +62,7 @@ export function DashboardScreen() {
     const navigation = useNavigation<DashboardNavigationProp>();
     const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const metrics = useResponsiveMetrics();
     const user = useAuthStore((state) => state.user);
     const { profiles, activeProfileId, loadProfiles } = useProfileStore();
     const activeProfile = profiles.find((profile) => profile.id === activeProfileId);
@@ -85,9 +87,9 @@ export function DashboardScreen() {
         () =>
             activeGoals.filter((goal) => {
                 const wallet = wallets.find((item) => item.id === goal.wallet_id);
-                return getGoalComputedMeta(goal, wallet, activeProfileId).isSharedGoal;
+                return getGoalComputedMeta(goal, wallet, activeProfileId, [], user?.id, null, user?.email).isSharedGoal;
             }).length,
-        [activeGoals, activeProfileId, wallets],
+        [activeGoals, activeProfileId, user?.id, wallets],
     );
     const sharedWalletCount = useMemo(
         () => wallets.filter((wallet) => wallet.profile_id && wallet.profile_id !== activeProfileId).length,
@@ -209,7 +211,7 @@ export function DashboardScreen() {
                         title="Aksi cepat"
                         subtitle="Tiga pintu masuk utama untuk menjaga ritme harian tetap cepat."
                     />
-                    <View style={styles.quickActionGrid}>
+                    <View style={[styles.quickActionGrid, metrics.widthClass === 'compact' ? styles.quickActionGridStack : null]}>
                         {quickActions.map((item) => (
                             <QuickActionCard key={item.id} item={item} />
                         ))}
@@ -346,7 +348,11 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         },
         quickActionGrid: {
             flexDirection: 'row',
+            flexWrap: 'wrap',
             gap: 12,
+        },
+        quickActionGridStack: {
+            flexDirection: 'column',
         },
         quickActionCard: {
             flex: 1,

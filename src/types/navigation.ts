@@ -57,6 +57,9 @@ export type SettingsStackParamList = {
     Notifications: undefined;
     CategoryManagement: undefined;
     ExportData: undefined;
+    ImportData: undefined;
+    ReminderCenter: undefined;
+    AppUpdate: undefined;
     WalletList: undefined;
     AddWallet: WalletRouteParams;
     QRScanner: undefined;

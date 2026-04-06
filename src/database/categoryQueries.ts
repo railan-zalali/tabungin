@@ -3,6 +3,7 @@ import { getInitializedDatabase } from './schema';
 import { supabase } from '../lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { resolveMaterialIcon } from '../utils/materialIcon';
+import { runSerializedSyncTask } from './syncQueue';
 
 export type CategoryType = 'income' | 'expense' | 'both';
 
@@ -22,6 +23,8 @@ type LocalCategoryRow = Omit<TransactionCategory, 'is_default'> & {
   is_default: number | boolean;
   sync_status?: 'synced' | 'pending_create' | 'pending_update' | 'pending_delete';
 };
+
+const activeCategorySyncs = new Map<string, Promise<void>>();
 
 function normalizeCategoryIcon<
   T extends Pick<TransactionCategory, 'icon'> & Partial<Pick<TransactionCategory, 'is_default'>>
@@ -220,53 +223,69 @@ export async function deleteCategory(id: string): Promise<void> {
 
 // Remote sync
 export async function syncRemoteCategories(userId: string): Promise<void> {
-  await pushPendingCategories(userId);
-
-  const { data, error } = await supabase
-    .from('transaction_categories')
-    .select('*')
-    .eq('user_id', userId)
-    .order('is_default', { ascending: false })
-    .order('name', { ascending: true });
-
-  if (error) throw error;
-
-  const db = await getInitializedDatabase();
-  try {
-    await db.withTransactionAsync(async () => {
-      for (const cat of (data ?? [])) {
-        const existing = await db.getFirstAsync<{ sync_status: string }>(
-          'SELECT sync_status FROM transaction_categories WHERE id = ?',
-          [cat.id],
-        );
-
-        if (existing && existing.sync_status !== 'synced') {
-          continue;
-        }
-
-        const normalizedCategory = normalizeCategoryIcon(cat);
-        await db.runAsync(
-          `INSERT OR REPLACE INTO transaction_categories
-           (id, user_id, name, type, icon, color, is_default, created_at, updated_at, sync_status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`,
-          [
-            normalizedCategory.id,
-            normalizedCategory.user_id,
-            normalizedCategory.name,
-            normalizedCategory.type,
-            normalizedCategory.icon,
-            normalizedCategory.color,
-            normalizedCategory.is_default ? 1 : 0,
-            normalizedCategory.created_at,
-            normalizedCategory.updated_at,
-          ]
-        );
-      }
-    });
-  } catch (syncError) {
-    console.error('[Category Sync] Failed to persist remote categories locally:', syncError);
-    throw syncError;
+  const activeSync = activeCategorySyncs.get(userId);
+  if (activeSync) {
+    return activeSync;
   }
+
+  const syncPromise = runSerializedSyncTask(async () => {
+    await pushPendingCategories(userId);
+
+    const { data, error } = await supabase
+      .from('transaction_categories')
+      .select('*')
+      .eq('user_id', userId)
+      .order('is_default', { ascending: false })
+      .order('name', { ascending: true });
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      return;
+    }
+
+    const db = await getInitializedDatabase();
+    try {
+      await db.withTransactionAsync(async () => {
+        for (const cat of data) {
+          const existing = await db.getFirstAsync<{ sync_status: string }>(
+            'SELECT sync_status FROM transaction_categories WHERE id = ?',
+            [cat.id],
+          );
+
+          if (existing && existing.sync_status !== 'synced') {
+            continue;
+          }
+
+          const normalizedCategory = normalizeCategoryIcon(cat);
+          await db.runAsync(
+            `INSERT OR REPLACE INTO transaction_categories
+             (id, user_id, name, type, icon, color, is_default, created_at, updated_at, sync_status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`,
+            [
+              normalizedCategory.id,
+              normalizedCategory.user_id,
+              normalizedCategory.name,
+              normalizedCategory.type,
+              normalizedCategory.icon,
+              normalizedCategory.color,
+              normalizedCategory.is_default ? 1 : 0,
+              normalizedCategory.created_at,
+              normalizedCategory.updated_at,
+            ]
+          );
+        }
+      });
+    } catch (syncError) {
+      console.error('[Category Sync] Failed to persist remote categories locally:', syncError);
+      throw syncError;
+    }
+  }).finally(() => {
+    activeCategorySyncs.delete(userId);
+  });
+
+  activeCategorySyncs.set(userId, syncPromise);
+  return syncPromise;
 }
 
 // Initialize default categories for new user

@@ -19,6 +19,7 @@ import { SectionHeader } from '../../components/common/SectionHeader';
 import { SegmentedControl } from '../../components/common/SegmentedControl';
 import { SavingGoalCard } from '../../components/saving/SavingGoalCard';
 import { SavingGoalCardSkeleton } from '../../components/common/SkeletonLoader';
+import { useAuthStore } from '../../store/useAuthStore';
 
 type FilterTab = 'all' | 'personal' | 'shared' | 'completed';
 
@@ -29,6 +30,8 @@ export function SavingListScreen() {
     const { goals, isLoading, loadGoals } = useSavingStore();
     const { wallets, loadWallets } = useWalletStore();
     const activeProfileId = useProfileStore((state) => state.activeProfileId);
+    const currentUserId = useAuthStore((state) => state.user?.id);
+    const currentUserEmail = useAuthStore((state) => state.user?.email);
     const [filterTab, setFilterTab] = useState<FilterTab>('all');
     const [refreshing, setRefreshing] = useState(false);
 
@@ -53,10 +56,10 @@ export function SavingListScreen() {
                 return {
                     goal,
                     wallet,
-                    meta: getGoalComputedMeta(goal, wallet, activeProfileId),
+                    meta: getGoalComputedMeta(goal, wallet, activeProfileId, [], currentUserId, null, currentUserEmail),
                 };
             }),
-        [activeProfileId, goals, wallets],
+        [activeProfileId, currentUserEmail, currentUserId, goals, wallets],
     );
 
     const filteredGoals = useMemo(() => {
@@ -191,6 +194,9 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             paddingHorizontal: 20,
             paddingBottom: 108,
             gap: 18,
+            maxWidth: 920,
+            width: '100%',
+            alignSelf: 'center',
         },
         filterBlock: {
             gap: 14,

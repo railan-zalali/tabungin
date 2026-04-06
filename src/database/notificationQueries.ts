@@ -3,7 +3,15 @@ import { getInitializedDatabase } from './schema';
 import { supabase } from '../lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 
-export type NotificationType = 'goal_reminder' | 'goal_completed' | 'budget_warning' | 'wallet_invite';
+export type NotificationType =
+  | 'goal_reminder'
+  | 'goal_completed'
+  | 'budget_warning'
+  | 'budget_reminder'
+  | 'recurring_reminder'
+  | 'manual_reminder'
+  | 'wallet_invite'
+  | 'app_update_available';
 
 export interface Notification {
   id: string;
@@ -16,16 +24,25 @@ export interface Notification {
   created_at: number;
 }
 
+function parseNotificationRow(row: any): Notification {
+  return {
+    ...row,
+    data: typeof row.data === 'string' ? JSON.parse(row.data || '{}') : row.data || {},
+    is_read: Boolean(row.is_read),
+  };
+}
+
 // Local queries
 export async function fetchLocalNotifications(userId: string, limit: number = 50): Promise<Notification[]> {
   const db = await getInitializedDatabase();
-  return db.getAllAsync<Notification>(
+  const rows = await db.getAllAsync<Notification>(
     `SELECT * FROM notifications
      WHERE user_id = ?
      ORDER BY created_at DESC
      LIMIT ?`,
     [userId, limit]
   );
+  return rows.map(parseNotificationRow);
 }
 
 export async function fetchUnreadCount(userId: string): Promise<number> {
@@ -74,7 +91,7 @@ export async function insertNotification(notification: Omit<Notification, 'id' |
      JSON.stringify(notification.data), now]
   );
 
-  return { ...notification, id, created_at: now };
+  return parseNotificationRow({ ...notification, id, created_at: now, is_read: false });
 }
 
 // Remote sync
