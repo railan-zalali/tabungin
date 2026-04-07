@@ -4,6 +4,12 @@ import path from 'path';
 const screenFiles = [
   'src/screens/budget/BudgetScreen.tsx',
   'src/screens/category/CategoryManagementScreen.tsx',
+  'src/screens/settings/AppUpdateScreen.tsx',
+  'src/screens/settings/ExportDataScreen.tsx',
+  'src/screens/settings/ImportDataScreen.tsx',
+  'src/screens/settings/ReminderCenterScreen.tsx',
+  'src/screens/settings/SettingsScreen.tsx',
+  'src/screens/settings/WalletListScreen.tsx',
   'src/screens/settings/ProfileScreen.tsx',
   'src/screens/transaction/AddTransactionScreen.tsx',
   'src/screens/transaction/TransactionDetailScreen.tsx',
@@ -92,6 +98,18 @@ describe('ui consistency guardrails', () => {
     ]) {
       const source = readFile(file);
       expect(source).toContain('getReadableTextColor');
+    }
+  });
+
+  it('keeps settings copy free from mojibake bullet artifacts', () => {
+    for (const file of [
+      'src/screens/settings/AppUpdateScreen.tsx',
+      'src/screens/settings/ExportDataScreen.tsx',
+      'src/screens/settings/ReminderCenterScreen.tsx',
+    ]) {
+      const source = readFile(file);
+      expect(source).not.toContain('\u00e2\u20ac\u00a2');
+      expect(source).not.toContain('\u00f0\u0178');
     }
   });
 });

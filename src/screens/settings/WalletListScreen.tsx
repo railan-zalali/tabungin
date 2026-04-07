@@ -24,6 +24,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { getReadableTextColor } from '../../utils/colorContrast';
+import { useResponsiveMetrics } from '../../utils/responsive';
 
 function resolveWalletIcon(type?: string) {
     if (type === 'bank') return 'bank-outline';
@@ -95,6 +96,7 @@ export function WalletListScreen() {
     const navigation = useNavigation<WalletFlowNavigationProp>();
     const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const metrics = useResponsiveMetrics();
     const { wallets, loadWallets, removeWallet, error } = useWalletStore();
     const activeProfileId = useProfileStore((state) => state.activeProfileId);
     const [refreshing, setRefreshing] = useState(false);
@@ -173,7 +175,7 @@ export function WalletListScreen() {
                 data={wallets}
                 keyExtractor={(item) => item.id}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.listContent}
+                contentContainerStyle={[styles.listContent, metrics.widthClass !== 'compact' ? styles.listContentWide : null]}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
                 ListHeaderComponent={
                     <View style={styles.headerBlock}>
@@ -252,6 +254,11 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         listContent: {
             paddingHorizontal: 20,
             paddingBottom: 100,
+        },
+        listContentWide: {
+            width: '100%',
+            maxWidth: 920,
+            alignSelf: 'center',
         },
         headerBlock: {
             gap: 14,

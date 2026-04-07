@@ -5,15 +5,12 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Modal,
   Alert,
   ActivityIndicator,
-  StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -22,9 +19,11 @@ import { useTheme } from '../../store/useThemeStore';
 import { useTransactionStore } from '../../store/useTransactionStore';
 import { useSavingStore } from '../../store/useSavingStore';
 import { useWalletStore } from '../../store/useWalletStore';
-import { Button } from '../../components/common/Button';
-import { EmptyState } from '../../components/common/EmptyState';
+import { ScreenShell } from '../../components/common/ScreenShell';
+import { AppScreenHeader } from '../../components/common/AppScreenHeader';
+import { ContextBadge } from '../../components/common/ContextBadge';
 import { BorderRadius } from '../../constants/theme';
+import { useResponsiveMetrics } from '../../utils/responsive';
 import {
   buildFullBackupExportData,
   exportToJSON,
@@ -39,15 +38,14 @@ type ExportScope = 'all' | 'transactions' | 'goals';
 
 export function ExportDataScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
-  const insets = useSafeAreaInsets();
-  const { colors, mode } = useTheme();
+  const { colors } = useTheme();
   const styles = React.useMemo(() => getStyles(colors), [colors]);
+  const metrics = useResponsiveMetrics();
 
   const { transactions, loadTransactions } = useTransactionStore();
   const { goals, loadGoals } = useSavingStore();
   const loadWallets = useWalletStore((state) => state.loadWallets);
 
-  const [showFormatModal, setShowFormatModal] = useState(false);
   const [selectedScope, setSelectedScope] = useState<ExportScope>('all');
   const [isExporting, setIsExporting] = useState(false);
 
@@ -137,8 +135,6 @@ export function ExportDataScreen() {
           await exportGoalsOnly(goals, format);
           break;
       }
-
-      setShowFormatModal(false);
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Gagal mengekspor data');
     } finally {
@@ -149,29 +145,24 @@ export function ExportDataScreen() {
   const selectedScopeLabel = selectedScope === 'all' ? 'Semua data' : selectedScope === 'transactions' ? 'Transaksi' : 'Target tabungan';
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
-      <StatusBar
-        barStyle={mode === 'dark' ? 'light-content' : 'dark-content'}
-        backgroundColor="transparent"
-        translucent
-      />
+    <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
       <View style={styles.bgAuraTop} pointerEvents="none" />
+      <AppScreenHeader
+        title="Ekspor data"
+        subtitle="Siapkan backup restore-safe atau hasil ekspor yang enak dibaca untuk analisis."
+        showBack
+        onBackPress={() => navigation.goBack()}
+        variant="transparent"
+        contextBadges={
+          <>
+            <ContextBadge icon="code-json" label="JSON backup" tone="success" />
+            <ContextBadge icon="file-delimited-outline" label="CSV analisis" tone="info" />
+            <ContextBadge icon="shield-check-outline" label="Restore-safe" tone="primary" />
+          </>
+        }
+      />
 
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          accessibilityRole="button"
-          accessibilityLabel="Kembali dari layar ekspor data"
-        >
-          <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>Ekspor Data</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, metrics.widthClass !== 'compact' ? styles.contentWide : null]} showsVerticalScrollIndicator={false}>
         <Animated.View entering={FadeInDown.delay(60).springify()}>
           <LinearGradient
             colors={[colors.primary, colors.primaryDark, colors.primary]}
@@ -250,12 +241,17 @@ export function ExportDataScreen() {
               <Animated.View key={option.id} entering={FadeInUp.delay(index * 80).springify()} style={{ flex: 1, minWidth: '45%' }}>
                 <TouchableOpacity
                   style={[styles.formatOption, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
-                  onPress={() => setShowFormatModal(true)}
+                  onPress={() => handleExport(option.id)}
+                  disabled={isExporting}
                   accessibilityRole="button"
-                  accessibilityLabel={`Buka pilihan format ${option.title}`}
+                  accessibilityLabel={`Ekspor data sebagai ${option.title}`}
                 >
                   <View style={[styles.formatIcon, { backgroundColor: option.color + '20' }]}>
-                    <MaterialCommunityIcons name={option.icon as any} size={32} color={option.color} />
+                    {isExporting ? (
+                      <ActivityIndicator color={option.color} size="small" />
+                    ) : (
+                      <MaterialCommunityIcons name={option.icon as any} size={32} color={option.color} />
+                    )}
                   </View>
                   <Text style={[styles.formatTitle, { color: colors.textPrimary }]}>{option.title}</Text>
                   <Text style={[styles.formatDescription, { color: colors.textSecondary }]}>
@@ -296,51 +292,7 @@ export function ExportDataScreen() {
         </Animated.View>
       </ScrollView>
 
-      <Modal
-        visible={showFormatModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowFormatModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Pilih Format Ekspor</Text>
-
-            <View style={styles.formatList}>
-              {exportOptions.map((option) => (
-                <TouchableOpacity
-                  key={option.id}
-                  style={[styles.formatListItem, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
-                  onPress={() => handleExport(option.id)}
-                  disabled={isExporting}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Ekspor data dalam format ${option.title}`}
-                >
-                  <View style={[styles.listFormatIcon, { backgroundColor: option.color + '20' }]}>
-                    <MaterialCommunityIcons name={option.icon as any} size={28} color={option.color} />
-                  </View>
-                  <View style={styles.listFormatInfo}>
-                    <Text style={[styles.listFormatTitle, { color: colors.textPrimary }]}>{option.title}</Text>
-                    <Text style={[styles.listFormatDescription, { color: colors.textSecondary }]}>
-                      {option.description}
-                    </Text>
-                  </View>
-                  {isExporting && <ActivityIndicator color={option.color} size="small" />}
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Button
-              label="Batal"
-              onPress={() => setShowFormatModal(false)}
-              variant="secondary"
-              fullWidth
-              style={{ marginTop: 16 }}
-            />
-          </View>
-        </View>
-      </Modal>
-    </View>
+    </ScreenShell>
   );
 }
 
@@ -359,33 +311,14 @@ const getStyles = (colors: any) => StyleSheet.create({
     backgroundColor: colors.primaryLight,
     opacity: 0.4,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: BorderRadius.xl,
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  title: {
-    ...Typography.h2,
-    flex: 1,
-    textAlign: 'center',
-  },
-  headerSpacer: {
-    width: 44,
-  },
   scrollContent: {
-    paddingVertical: 16,
-    paddingBottom: 32,
+    paddingVertical: 8,
+    paddingBottom: 108,
+  },
+  contentWide: {
+    width: '100%',
+    maxWidth: 920,
+    alignSelf: 'center',
   },
   heroCard: {
     borderRadius: 30,
@@ -418,7 +351,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primaryBg,
+    backgroundColor: 'rgba(255,255,255,0.18)',
   },
   heroCopy: {
     flex: 1,
@@ -582,58 +515,5 @@ const getStyles = (colors: any) => StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: FontSize.caption,
     lineHeight: 20,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-  },
-  modalContent: {
-    borderRadius: 28,
-    padding: 24,
-    marginHorizontal: 16,
-    borderWidth: 1,
-    shadowColor: colors.shadowColor,
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 4,
-  },
-  modalTitle: {
-    fontFamily: FontFamily.heading,
-    fontSize: FontSize.h3,
-    marginBottom: 18,
-  },
-  formatList: {
-    gap: 12,
-  },
-  formatListItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 18,
-    borderWidth: 1,
-    gap: 12,
-    backgroundColor: colors.surfaceElevated,
-  },
-  listFormatIcon: {
-    width: 54,
-    height: 54,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  listFormatInfo: {
-    flex: 1,
-  },
-  listFormatTitle: {
-    fontFamily: FontFamily.bodyBold,
-    fontSize: FontSize.body,
-  },
-  listFormatDescription: {
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.caption,
-    marginTop: 2,
-    lineHeight: 18,
   },
 });

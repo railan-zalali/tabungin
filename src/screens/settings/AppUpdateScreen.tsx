@@ -90,7 +90,9 @@ export function AppUpdateScreen() {
                 {status.latestRelease ? (
                     <View style={styles.card}>
                         <Text style={styles.cardTitle}>Rilis terbaru</Text>
-                        <Text style={styles.releaseVersion}>{status.latestRelease.version} • build {status.latestRelease.build_number}</Text>
+                        <Text style={styles.releaseVersion}>
+                            {status.latestRelease.version} {'\u2022'} build {status.latestRelease.build_number}
+                        </Text>
                         <Text style={styles.cardText}>{status.latestRelease.release_notes || 'Release notes belum diisi untuk rilis ini.'}</Text>
                         <Button
                             label="Buka tautan unduh"

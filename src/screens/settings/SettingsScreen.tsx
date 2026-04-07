@@ -15,6 +15,7 @@ import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { useResponsiveMetrics } from '../../utils/responsive';
 import { getSemanticColors } from '../../utils/semanticColors';
+import { getReadableTextColor } from '../../utils/colorContrast';
 
 interface SettingRowProps {
     icon: string;
@@ -106,12 +107,20 @@ export function SettingsScreen() {
     };
 
     const userInitial = user?.name?.charAt(0)?.toUpperCase() ?? '?';
+    const avatarColor = user?.avatarColor ?? colors.primary;
+    const avatarTextColor = getReadableTextColor(avatarColor, {
+        light: colors.textInverse,
+        dark: colors.textPrimary,
+    });
 
     return (
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
             <AppScreenHeader title="Pengaturan" subtitle="Akun, tampilan, data, dan ruang kolaborasi ada di satu tempat." variant="transparent" />
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[styles.content, metrics.widthClass !== 'compact' ? styles.contentWide : null]}
+            >
                 <HeroSummaryCard
                     eyebrow={sessionStatus === 'guest' ? 'Mode Guest Lokal' : 'Akun Utama'}
                     title={user?.name ?? 'Pengguna Tabungin'}
@@ -189,8 +198,8 @@ export function SettingsScreen() {
                     accessibilityRole="button"
                     accessibilityLabel="Edit profil utama"
                 >
-                    <View style={[styles.avatar, { backgroundColor: user?.avatarColor ?? colors.primary }]}>
-                        <Text style={styles.avatarText}>{userInitial}</Text>
+                    <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
+                        <Text style={[styles.avatarText, { color: avatarTextColor }]}>{userInitial}</Text>
                     </View>
                     <View style={styles.profileCopy}>
                         <Text style={styles.profileTitle}>Edit profil utama</Text>
@@ -374,6 +383,11 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             paddingBottom: 108,
             gap: 18,
         },
+        contentWide: {
+            width: '100%',
+            maxWidth: 920,
+            alignSelf: 'center',
+        },
         guestNotice: {
             flexDirection: 'row',
             alignItems: 'flex-start',
@@ -465,7 +479,6 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         avatarText: {
             fontFamily: FontFamily.headingMedium,
             fontSize: FontSize.h3,
-            color: colors.textInverse,
         },
         profileCopy: {
             flex: 1,
