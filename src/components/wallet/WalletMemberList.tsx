@@ -17,6 +17,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { FontFamily, FontSize } from "../../constants/typography";
 import { BorderRadius } from "../../constants/theme";
 import { useTheme } from "../../store/useThemeStore";
+import { useAuthStore } from "../../store/useAuthStore";
 import type { WalletMember } from "../../database/walletQueries";
 import {
   fetchWalletMembersForDisplay,
@@ -44,6 +45,7 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
   const [sharedGoalsCount, setSharedGoalsCount] = useState<Record<string, number>>({});
   const { colors } = useTheme();
   const styles = React.useMemo(() => getStyles(colors), [colors]);
+  const canUseCloudCollaboration = useAuthStore((state) => state.canUseCloudCollaboration);
 
   const inviteUrl = buildWalletInviteUrl(walletId);
   const inviteMessage = buildWalletInviteMessage(walletId);
@@ -77,10 +79,18 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
   }, [walletId]);
 
   useEffect(() => {
+    if (!canUseCloudCollaboration) {
+      setMembers([]);
+      return;
+    }
     loadMembers();
-  }, [loadMembers]);
+  }, [canUseCloudCollaboration, loadMembers]);
 
   const handleShareLink = async () => {
+    if (!canUseCloudCollaboration) {
+      Alert.alert("Perlu akun", "Bagikan undangan shared wallet hanya tersedia untuk akun yang terhubung.");
+      return;
+    }
     try {
       await Share.share({
         message: inviteMessage,
@@ -103,6 +113,11 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
   };
 
   const handleInvite = async () => {
+    if (!canUseCloudCollaboration) {
+      Alert.alert("Perlu akun", "Mengundang anggota membutuhkan akun yang terhubung ke cloud.");
+      return;
+    }
+
     if (!email.trim() || !email.includes("@")) {
       Alert.alert("Error", "Masukkan email yang valid");
       return;
@@ -145,22 +160,24 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
       <View style={styles.header}>
         <Text style={styles.title}>Anggota Tim</Text>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.inviteBtn} onPress={handleShareLink}>
+          <TouchableOpacity style={styles.inviteBtn} onPress={handleShareLink} accessibilityRole="button" accessibilityLabel="Bagikan undangan dompet">
             <MaterialCommunityIcons name='share-variant' size={16} color={colors.primary} />
             <Text style={styles.inviteBtnText}>Share</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.inviteBtn} onPress={() => setShowQR(true)}>
+          <TouchableOpacity style={styles.inviteBtn} onPress={() => setShowQR(true)} accessibilityRole="button" accessibilityLabel="Buka QR undangan dompet">
             <MaterialCommunityIcons name='qrcode' size={16} color={colors.primary} />
             <Text style={styles.inviteBtnText}>QR</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.inviteBtn} onPress={() => setIsInviting(true)}>
+          <TouchableOpacity style={styles.inviteBtn} onPress={() => setIsInviting(true)} accessibilityRole="button" accessibilityLabel="Undang anggota dompet">
             <MaterialCommunityIcons name='plus' size={16} color={colors.primary} />
             <Text style={styles.inviteBtnText}>Undang</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {isLoading ? (
+      {!canUseCloudCollaboration ? (
+        <Text style={styles.emptyText}>Mode guest aktif. Shared wallet dan manajemen anggota tersedia setelah masuk dengan akun.</Text>
+      ) : isLoading ? (
         <ActivityIndicator color={colors.primary} />
       ) : members.length === 0 ? (
         <Text style={styles.emptyText}>Belum ada anggota lain di dompet ini.</Text>
@@ -191,7 +208,7 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
                   />
                 </View>
               </View>
-              <TouchableOpacity onPress={() => handleRemove(member.id)} style={styles.removeBtn}>
+              <TouchableOpacity onPress={() => handleRemove(member.id)} style={styles.removeBtn} accessibilityRole="button" accessibilityLabel={`Hapus anggota ${member.user_email}`}>
                 <MaterialCommunityIcons name='trash-can-outline' size={20} color={colors.danger} />
               </TouchableOpacity>
             </View>

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     KeyboardAvoidingView,
     Platform,
@@ -8,7 +8,6 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -22,6 +21,7 @@ import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useTheme } from '../../store/useThemeStore';
+import { triggerHapticNotification } from '../../utils/haptics';
 import {
     validateConfirmPassword,
     validateEmail,
@@ -45,7 +45,7 @@ function getStrength(password: string) {
 
 export function RegisterScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-    const { register, authError } = useAuthStore();
+    const { register, authError, sessionStatus, pendingGuestMergeResolution, postAuthRedirect, clearPostAuthRedirect } = useAuthStore();
     const { colors, gradients } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
     const [name, setName] = useState('');
@@ -55,6 +55,16 @@ export function RegisterScreen() {
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(false);
     const strength = useMemo(() => getStrength(password), [password]);
+
+    useEffect(() => {
+        if (sessionStatus === 'authenticated' && !pendingGuestMergeResolution) {
+            navigation.reset({
+                index: 0,
+                routes: [{ name: 'Main', params: postAuthRedirect ?? undefined }],
+            });
+            clearPostAuthRedirect();
+        }
+    }, [clearPostAuthRedirect, navigation, pendingGuestMergeResolution, postAuthRedirect, sessionStatus]);
 
     const clearError = (field: string) => {
         setErrors((prev) => {
@@ -82,7 +92,7 @@ export function RegisterScreen() {
 
     const handleRegister = async () => {
         if (!validate()) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            triggerHapticNotification();
             return;
         }
 
@@ -105,6 +115,9 @@ export function RegisterScreen() {
                         <Text style={styles.eyebrow}>Buat ruang keuangan yang rapi</Text>
                         <Text style={styles.title}>Mulai dengan akun utama yang nanti jadi pusat profil, dompet, dan kolaborasi.</Text>
                         <Text style={styles.subtitle}>Kami jaga flow pendaftaran tetap singkat, tetapi cukup jelas untuk dipakai jangka panjang.</Text>
+                        {sessionStatus === 'guest' ? (
+                            <Text style={styles.guestUpgradeNote}>Data lokal guest tidak dihapus. Setelah akun dibuat, data lokal yang belum sinkron tetap bisa dibawa ke akun.</Text>
+                        ) : null}
                     </View>
 
                     <FormSection title="Buat akun baru" subtitle="Lengkapi identitas utama dulu, nanti detail lain bisa disesuaikan di pengaturan.">
@@ -228,6 +241,12 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             fontSize: FontSize.body,
             lineHeight: 22,
             color: colors.textSecondary,
+        },
+        guestUpgradeNote: {
+            fontFamily: FontFamily.bodyMedium,
+            fontSize: FontSize.caption,
+            lineHeight: 20,
+            color: colors.primary,
         },
         passwordBlock: {
             gap: 10,

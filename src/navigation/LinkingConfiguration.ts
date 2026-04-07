@@ -9,6 +9,8 @@ export const linking = {
       Login: 'login',
       Register: 'register',
       ForgotPassword: 'forgot-password',
+      AuthCallback: 'reset-password',
+      GuestDataMerge: 'guest-merge',
 
       // Main App (Available when logged in)
       Main: {

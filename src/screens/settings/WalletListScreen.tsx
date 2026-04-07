@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     Alert,
-    FlatList,
     RefreshControl,
     StyleSheet,
     Text,
@@ -10,6 +9,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { formatCurrency } from '../../utils/currency';
@@ -23,6 +23,7 @@ import { ContextBadge } from '../../components/common/ContextBadge';
 import { EmptyState } from '../../components/common/EmptyState';
 import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
 import { ScreenShell } from '../../components/common/ScreenShell';
+import { getReadableTextColor } from '../../utils/colorContrast';
 
 function resolveWalletIcon(type?: string) {
     if (type === 'bank') return 'bank-outline';
@@ -31,7 +32,7 @@ function resolveWalletIcon(type?: string) {
     return 'wallet-outline';
 }
 
-function WalletCard({ item, activeProfileId, onEdit, onDelete }: {
+const WalletCard = React.memo(function WalletCard({ item, activeProfileId, onEdit, onDelete }: {
     item: Wallet;
     activeProfileId?: string | null;
     onEdit: (wallet: Wallet) => void;
@@ -41,22 +42,38 @@ function WalletCard({ item, activeProfileId, onEdit, onDelete }: {
     const styles = React.useMemo(() => getStyles(colors), [colors]);
     const iconName = resolveWalletIcon(item.type);
     const itemColor = item.color || colors.primary;
+    const iconForeground = getReadableTextColor(itemColor, {
+        light: colors.textInverse,
+        dark: colors.textPrimary,
+    });
     const isSharedWallet = Boolean(item.profile_id && item.profile_id !== activeProfileId);
 
     return (
-        <TouchableOpacity style={styles.walletCard} onPress={() => onEdit(item)} activeOpacity={0.92}>
+        <TouchableOpacity
+            style={styles.walletCard}
+            onPress={() => onEdit(item)}
+            activeOpacity={0.92}
+            accessibilityRole="button"
+            accessibilityLabel={`${item.name || 'Dompet tanpa nama'}, saldo ${formatCurrency(item.balance || 0)}`}
+            accessibilityHint="Buka detail atau edit dompet"
+        >
             <View style={[styles.walletAccent, { backgroundColor: itemColor }]} />
             <View style={styles.walletBody}>
                 <View style={styles.walletTopRow}>
-                    <View style={[styles.walletIconWrap, { backgroundColor: `${itemColor}18` }]}>
-                        <MaterialCommunityIcons name={iconName as any} size={22} color={itemColor} />
+                    <View style={[styles.walletIconWrap, { backgroundColor: itemColor }]}>
+                        <MaterialCommunityIcons name={iconName as any} size={22} color={iconForeground} />
                     </View>
                     <View style={styles.walletCopy}>
                         <Text style={styles.walletName}>{item.name || 'Dompet tanpa nama'}</Text>
                         <Text style={styles.walletType}>{item.type ? item.type.toUpperCase() : 'GENERAL'}</Text>
                     </View>
                     {!item.is_default ? (
-                        <TouchableOpacity onPress={() => onDelete(item)} style={styles.walletDelete}>
+                        <TouchableOpacity
+                            onPress={() => onDelete(item)}
+                            style={styles.walletDelete}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Hapus dompet ${item.name || 'tanpa nama'}`}
+                        >
                             <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.textSecondary} />
                         </TouchableOpacity>
                     ) : null}
@@ -72,7 +89,7 @@ function WalletCard({ item, activeProfileId, onEdit, onDelete }: {
             </View>
         </TouchableOpacity>
     );
-}
+});
 
 export function WalletListScreen() {
     const navigation = useNavigation<WalletFlowNavigationProp>();
@@ -131,10 +148,20 @@ export function WalletListScreen() {
                 onBackPress={() => navigation.goBack()}
                 rightSlot={
                     <View style={styles.headerActions}>
-                        <TouchableOpacity style={styles.headerIconButton} onPress={() => navigation.navigate('QRScanner')}>
+                        <TouchableOpacity
+                            style={styles.headerIconButton}
+                            onPress={() => navigation.navigate('QRScanner')}
+                            accessibilityRole="button"
+                            accessibilityLabel="Scan QR undangan dompet"
+                        >
                             <MaterialCommunityIcons name="qrcode-scan" size={22} color={colors.textPrimary} />
                         </TouchableOpacity>
-                        <TouchableOpacity style={[styles.headerIconButton, styles.headerPrimaryButton]} onPress={() => navigation.navigate('AddWallet')}>
+                        <TouchableOpacity
+                            style={[styles.headerIconButton, styles.headerPrimaryButton]}
+                            onPress={() => navigation.navigate('AddWallet')}
+                            accessibilityRole="button"
+                            accessibilityLabel="Tambah dompet baru"
+                        >
                             <MaterialCommunityIcons name="plus" size={22} color={colors.textInverse} />
                         </TouchableOpacity>
                     </View>
@@ -142,7 +169,7 @@ export function WalletListScreen() {
                 variant="transparent"
             />
 
-            <FlatList
+            <FlashList
                 data={wallets}
                 keyExtractor={(item) => item.id}
                 showsVerticalScrollIndicator={false}

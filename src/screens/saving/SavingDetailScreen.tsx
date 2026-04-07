@@ -3,12 +3,11 @@ import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, T
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { calculateProgress } from '../../utils/calculator';
-import { formatDateShort } from '../../utils/date';
+import { formatDateLong, formatDateShort } from '../../utils/date';
 import { formatCurrency, formatInputRupiah, parseRupiah } from '../../utils/currency';
 import { getGoalComputedMeta, getSharingActivityDescription, getSharingActivityLabel } from '../../utils/goalSharing';
 import { fetchWalletMemberRole } from '../../database/walletQueries';
@@ -27,6 +26,9 @@ import { FormSection } from '../../components/common/FormSection';
 import { PrimaryActionBar } from '../../components/common/PrimaryActionBar';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { StatePanel } from '../../components/common/StatePanel';
+import { triggerHapticNotification } from '../../utils/haptics';
+import { getSavingPlanInsight, getSavingPlanLabel } from '../../utils/savingPlan';
+import { getReadableTextColor } from '../../utils/colorContrast';
 
 const permissionLabel = (value: string) => value === 'admin' ? 'Admin' : value === 'read_only' ? 'Read only' : 'Bisa edit';
 
@@ -41,11 +43,12 @@ export function SavingDetailScreen() {
     const activeProfileId = useProfileStore((s) => s.activeProfileId);
     const currentUserId = useAuthStore((s) => s.user?.id);
     const currentUserEmail = useAuthStore((s) => s.user?.email?.toLowerCase() || null);
-    const { currentGoal, currentLogs, sharingMembers, sharingActivity, justCompletedGoalId, loadGoalById, loadLogs, loadSharingDetails, addSavingLog, clearJustCompleted, setGoalPermission, revokeGoalSharing } = useSavingStore();
+    const { currentGoal, currentLogs, sharingMembers, sharingActivity, justCompletedGoalId, loadGoalById, loadLogs, loadSharingDetails, addSavingLog, editSavingLog, removeSavingLog, clearJustCompleted, setGoalPermission, revokeGoalSharing } = useSavingStore();
     const [showAddModal, setShowAddModal] = useState(false);
     const [addAmount, setAddAmount] = useState('');
     const [addNote, setAddNote] = useState('');
     const [isAdding, setIsAdding] = useState(false);
+    const [editingLogId, setEditingLogId] = useState<string | null>(null);
     const [showConfetti, setShowConfetti] = useState(false);
     const [walletRole, setWalletRole] = useState<'owner' | 'editor' | 'viewer' | null>(null);
     const [isUpdatingPermission, setIsUpdatingPermission] = useState<string | null>(null);
@@ -55,7 +58,7 @@ export function SavingDetailScreen() {
         if (justCompletedGoalId !== goalId) return;
         setShowConfetti(true);
         clearJustCompleted();
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        triggerHapticNotification();
         const timeout = setTimeout(() => setShowConfetti(false), 5000);
         return () => clearTimeout(timeout);
     }, [clearJustCompleted, goalId, justCompletedGoalId]);
@@ -87,6 +90,26 @@ export function SavingDetailScreen() {
     const wallet = wallets.find((item) => item.id === currentGoal.wallet_id);
     const goalMeta = getGoalComputedMeta(currentGoal, wallet, activeProfileId, sharingMembers, currentUserId, walletRole, currentUserEmail);
     const ownSharingMember = currentUserEmail ? sharingMembers.find((m) => m.user_email.toLowerCase() === currentUserEmail) : null;
+    const missesDeadline = currentGoal.estimated_date > currentGoal.deadline_at;
+    const heroTextColor = getReadableTextColor(currentGoal.color, {
+        light: colors.textInverse,
+        dark: colors.textPrimary,
+        threshold: 0.45,
+    });
+    const heroMutedTextColor = heroTextColor === colors.textInverse ? 'rgba(255,255,255,0.82)' : 'rgba(19,32,27,0.74)';
+    const heroBadgeInverse = heroTextColor === colors.textInverse;
+    const goalAccentColor = getReadableTextColor(currentGoal.color, {
+        light: currentGoal.color,
+        dark: colors.textPrimary,
+        threshold: 0.58,
+    });
+    const planInsight = getSavingPlanInsight(
+        currentGoal.target_amount,
+        currentGoal.current_amount,
+        currentGoal.saving_per_period,
+        currentGoal.period_type,
+        currentGoal.deadline_at,
+    );
 
     const handleEdit = () => {
         if (!goalMeta.canEdit) return Alert.alert('Akses terbatas', 'Target ini hanya bisa kamu lihat. Minta akses edit jika perlu mengubah detail target.');
@@ -98,10 +121,46 @@ export function SavingDetailScreen() {
         if (amount <= 0) return Alert.alert('Nominal tidak valid', 'Masukkan nominal yang lebih dari Rp 0');
         setIsAdding(true);
         try {
-            await addSavingLog({ goal_id: goalId, amount, note: addNote.trim() || null, date: Date.now() });
-            setShowAddModal(false); setAddAmount(''); setAddNote('');
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            if (editingLogId) {
+                await editSavingLog(editingLogId, { amount, note: addNote.trim() || null, date: Date.now() });
+            } else {
+                await addSavingLog({ goal_id: goalId, amount, note: addNote.trim() || null, date: Date.now() });
+            }
+            setShowAddModal(false); setAddAmount(''); setAddNote(''); setEditingLogId(null);
+            triggerHapticNotification();
+        } catch (error: any) {
+            Alert.alert('Gagal', error?.message || 'Tabungan belum berhasil ditambahkan.');
         } finally { setIsAdding(false); }
+    };
+    const openAddModal = () => {
+        setEditingLogId(null);
+        setAddAmount('');
+        setAddNote('');
+        setShowAddModal(true);
+    };
+    const openEditLogModal = (logId: string) => {
+        const log = currentLogs.find((item) => item.id === logId);
+        if (!log) return;
+        setEditingLogId(log.id);
+        setAddAmount(formatInputRupiah(String(log.amount)));
+        setAddNote(log.note || '');
+        setShowAddModal(true);
+    };
+    const handleDeleteLog = (logId: string) => {
+        Alert.alert('Hapus kontribusi', 'Saldo akan dikembalikan ke dompet asal dan progres target akan disesuaikan.', [
+            { text: 'Batal', style: 'cancel' },
+            {
+                text: 'Hapus',
+                style: 'destructive',
+                onPress: async () => {
+                    try {
+                        await removeSavingLog(logId);
+                    } catch (error: any) {
+                        Alert.alert('Gagal', error?.message || 'Kontribusi belum berhasil dihapus.');
+                    }
+                },
+            },
+        ]);
     };
     const handleChangePermission = async (email: string, permissionLevel: 'read_only' | 'read_write') => {
         if (!goalMeta.canManageSharing) return;
@@ -131,17 +190,17 @@ export function SavingDetailScreen() {
             <AppScreenHeader title={currentGoal.name} subtitle="Detail target, ownership, dan aktivitas kontribusi." showBack onBackPress={() => navigation.goBack()} rightAction={{ icon: 'pencil-outline', label: 'Edit target', onPress: handleEdit }} />
             {showConfetti ? <View style={styles.confetti}><Text style={styles.confettiEmoji}>🎉</Text><Text style={styles.confettiTitle}>Selamat!</Text><Text style={styles.confettiText}>Target {currentGoal.name} sudah tercapai.</Text></View> : null}
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingHorizontal: metrics.horizontalPadding, paddingBottom: isCompleted ? 40 : metrics.bottomActionInset + 24 }]}>
-                <LinearGradient colors={[currentGoal.color, `${currentGoal.color}CC`, currentGoal.color]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+                <LinearGradient colors={[currentGoal.color, currentGoal.color, currentGoal.color]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
                     <View style={styles.badges}>
-                        {wallet ? <ContextBadge icon={goalMeta.isSharedWalletGoal ? 'account-group-outline' : 'wallet-outline'} label={wallet.name} inverse /> : null}
-                        <ContextBadge icon={goalMeta.isSharedGoal ? 'account-group-outline' : 'account-outline'} label={goalMeta.scopeLabel} inverse />
-                        {sharingMembers.length > 0 ? <ContextBadge icon="shield-account-outline" label={`${sharingMembers.length} member`} inverse /> : null}
+                        {wallet ? <ContextBadge icon={goalMeta.isSharedWalletGoal ? 'account-group-outline' : 'wallet-outline'} label={wallet.name} inverse={heroBadgeInverse} /> : null}
+                        <ContextBadge icon={goalMeta.isSharedGoal ? 'account-group-outline' : 'account-outline'} label={goalMeta.scopeLabel} inverse={heroBadgeInverse} />
+                        {sharingMembers.length > 0 ? <ContextBadge icon="shield-account-outline" label={`${sharingMembers.length} member`} inverse={heroBadgeInverse} /> : null}
                     </View>
                     <Text style={styles.heroEmoji}>{currentGoal.emoji}</Text>
-                    <Text style={styles.heroName}>{currentGoal.name}</Text>
-                    <Text style={styles.heroProgress}>{progress.toFixed(1)}%</Text>
-                    <ProgressBar progress={progress} color={colors.textInverse} height={12} animationDelay={120} style={{ width: '84%' }} />
-                    <Text style={styles.heroDescription}>{goalMeta.scopeDescription}</Text>
+                    <Text style={[styles.heroName, { color: heroTextColor }]}>{currentGoal.name}</Text>
+                    <Text style={[styles.heroProgress, { color: heroTextColor }]}>{progress.toFixed(1)}%</Text>
+                    <ProgressBar progress={progress} color={heroTextColor} height={12} animationDelay={120} style={{ width: '84%' }} />
+                    <Text style={[styles.heroDescription, { color: heroMutedTextColor }]}>{goalMeta.scopeDescription}</Text>
                     {isCompleted ? <View style={styles.completed}><MaterialCommunityIcons name="check-circle" size={18} color={colors.success} /><Text style={styles.completedText}>Sudah tercapai</Text></View> : null}
                 </LinearGradient>
 
@@ -149,10 +208,50 @@ export function SavingDetailScreen() {
                     <View style={styles.stack}>
                         {infoItems.map((item) => (
                             <View key={item.label} style={styles.infoItem}>
-                                <View style={[styles.infoIcon, { backgroundColor: `${currentGoal.color}18` }]}><MaterialCommunityIcons name={item.icon as any} size={18} color={currentGoal.color} /></View>
+                                <View style={[styles.infoIcon, { backgroundColor: `${currentGoal.color}18` }]}><MaterialCommunityIcons name={item.icon as any} size={18} color={goalAccentColor} /></View>
                                 <View style={styles.flex1}><Text style={styles.label}>{item.label}</Text><Text style={styles.value}>{item.value}</Text></View>
                             </View>
                         ))}
+                    </View>
+                    <View style={styles.timelineCard}>
+                        <View style={styles.timelineRow}>
+                            <Text style={styles.label}>Deadline target</Text>
+                            <Text style={styles.value}>{formatDateLong(currentGoal.deadline_at)}</Text>
+                        </View>
+                        <View style={styles.timelineRow}>
+                            <Text style={styles.label}>Estimasi sistem</Text>
+                            <Text style={styles.value}>{formatDateLong(currentGoal.estimated_date)}</Text>
+                        </View>
+                        {missesDeadline ? (
+                            <View style={styles.deadlineWarning}>
+                                <MaterialCommunityIcons name="alert-outline" size={18} color={colors.warning} />
+                                <Text style={styles.deadlineWarningText}>
+                                    Dengan ritme tabungan saat ini, estimasi sistem melewati deadline yang kamu tetapkan.
+                                </Text>
+                            </View>
+                        ) : null}
+                        {planInsight ? (
+                            <View style={styles.planCard}>
+                                <View style={styles.planHeader}>
+                                    <Text style={styles.label}>Status ritme</Text>
+                                    <Text
+                                        style={[
+                                            styles.planBadge,
+                                            planInsight.status === 'behind'
+                                                ? styles.planBadgeWarning
+                                                : planInsight.status === 'ahead'
+                                                    ? styles.planBadgeSuccess
+                                                    : styles.planBadgeInfo,
+                                        ]}
+                                    >
+                                        {getSavingPlanLabel(planInsight.status)}
+                                    </Text>
+                                </View>
+                                <Text style={styles.memberMeta}>
+                                    Butuh sekitar {formatCurrency(planInsight.requiredPerPeriod)} per {currentGoal.period_type === 'daily' ? 'hari' : currentGoal.period_type === 'weekly' ? 'minggu' : 'bulan'} untuk mengejar deadline.
+                                </Text>
+                            </View>
+                        ) : null}
                     </View>
                 </FormSection>
 
@@ -166,7 +265,15 @@ export function SavingDetailScreen() {
                     </View>
                 </FormSection>
 
-                {!isCompleted ? <SavingSimulator targetAmount={currentGoal.target_amount} currentAmount={currentGoal.current_amount} periodType={currentGoal.period_type} initialSavingAmount={currentGoal.saving_per_period} /> : null}
+                {!isCompleted ? (
+                    <SavingSimulator
+                        targetAmount={currentGoal.target_amount}
+                        currentAmount={currentGoal.current_amount}
+                        periodType={currentGoal.period_type}
+                        initialSavingAmount={currentGoal.saving_per_period}
+                        deadlineAt={currentGoal.deadline_at}
+                    />
+                ) : null}
 
                 {goalMeta.isSharedGoal || sharingMembers.length > 0 || sharingActivity.length > 0 ? (
                     <FormSection title="Akses dan aktivitas shared" subtitle="Lihat siapa yang punya akses dan perubahan penting yang tercatat di target ini.">
@@ -208,7 +315,34 @@ export function SavingDetailScreen() {
                         <View style={styles.stack}>
                             {currentLogs.map((log, index) => (
                                 <View key={log.id}>
-                                    <View style={styles.log}><View style={styles.infoIcon}><MaterialCommunityIcons name="plus" size={18} color={currentGoal.color} /></View><View style={styles.flex1}><Text style={[styles.value, { color: currentGoal.color }]}>+{formatCurrency(log.amount)}</Text>{log.note ? <Text style={styles.memberMeta}>{log.note}</Text> : null}</View><Text style={styles.dateMeta}>{formatDateShort(log.date)}</Text></View>
+                                    <View style={styles.log}>
+                                        <View style={styles.infoIcon}><MaterialCommunityIcons name="plus" size={18} color={goalAccentColor} /></View>
+                                        <View style={styles.flex1}>
+                                            <Text style={[styles.value, { color: goalAccentColor }]}>+{formatCurrency(log.amount)}</Text>
+                                            {log.note ? <Text style={styles.memberMeta}>{log.note}</Text> : null}
+                                            <Text style={styles.dateMeta}>{formatDateShort(log.date)}</Text>
+                                        </View>
+                                        {goalMeta.canContribute ? (
+                                            <View style={styles.logActions}>
+                                                <TouchableOpacity
+                                                    style={styles.logActionButton}
+                                                    onPress={() => openEditLogModal(log.id)}
+                                                    accessibilityRole="button"
+                                                    accessibilityLabel={`Edit kontribusi ${formatCurrency(log.amount)}`}
+                                                >
+                                                    <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.primary} />
+                                                </TouchableOpacity>
+                                                <TouchableOpacity
+                                                    style={styles.logActionButtonDanger}
+                                                    onPress={() => handleDeleteLog(log.id)}
+                                                    accessibilityRole="button"
+                                                    accessibilityLabel={`Hapus kontribusi ${formatCurrency(log.amount)}`}
+                                                >
+                                                    <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.danger} />
+                                                </TouchableOpacity>
+                                            </View>
+                                        ) : null}
+                                    </View>
                                     {index < currentLogs.length - 1 ? <View style={styles.activityDivider} /> : null}
                                 </View>
                             ))}
@@ -217,16 +351,27 @@ export function SavingDetailScreen() {
                 ) : null}
             </ScrollView>
 
-            {!isCompleted ? <PrimaryActionBar primaryLabel={goalMeta.canContribute ? 'Tambah Tabungan' : 'Akses Read Only'} onPrimaryPress={() => goalMeta.canContribute ? setShowAddModal(true) : Alert.alert('Akses terbatas', 'Target ini hanya bisa kamu lihat. Hubungi admin atau editor wallet untuk menambah tabungan.')} offset={metrics.bottomActionInset - metrics.safeBottomSpacing} /> : null}
+            {!isCompleted ? <PrimaryActionBar primaryLabel={goalMeta.canContribute ? 'Tambah Tabungan' : 'Akses Read Only'} onPrimaryPress={() => goalMeta.canContribute ? openAddModal() : Alert.alert('Akses terbatas', 'Target ini hanya bisa kamu lihat. Hubungi admin atau editor wallet untuk menambah tabungan.')} offset={metrics.bottomActionInset - metrics.safeBottomSpacing} /> : null}
 
             <Modal visible={showAddModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowAddModal(false)}>
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalRoot}>
-                    <AppScreenHeader title="Tambah Tabungan" subtitle="Kontribusi baru akan langsung masuk ke progres target." showClose onClosePress={() => setShowAddModal(false)} />
+                    <AppScreenHeader
+                        title={editingLogId ? 'Edit Kontribusi' : 'Tambah Tabungan'}
+                        subtitle={editingLogId ? 'Perubahan kontribusi akan menyesuaikan saldo dompet dan progres target.' : 'Kontribusi baru akan langsung masuk ke progres target.'}
+                        showClose
+                        onClosePress={() => {
+                            setShowAddModal(false);
+                            setEditingLogId(null);
+                            setAddAmount('');
+                            setAddNote('');
+                        }}
+                    />
                     <View style={styles.modalContent}>
                         <Text style={styles.memberMeta}>{currentGoal.emoji} {currentGoal.name}</Text>
+                        <Text style={styles.memberMeta}>Saldo akan dipindahkan dari dompet {wallet?.name || 'terhubung'} ke target ini.</Text>
                         <View style={[styles.amountWrap, { borderColor: currentGoal.color }]}><Text style={styles.amountPrefix}>Rp</Text><TextInput style={styles.amountInput} value={addAmount} onChangeText={(value) => setAddAmount(formatInputRupiah(value))} keyboardType="numeric" placeholder="0" placeholderTextColor={colors.textDisabled} autoFocus /></View>
                         <TextInput style={styles.noteInput} value={addNote} onChangeText={setAddNote} placeholder="Catatan (opsional)" placeholderTextColor={colors.textSecondary} />
-                        <Button label="Simpan Tabungan" onPress={handleAddSaving} loading={isAdding} fullWidth />
+                        <Button label={editingLogId ? 'Simpan Perubahan' : 'Simpan Tabungan'} onPress={handleAddSaving} loading={isAdding} fullWidth />
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
@@ -251,6 +396,16 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.
     completedText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.caption, color: colors.success },
     infoItem: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border, borderRadius: BorderRadius['2xl'], padding: 14 },
     infoIcon: { width: 38, height: 38, borderRadius: BorderRadius.xl, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryBg },
+    timelineCard: { gap: 10, backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border, borderRadius: BorderRadius['2xl'], padding: 14 },
+    timelineRow: { gap: 3 },
+    deadlineWarning: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 2, padding: 12, borderRadius: BorderRadius.xl, backgroundColor: colors.warningBg, borderWidth: 1, borderColor: `${colors.warning}2B` },
+    deadlineWarningText: { flex: 1, fontFamily: FontFamily.body, fontSize: FontSize.caption, lineHeight: 18, color: colors.textSecondary },
+    planCard: { gap: 8, padding: 12, borderRadius: BorderRadius.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+    planHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+    planBadge: { overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 6, borderRadius: BorderRadius.full, fontFamily: FontFamily.bodyBold, fontSize: FontSize.caption },
+    planBadgeInfo: { backgroundColor: colors.infoBg, color: colors.info },
+    planBadgeSuccess: { backgroundColor: colors.successBg, color: colors.success },
+    planBadgeWarning: { backgroundColor: colors.warningBg, color: colors.warning },
     context: { flex: 1, backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border, borderRadius: BorderRadius['2xl'], padding: 14 },
     label: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary },
     value: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.body, color: colors.textPrimary, marginTop: 3 },
@@ -269,6 +424,9 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.
     dot: { width: 12, height: 12, borderRadius: BorderRadius.full, backgroundColor: colors.primary, marginTop: 6 },
     activityDivider: { height: 1, backgroundColor: colors.divider, marginLeft: 18 },
     log: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+    logActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    logActionButton: { width: 34, height: 34, borderRadius: BorderRadius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryBg },
+    logActionButtonDanger: { width: 34, height: 34, borderRadius: BorderRadius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.dangerBg },
     confetti: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: 'rgba(16, 185, 129, 0.94)' },
     confettiEmoji: { fontSize: 72 },
     confettiTitle: { fontFamily: FontFamily.heading, fontSize: 34, color: colors.textInverse },

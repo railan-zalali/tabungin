@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -21,13 +21,16 @@ import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { useTheme } from '../../store/useThemeStore';
 import { useTransactionStore } from '../../store/useTransactionStore';
 import { useSavingStore } from '../../store/useSavingStore';
+import { useWalletStore } from '../../store/useWalletStore';
 import { Button } from '../../components/common/Button';
 import { EmptyState } from '../../components/common/EmptyState';
 import { BorderRadius } from '../../constants/theme';
 import {
+  buildFullBackupExportData,
   exportToJSON,
   exportToCSV,
   exportToTXT,
+  exportGoalsOnly,
   exportTransactionsOnly,
   type ExportFormat,
 } from '../../utils/exportData';
@@ -40,25 +43,32 @@ export function ExportDataScreen() {
   const { colors, mode } = useTheme();
   const styles = React.useMemo(() => getStyles(colors), [colors]);
 
-  const { transactions } = useTransactionStore();
-  const { goals } = useSavingStore();
+  const { transactions, loadTransactions } = useTransactionStore();
+  const { goals, loadGoals } = useSavingStore();
+  const loadWallets = useWalletStore((state) => state.loadWallets);
 
   const [showFormatModal, setShowFormatModal] = useState(false);
   const [selectedScope, setSelectedScope] = useState<ExportScope>('all');
   const [isExporting, setIsExporting] = useState(false);
 
+  useEffect(() => {
+    Promise.all([loadTransactions(), loadGoals(), loadWallets()]).catch((error) => {
+      console.error('Failed to prime export data:', error);
+    });
+  }, [loadGoals, loadTransactions, loadWallets]);
+
   const exportOptions = [
     {
       id: 'json' as ExportFormat,
       title: 'JSON',
-      description: 'Format terstruktur, cocok untuk backup lengkap',
+      description: 'Backup restore-safe dengan relasi data lengkap',
       icon: 'code-json',
       color: colors.primary,
     },
     {
       id: 'csv' as ExportFormat,
       title: 'CSV',
-      description: 'Kompatibel dengan Excel, Google Sheets, dll',
+      description: 'Untuk analisis di Excel atau Google Sheets',
       icon: 'file-excel',
       color: colors.success,
     },
@@ -75,7 +85,7 @@ export function ExportDataScreen() {
     {
       id: 'all' as ExportScope,
       title: 'Semua Data',
-      description: 'Transaksi dan target tabungan',
+      description: 'JSON untuk backup penuh, CSV/TXT untuk ringkasan analisis',
       icon: 'database-export',
     },
     {
@@ -108,7 +118,7 @@ export function ExportDataScreen() {
         case 'all':
           switch (format) {
             case 'json':
-              await exportToJSON(exportData);
+              await exportToJSON(await buildFullBackupExportData());
               break;
             case 'csv':
               await exportToCSV(exportData);
@@ -124,7 +134,7 @@ export function ExportDataScreen() {
           break;
 
         case 'goals':
-          Alert.alert('Info', 'Export target tabungan akan segera hadir di update mendatang!');
+          await exportGoalsOnly(goals, format);
           break;
       }
 
@@ -152,6 +162,8 @@ export function ExportDataScreen() {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel="Kembali dari layar ekspor data"
         >
           <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
@@ -175,7 +187,7 @@ export function ExportDataScreen() {
               <View style={styles.heroCopy}>
                 <Text style={styles.heroTitle}>Ekspor yang cepat dipahami</Text>
                 <Text style={styles.heroSubtitle}>
-                  Pilih cakupan data lalu tentukan format yang paling cocok untuk backup atau analisis.
+                  Pilih cakupan data lalu tentukan format yang paling cocok untuk restore aman atau analisis.
                 </Text>
               </View>
             </View>
@@ -209,6 +221,9 @@ export function ExportDataScreen() {
                     selectedScope === option.id && [styles.scopeOptionActive, { backgroundColor: colors.primaryBg, borderColor: colors.primary }],
                   ]}
                   onPress={() => setSelectedScope(option.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Pilih cakupan ${option.title}`}
+                  accessibilityState={{ selected: selectedScope === option.id }}
                 >
                   <View style={[styles.scopeIcon, { backgroundColor: colors.primaryBg }]}>
                     <MaterialCommunityIcons name={option.icon as any} size={24} color={colors.primary} />
@@ -236,6 +251,8 @@ export function ExportDataScreen() {
                 <TouchableOpacity
                   style={[styles.formatOption, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
                   onPress={() => setShowFormatModal(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Buka pilihan format ${option.title}`}
                 >
                   <View style={[styles.formatIcon, { backgroundColor: option.color + '20' }]}>
                     <MaterialCommunityIcons name={option.icon as any} size={32} color={option.color} />
@@ -296,6 +313,8 @@ export function ExportDataScreen() {
                   style={[styles.formatListItem, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
                   onPress={() => handleExport(option.id)}
                   disabled={isExporting}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ekspor data dalam format ${option.title}`}
                 >
                   <View style={[styles.listFormatIcon, { backgroundColor: option.color + '20' }]}>
                     <MaterialCommunityIcons name={option.icon as any} size={28} color={option.color} />

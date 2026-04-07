@@ -22,10 +22,10 @@ import type { Transaction } from '../../types/transaction';
 import { formatRupiah } from '../../utils/currency';
 import { BorderRadius } from '../../constants/theme';
 
-import { useAuthStore } from '../../store/useAuthStore';
 import { useCategoryStore } from '../../store/useCategoryStore';
 import { useTheme } from '../../store/useThemeStore';
 import { resolveCategoryByKey } from '../../utils/categoryResolver';
+import { triggerHapticImpact, triggerHapticNotification } from '../../utils/haptics';
 
 interface TransactionItemProps {
     transaction: Transaction;
@@ -36,11 +36,10 @@ interface TransactionItemProps {
 
 const DELETE_THRESHOLD = -80;
 
-export function TransactionItem({ transaction, onDelete, onEdit, onPress }: TransactionItemProps) {
+function TransactionItemComponent({ transaction, onDelete, onEdit, onPress }: TransactionItemProps) {
     const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
     const translateX = useSharedValue(0);
-    const hapticEnabled = useAuthStore((s) => s.hapticEnabled);
     const categories = useCategoryStore((s) => s.categories);
 
     const category = resolveCategoryByKey(transaction.category, categories);
@@ -56,22 +55,22 @@ export function TransactionItem({ transaction, onDelete, onEdit, onPress }: Tran
                     text: 'Hapus',
                     style: 'destructive',
                     onPress: () => {
-                        if (hapticEnabled) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                        triggerHapticNotification(Haptics.NotificationFeedbackType.Warning);
                         onDelete?.(transaction.id);
                     },
                 },
             ]
         );
-    }, [transaction.id, onDelete, hapticEnabled]);
+    }, [transaction.id, onDelete]);
 
     const handleLongPress = useCallback(() => {
-        if (hapticEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        triggerHapticImpact(Haptics.ImpactFeedbackStyle.Medium);
         Alert.alert('Pilihan', '', [
             { text: 'Edit', onPress: () => onEdit?.(transaction.id) },
             { text: 'Hapus', style: 'destructive', onPress: () => onDelete?.(transaction.id) },
             { text: 'Batal', style: 'cancel' },
         ]);
-    }, [transaction.id, onDelete, onEdit, hapticEnabled]);
+    }, [transaction.id, onDelete, onEdit]);
 
     const panGesture = Gesture.Pan()
         .activeOffsetX([-10, 10])
@@ -163,6 +162,8 @@ export function TransactionItem({ transaction, onDelete, onEdit, onPress }: Tran
         </View>
     );
 }
+
+export const TransactionItem = React.memo(TransactionItemComponent);
 
 
 

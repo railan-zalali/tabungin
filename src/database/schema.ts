@@ -15,7 +15,7 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 
 // ─── VERSI SCHEMA SAAT INI ─────────────────────────────────────────
 // Naikkan angka ini setiap kali ada perubahan schema database
-const CURRENT_DB_VERSION = 14;
+const CURRENT_DB_VERSION = 15;
 
 // ─── DAFTAR MIGRASI ───────────────────────────────────────────────
 // Key = nomor versi target, value = SQL yang dijalankan untuk upgrade ke versi itu
@@ -44,6 +44,7 @@ const MIGRATIONS: Record<number, string[]> = {
             period_type TEXT NOT NULL CHECK(period_type IN ('daily', 'weekly', 'monthly')),
             color TEXT NOT NULL DEFAULT '#1DB954',
             start_date INTEGER NOT NULL,
+            deadline_at INTEGER NOT NULL,
             estimated_date INTEGER NOT NULL,
             is_completed INTEGER NOT NULL DEFAULT 0,
             reminder_enabled INTEGER NOT NULL DEFAULT 0,
@@ -330,6 +331,11 @@ const MIGRATIONS: Record<number, string[]> = {
         `CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications (created_at DESC);`,
         `CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications (user_id, is_read, created_at DESC);`,
     ],
+    15: [
+        // Versi 15: Explicit saving goal deadline
+        `ALTER TABLE saving_goals ADD COLUMN deadline_at INTEGER;`,
+        `UPDATE saving_goals SET deadline_at = estimated_date WHERE deadline_at IS NULL;`,
+    ],
 };
 
 const SCHEMA_GUARDS: string[] = [
@@ -497,7 +503,7 @@ async function runMigrations(database: SQLite.SQLiteDatabase): Promise<void> {
         console.log(`[DB Migration] Menjalankan migrasi v${v}...`);
         await database.withTransactionAsync(async () => {
             for (const sql of steps) {
-                await database.runAsync(sql);
+                await runMigrationStep(database, sql);
             }
         });
         console.log(`[DB Migration] Migrasi v${v} selesai.`);
@@ -506,6 +512,53 @@ async function runMigrations(database: SQLite.SQLiteDatabase): Promise<void> {
     // Perbarui versi database
     await database.execAsync(`PRAGMA user_version = ${CURRENT_DB_VERSION};`);
     console.log(`[DB Migration] Database sekarang di versi ${CURRENT_DB_VERSION}`);
+}
+
+function extractAddColumnOperation(sql: string): { tableName: string; columnName: string } | null {
+    const match = sql.match(/^\s*ALTER\s+TABLE\s+([A-Za-z_][\w]*)\s+ADD\s+COLUMN\s+([A-Za-z_][\w]*)\b/i);
+    if (!match) {
+        return null;
+    }
+
+    return {
+        tableName: match[1],
+        columnName: match[2],
+    };
+}
+
+async function columnExists(
+    database: SQLite.SQLiteDatabase,
+    tableName: string,
+    columnName: string
+): Promise<boolean> {
+    const columns = await database.getAllAsync<{ name: string }>(`PRAGMA table_info(${tableName})`);
+    return columns.some((column) => column.name === columnName);
+}
+
+function isDuplicateColumnError(error: unknown): boolean {
+    return String(error).toLowerCase().includes('duplicate column name');
+}
+
+async function runMigrationStep(database: SQLite.SQLiteDatabase, sql: string): Promise<void> {
+    const addColumnOperation = extractAddColumnOperation(sql);
+
+    if (addColumnOperation) {
+        const { tableName, columnName } = addColumnOperation;
+        if (await columnExists(database, tableName, columnName)) {
+            console.log(`[DB Migration] Lewati ${tableName}.${columnName} karena kolom sudah ada.`);
+            return;
+        }
+    }
+
+    try {
+        await database.runAsync(sql);
+    } catch (error) {
+        if (addColumnOperation && isDuplicateColumnError(error)) {
+            console.log(`[DB Migration] Abaikan duplikasi kolom ${addColumnOperation.tableName}.${addColumnOperation.columnName}.`);
+            return;
+        }
+        throw error;
+    }
 }
 
 async function runSchemaGuards(database: SQLite.SQLiteDatabase): Promise<void> {
@@ -775,6 +828,12 @@ export async function initDatabase(): Promise<void> {
                     console.log('[DB Repair] Menambahkan created_by_user_id ke saving_goals');
                     await database.execAsync('ALTER TABLE saving_goals ADD COLUMN created_by_user_id TEXT');
                 }
+
+                if (!savingGoalColumnNames.includes('deadline_at')) {
+                    console.log('[DB Repair] Menambahkan deadline_at ke saving_goals');
+                    await database.execAsync('ALTER TABLE saving_goals ADD COLUMN deadline_at INTEGER');
+                    await database.execAsync('UPDATE saving_goals SET deadline_at = estimated_date WHERE deadline_at IS NULL');
+                }
             } catch (e) {
                 console.error('[DB Repair] Gagal memeriksa ownership saving_goals:', e);
             }
@@ -963,9 +1022,9 @@ export async function seedDummyData(database: SQLite.SQLiteDatabase): Promise<vo
 
     for (const g of goals) {
         await database.runAsync(
-            `INSERT INTO saving_goals (id, name, target_amount, current_amount, emoji, saving_per_period, period_type, color, start_date, estimated_date, is_completed, reminder_enabled, reminder_time, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [g.id, g.name, g.target_amount, g.current_amount, g.emoji, g.saving_per_period, g.period_type, g.color, g.start_date, g.estimated_date, g.is_completed, g.reminder_enabled, g.reminder_time || null, now]
+            `INSERT INTO saving_goals (id, name, target_amount, current_amount, emoji, saving_per_period, period_type, color, start_date, deadline_at, estimated_date, is_completed, reminder_enabled, reminder_time, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [g.id, g.name, g.target_amount, g.current_amount, g.emoji, g.saving_per_period, g.period_type, g.color, g.start_date, ((g as { deadline_at?: number }).deadline_at ?? g.estimated_date), g.estimated_date, g.is_completed, g.reminder_enabled, g.reminder_time || null, now]
         );
     }
 

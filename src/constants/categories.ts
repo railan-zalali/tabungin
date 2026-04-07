@@ -1,4 +1,6 @@
 // Kategori transaksi Tabungin
+import { AppAccentPalette, Colors } from './colors';
+
 export interface CategoryItem {
     id: string;
     name: string;
@@ -19,7 +21,7 @@ export const EXPENSE_CATEGORIES: CategoryItem[] = [
 ];
 
 export const INCOME_CATEGORIES: CategoryItem[] = [
-    { id: 'salary', name: 'Gaji', icon: 'briefcase', color: '#1DB954', type: 'income' },
+    { id: 'salary', name: 'Gaji', icon: 'briefcase', color: Colors.primary, type: 'income' },
     { id: 'freelance', name: 'Freelance', icon: 'laptop', color: '#F5A623', type: 'income' },
     { id: 'business', name: 'Bisnis', icon: 'store', color: '#0EA5E9', type: 'income' },
     { id: 'investment', name: 'Investasi', icon: 'trending-up', color: '#7C3AED', type: 'income' },
@@ -34,13 +36,4 @@ export function getCategoryById(id: string): CategoryItem | undefined {
 }
 
 // Warna pilihan untuk saving goal
-export const GOAL_COLORS = [
-    '#1DB954', // hijau
-    '#F5A623', // kuning
-    '#3B82F6', // biru
-    '#EF4444', // merah
-    '#8B5CF6', // ungu
-    '#EC4899', // pink
-    '#06B6D4', // cyan
-    '#F59E0B', // amber
-];
+export const GOAL_COLORS = [...AppAccentPalette];

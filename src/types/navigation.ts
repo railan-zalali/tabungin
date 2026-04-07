@@ -10,6 +10,7 @@ export type RootStackParamList = {
     Login: undefined;
     Register: undefined;
     ForgotPassword: undefined;
+    GuestDataMerge: undefined;
     AuthCallback: undefined;
     Main: NavigatorScreenParams<TabParamList>;
     Budget: undefined;

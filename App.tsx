@@ -1,5 +1,6 @@
 // App.tsx - Entry point utama Tabungin
 import 'react-native-get-random-values';
+import './src/utils/runtimeWarnings';
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';

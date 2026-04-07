@@ -41,6 +41,7 @@ describe('utility contracts', () => {
         period_type: 'monthly',
         color: '#1D7D53',
         start_date: 100,
+        deadline_at: 180,
         estimated_date: 200,
         is_completed: false,
         reminder_enabled: false,

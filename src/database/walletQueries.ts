@@ -1,6 +1,7 @@
 import { getInitializedDatabase } from "./schema";
 import "react-native-get-random-values";
 import { v4 as uuidv4 } from "uuid";
+import { Colors } from "../constants/colors";
 
 export interface Wallet {
   id: string;
@@ -27,7 +28,7 @@ export async function fetchWallets(profileId?: string, userEmail?: string): Prom
 
     // Logic: (profile_id = X) OR (id IN (SELECT wallet_id FROM wallet_members WHERE user_email = Y))
     if (profileId && userEmail) {
-      query += " AND (profile_id = ? OR id IN (SELECT wallet_id FROM wallet_members WHERE lower(user_email) = lower(?) AND sync_status != 'pending_delete'))";
+      query += " AND (profile_id = ? OR id IN (SELECT wallet_id FROM wallet_members WHERE lower(user_email) = lower(?) AND sync_status != 'pending_delete' AND COALESCE(status, 'active') = 'active'))";
       params.push(profileId, userEmail);
     } else if (profileId) {
       query += " AND profile_id = ?";
@@ -42,7 +43,7 @@ export async function fetchWallets(profileId?: string, userEmail?: string): Prom
       ...r,
       is_default: Boolean(r.is_default),
       balance: r.balance ?? 0,
-      color: r.color || "#1DB954",
+      color: r.color || Colors.primary,
       type: r.type || "general",
     }));
   } catch (error) {
@@ -245,7 +246,7 @@ export async function fetchTotalBalance(profileId?: string, userEmail?: string):
     const params: any[] = [];
 
     if (profileId && userEmail) {
-      query += " AND (profile_id = ? OR id IN (SELECT wallet_id FROM wallet_members WHERE lower(user_email) = lower(?) AND sync_status != 'pending_delete'))";
+      query += " AND (profile_id = ? OR id IN (SELECT wallet_id FROM wallet_members WHERE lower(user_email) = lower(?) AND sync_status != 'pending_delete' AND COALESCE(status, 'active') = 'active'))";
       params.push(profileId, userEmail);
     } else if (profileId) {
       query += " AND profile_id = ?";
@@ -277,7 +278,7 @@ export async function fetchWalletMemberRole(
     const db = await getInitializedDatabase();
     const member = await db.getFirstAsync<{ role: WalletMember['role'] }>(
       `SELECT role FROM wallet_members
-       WHERE wallet_id = ? AND lower(user_email) = lower(?) AND sync_status != 'pending_delete'
+       WHERE wallet_id = ? AND lower(user_email) = lower(?) AND sync_status != 'pending_delete' AND COALESCE(status, 'active') = 'active'
        ORDER BY created_at DESC
        LIMIT 1`,
       [walletId, userEmail],

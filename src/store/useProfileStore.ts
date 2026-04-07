@@ -1,7 +1,7 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchProfiles, insertProfile, type Profile } from '../database/profileQueries';
+import { syncDatabase } from '../database/sync';
 
 interface ProfileState {
     profiles: Profile[];
@@ -13,55 +13,80 @@ interface ProfileState {
     addProfile: (name: string, icon?: string, color?: string) => Promise<void>;
 }
 
-export const useProfileStore = create<ProfileState>()(
-    persist(
-        (set, get) => ({
-            profiles: [],
-            activeProfileId: null,
-            isLoading: false,
+const PROFILE_STORAGE_KEY = 'profile-storage';
 
-            loadProfiles: async () => {
-                set({ isLoading: true });
-                try {
-                    const profiles = await fetchProfiles();
-                    set({ profiles });
-                    
-                    // Jika belum ada activeProfileId atau ID tidak valid, set ke yang pertama
-                    const currentId = get().activeProfileId;
-                    if (!currentId || !profiles.find(p => p.id === currentId)) {
-                        if (profiles.length > 0) {
-                            set({ activeProfileId: profiles[0].id });
-                        }
-                    }
-                } catch (error) {
-                    console.error('Failed to load profiles:', error);
-                } finally {
-                    set({ isLoading: false });
+async function triggerBackgroundSyncIfAllowed() {
+    const { useAuthStore } = await import('./useAuthStore');
+    if (!useAuthStore.getState().canSync) return;
+    syncDatabase().catch(console.error);
+}
+
+async function persistActiveProfileId(activeProfileId: string | null) {
+    try {
+        await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify({ state: { activeProfileId } }));
+    } catch (error) {
+        console.warn('[Profile] Failed to persist active profile:', error);
+    }
+}
+
+export const useProfileStore = create<ProfileState>()((set, get) => ({
+    profiles: [],
+    activeProfileId: null,
+    isLoading: false,
+
+    loadProfiles: async () => {
+        set({ isLoading: true });
+        try {
+            const profiles = await fetchProfiles();
+            set({ profiles });
+
+            const currentId = get().activeProfileId;
+            if (!currentId || !profiles.find((p) => p.id === currentId)) {
+                if (profiles.length > 0) {
+                    const nextId = profiles[0].id;
+                    set({ activeProfileId: nextId });
+                    void persistActiveProfileId(nextId);
                 }
-            },
-
-            setActiveProfile: (id) => {
-                set({ activeProfileId: id });
-            },
-
-            addProfile: async (name, icon, color) => {
-                set({ isLoading: true });
-                try {
-                    const newProfile = await insertProfile(name, icon, color);
-                    await get().loadProfiles();
-                    set({ activeProfileId: newProfile.id }); // Auto switch to new profile
-                } catch (error) {
-                    console.error('Failed to add profile:', error);
-                    throw error;
-                } finally {
-                    set({ isLoading: false });
-                }
-            },
-        }),
-        {
-            name: 'profile-storage',
-            storage: createJSONStorage(() => AsyncStorage),
-            partialize: (state) => ({ activeProfileId: state.activeProfileId }), // Hanya persist ID aktif
+            }
+        } catch (error) {
+            console.error('Failed to load profiles:', error);
+        } finally {
+            set({ isLoading: false });
         }
-    )
-);
+    },
+
+    setActiveProfile: (id) => {
+        set({ activeProfileId: id });
+        void persistActiveProfileId(id);
+    },
+
+    addProfile: async (name, icon, color) => {
+        set({ isLoading: true });
+        try {
+            const newProfile = await insertProfile(name, icon, color);
+            await get().loadProfiles();
+            set({ activeProfileId: newProfile.id });
+            await persistActiveProfileId(newProfile.id);
+            void triggerBackgroundSyncIfAllowed();
+        } catch (error) {
+            console.error('Failed to add profile:', error);
+            throw error;
+        } finally {
+            set({ isLoading: false });
+        }
+    },
+}));
+
+void (async () => {
+    try {
+        const raw = await AsyncStorage.getItem(PROFILE_STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as { state?: { activeProfileId?: string | null } };
+        const activeProfileId = parsed?.state?.activeProfileId ?? null;
+        if (activeProfileId) {
+            useProfileStore.setState({ activeProfileId });
+        }
+    } catch (error) {
+        console.warn('[Profile] Failed to hydrate active profile:', error);
+    }
+})();

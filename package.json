@@ -1,5 +1,12 @@
 {
   "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "export:web": "expo export --platform web",
+    "typecheck": "tsc --noEmit",
+    "test": "jest --runInBand",
     "testsprite:mcp": "testsprite-mcp-plugin"
   },
   "dependencies": {
@@ -12,6 +19,7 @@
     "@react-navigation/native": "^7.1.33",
     "@react-navigation/native-stack": "^7.14.4",
     "@react-navigation/stack": "^7.8.4",
+    "@shopify/flash-list": "^2.3.1",
     "@shopify/react-native-skia": "2.4.18",
     "@supabase/supabase-js": "^2.99.0",
     "@types/react": "~19.2.10",
@@ -57,6 +65,7 @@
   "devDependencies": {
     "@testsprite/testsprite-mcp": "^0.0.36",
     "@types/jest": "^29.5.14",
+    "@types/node": "^25.5.2",
     "jest": "^29.7.0",
     "jest-expo": "~55.0.11",
     "tailwindcss": "^3.4.19",

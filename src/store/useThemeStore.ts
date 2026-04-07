@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors as BaseColors } from '../constants/colors';
 import { useProfileStore } from './useProfileStore';
@@ -17,21 +16,56 @@ interface ThemeState {
     setTextSize: (size: TextSize) => void;
 }
 
-export const useThemeStore = create<ThemeState>()(
-    persist(
-        (set) => ({
-            mode: 'light',
-            textSize: 'normal',
-            
-            setMode: (mode) => set({ mode }),
-            setTextSize: (textSize) => set({ textSize }),
-        }),
-        {
-            name: 'theme-storage',
-            storage: createJSONStorage(() => AsyncStorage),
-        }
-    )
-);
+const THEME_STORAGE_KEY = 'theme-storage';
+
+type PersistedThemeState = Pick<ThemeState, 'mode' | 'textSize'>;
+
+async function persistThemeState(partial: Partial<PersistedThemeState>) {
+    try {
+        const current = useThemeStore.getState();
+        const nextState: PersistedThemeState = {
+            mode: partial.mode ?? current.mode,
+            textSize: partial.textSize ?? current.textSize,
+        };
+        await AsyncStorage.setItem(THEME_STORAGE_KEY, JSON.stringify({ state: nextState }));
+    } catch (error) {
+        console.warn('[Theme] Failed to persist theme state:', error);
+    }
+}
+
+export const useThemeStore = create<ThemeState>()((set) => ({
+    mode: 'light',
+    textSize: 'normal',
+
+    setMode: (mode) => {
+        set({ mode });
+        void persistThemeState({ mode });
+    },
+    setTextSize: (textSize) => {
+        set({ textSize });
+        void persistThemeState({ textSize });
+    },
+}));
+
+void (async () => {
+    try {
+        const raw = await AsyncStorage.getItem(THEME_STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as { state?: Partial<PersistedThemeState> };
+        const persisted = parsed?.state;
+        if (!persisted) return;
+
+        useThemeStore.setState({
+            mode: persisted.mode === 'dark' ? 'dark' : 'light',
+            textSize:
+                persisted.textSize === 'large' || persisted.textSize === 'xlarge'
+                    ? persisted.textSize
+                    : 'normal',
+        });
+    } catch (error) {
+        console.warn('[Theme] Failed to hydrate theme state:', error);
+    }
+})();
 
 function clamp(value: number, min: number, max: number) {
     return Math.min(max, Math.max(min, value));

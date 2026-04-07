@@ -4,8 +4,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { NetInfoState, useNetInfo } from "@react-native-community/netinfo";
 import { v4 as uuidv4 } from "uuid";
 import { runSerializedSyncTask } from "./syncQueue";
+import { shouldApplyRemoteChange, shouldApplyRealtimePayload, type LocalSyncStatus } from "../utils/syncConflict";
+import { Colors } from "../constants/colors";
+import { fetchAccessibleRemoteWalletIds } from "./walletSharingService";
 
-const LAST_SYNC_KEY = "tabungin_last_sync_time";
+const LAST_SYNC_KEY_PREFIX = "tabungin_last_sync_time";
+const LEGACY_LAST_SYNC_KEY = LAST_SYNC_KEY_PREFIX;
 
 // Tipe data untuk sync
 type SyncStatus = "synced" | "pending_create" | "pending_update" | "pending_delete";
@@ -58,6 +62,7 @@ const SYNC_TABLES: SyncTable[] = [
       "period_type",
       "color",
       "start_date",
+      "deadline_at",
       "estimated_date",
       "is_completed",
       "reminder_enabled",
@@ -165,11 +170,131 @@ const SYNC_TABLES: SyncTable[] = [
   },
 ];
 
+// Conflict baseline:
+// 1. Baris lokal yang masih dirty (`pending_*`) tidak boleh ditimpa payload realtime.
+// 2. Saving contribution harus diperlakukan sebagai transfer wallet -> goal yang konsisten.
+// 3. Guest session tidak membuka realtime ataupun remote sync karena `canSync = false`.
+
 const unsupportedRemoteTables = new Set<string>();
+const unsupportedRemoteColumns = new Map<string, Set<string>>();
 let activeSyncPromise: Promise<void> | null = null;
+
+export function buildLastSyncStorageKey(userId: string) {
+  return `${LAST_SYNC_KEY_PREFIX}:${userId}`;
+}
+
+async function resolveSyncUserId(preferredUserId?: string | null): Promise<string | null> {
+  if (preferredUserId) {
+    return preferredUserId;
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  return user?.id ?? null;
+}
+
+function getRemoteRowUpdatedAt(table: SyncTable, row: any): number | null {
+  const column = table.remoteUpdatedAtColumn ?? "updated_at";
+  const value = row?.[column] ?? row?.updated_at ?? row?.created_at;
+  return typeof value === "number" ? value : null;
+}
+
+async function reconcileSavingGoalAggregates(
+  db: Awaited<ReturnType<typeof getInitializedDatabase>>,
+  goalIds: string[],
+): Promise<void> {
+  const uniqueGoalIds = [...new Set(goalIds.filter(Boolean))];
+  if (uniqueGoalIds.length === 0) return;
+
+  const placeholders = uniqueGoalIds.map(() => "?").join(",");
+  const rows = await db.getAllAsync<{
+    id: string;
+    target_amount: number;
+    current_amount: number;
+    is_completed: number;
+    sync_status: string | null;
+    total_amount: number | null;
+  }>(
+    `SELECT sg.id,
+            sg.target_amount,
+            sg.current_amount,
+            sg.is_completed,
+            sg.sync_status,
+            COALESCE(SUM(CASE WHEN sl.sync_status != 'pending_delete' THEN sl.amount ELSE 0 END), 0) AS total_amount
+     FROM saving_goals sg
+     LEFT JOIN saving_logs sl ON sl.goal_id = sg.id
+     WHERE sg.id IN (${placeholders}) AND sg.sync_status != 'pending_delete'
+     GROUP BY sg.id, sg.target_amount, sg.current_amount, sg.is_completed, sg.sync_status`,
+    uniqueGoalIds,
+  );
+
+  const now = Date.now();
+  await db.withTransactionAsync(async () => {
+    for (const row of rows) {
+      const totalAmount = row.total_amount ?? 0;
+      const nextIsCompleted = totalAmount >= row.target_amount ? 1 : 0;
+      if (row.current_amount === totalAmount && row.is_completed === nextIsCompleted) {
+        continue;
+      }
+
+      const syncStatus = row.sync_status === 'pending_create' ? 'pending_create' : 'pending_update';
+      await db.runAsync(
+        `UPDATE saving_goals
+         SET current_amount = ?,
+             is_completed = CASE WHEN ? >= target_amount THEN 1 ELSE 0 END,
+             sync_status = ?,
+             updated_at = ?
+         WHERE id = ? AND sync_status != 'pending_delete'`,
+        [totalAmount, totalAmount, syncStatus, now, row.id],
+      );
+    }
+  });
+}
 
 function isRemoteMissingTableError(error: any) {
   return error?.code === "PGRST205" || String(error?.message || "").includes("schema cache");
+}
+
+function extractMissingRemoteColumnName(error: any): string | null {
+  const message = String(error?.message || "");
+  const match = message.match(/Could not find the '([^']+)' column/i);
+  return match?.[1] ?? null;
+}
+
+function getSupportedRemoteColumns(table: SyncTable): string[] {
+  const baseColumns = table.remoteColumns ?? table.columns;
+  const unsupportedColumns = unsupportedRemoteColumns.get(table.tableName);
+
+  if (!unsupportedColumns || unsupportedColumns.size === 0) {
+    return baseColumns;
+  }
+
+  return baseColumns.filter((column) => !unsupportedColumns.has(column));
+}
+
+function markRemoteColumnUnsupported(tableName: string, columnName: string) {
+  const unsupportedColumns = unsupportedRemoteColumns.get(tableName) ?? new Set<string>();
+  if (unsupportedColumns.has(columnName)) {
+    return;
+  }
+
+  unsupportedColumns.add(columnName);
+  unsupportedRemoteColumns.set(tableName, unsupportedColumns);
+  console.log(`[Sync] Remote column ${tableName}.${columnName} tidak tersedia. Payload akan dikirim tanpa kolom ini.`);
+}
+
+function isWalletScopedSyncTable(tableName: string): boolean {
+  return [
+    "wallets",
+    "transactions",
+    "wallet_members",
+    "saving_goals",
+    "wallet_goals_shared",
+    "sharing_activity_log",
+    "budgets",
+  ].includes(tableName);
 }
 
 function shouldSkipRemoteTable(table: SyncTable, error: any) {
@@ -182,13 +307,73 @@ function shouldSkipRemoteTable(table: SyncTable, error: any) {
   return false;
 }
 
-export async function getLastSyncTime(): Promise<number> {
-  const raw = await AsyncStorage.getItem(LAST_SYNC_KEY);
+async function upsertRemoteRecords(table: SyncTable, records: Record<string, any>[]) {
+  let columns = getSupportedRemoteColumns(table);
+  let payloads = records.map((record) => {
+    const payload: Record<string, any> = {};
+    columns.forEach((column) => {
+      if (column in record) {
+        payload[column] = record[column];
+      }
+    });
+    return payload;
+  });
+
+  let result = await supabase.from(table.tableName).upsert(payloads);
+  if (!result.error) {
+    return result;
+  }
+
+  const missingColumn = extractMissingRemoteColumnName(result.error);
+  if (missingColumn && payloads.some((payload) => missingColumn in payload)) {
+    markRemoteColumnUnsupported(table.tableName, missingColumn);
+    columns = getSupportedRemoteColumns(table);
+    payloads = records.map((record) => {
+      const payload: Record<string, any> = {};
+      columns.forEach((column) => {
+        if (column in record) {
+          payload[column] = record[column];
+        }
+      });
+      return payload;
+    });
+    result = await supabase.from(table.tableName).upsert(payloads);
+  }
+
+  return result;
+}
+
+export async function getLastSyncTime(preferredUserId?: string | null): Promise<number> {
+  const userId = await resolveSyncUserId(preferredUserId);
+  if (!userId) {
+    return 0;
+  }
+
+  const raw = await AsyncStorage.getItem(buildLastSyncStorageKey(userId));
   return raw ? parseInt(raw, 10) : 0;
 }
 
-export async function setLastSyncTime(time: number): Promise<void> {
-  await AsyncStorage.setItem(LAST_SYNC_KEY, time.toString());
+export async function setLastSyncTime(time: number, preferredUserId?: string | null): Promise<void> {
+  const userId = await resolveSyncUserId(preferredUserId);
+  if (!userId) {
+    return;
+  }
+
+  await AsyncStorage.multiSet([
+    [buildLastSyncStorageKey(userId), time.toString()],
+  ]);
+  await AsyncStorage.removeItem(LEGACY_LAST_SYNC_KEY);
+}
+
+export async function clearSyncState(preferredUserId?: string | null): Promise<void> {
+  const userId = await resolveSyncUserId(preferredUserId);
+  const keys = [LEGACY_LAST_SYNC_KEY];
+
+  if (userId) {
+    keys.push(buildLastSyncStorageKey(userId));
+  }
+
+  await AsyncStorage.multiRemove(keys);
 }
 
 /**
@@ -260,7 +445,7 @@ async function ensureProfileExistsInSupabase(userId: string, userEmail: string):
         id: profileId,
         user_id: userId,
         name: userEmail.split('@')[0] || 'User',
-        color: '#1DB954',
+        color: Colors.primary,
         created_at: timestamp,
         updated_at: timestamp,
       });
@@ -312,7 +497,7 @@ async function reconcileLocalProfileWithSupabase(
         userId,
         canonicalProfile?.name || fallbackName,
         canonicalProfile?.icon || 'account',
-        canonicalProfile?.color || '#1DB954',
+        canonicalProfile?.color || Colors.primary,
         createdAt,
         now,
       ],
@@ -374,6 +559,9 @@ async function pushChanges() {
     user.id,
     user.email || '',
   );
+  const accessibleWalletIds = new Set<string>(
+    user.email ? await fetchAccessibleRemoteWalletIds(user.id, user.email) : [],
+  );
   
   // CRITICAL: Urutkan tabel agar profiles di-sync duluan
   const orderedTables = SYNC_TABLES.filter(t => t.tableName === 'profiles')
@@ -396,6 +584,14 @@ async function pushChanges() {
       pendingUpserts = await db.getAllAsync<any>(
         `SELECT * FROM ${table.tableName} WHERE sync_status IN ('pending_create', 'pending_update')`,
       );
+    }
+
+    if (table.tableName !== 'wallets' && table.columns.includes('wallet_id')) {
+      const originalCount = pendingUpserts.length;
+      pendingUpserts = pendingUpserts.filter((row) => !row.wallet_id || accessibleWalletIds.has(row.wallet_id));
+      if (originalCount !== pendingUpserts.length) {
+        console.log(`[Sync] Skipping ${originalCount - pendingUpserts.length} ${table.tableName} rows because wallet access is no longer active.`);
+      }
     }
 
     if (pendingUpserts.length > 0) {
@@ -457,18 +653,7 @@ async function pushChanges() {
         }
       }
 
-      const remoteColumns = table.remoteColumns ?? table.columns;
-      const remoteRecords = records.map((record) => {
-        const payload: Record<string, any> = {};
-        remoteColumns.forEach((column) => {
-          if (column in record) {
-            payload[column] = record[column];
-          }
-        });
-        return payload;
-      });
-
-      const { error } = await supabase.from(table.tableName).upsert(remoteRecords);
+      const { error } = await upsertRemoteRecords(table, records);
 
       if (!error) {
         const placeholders = syncedRows.map(() => "?").join(",");
@@ -482,12 +667,60 @@ async function pushChanges() {
         }
 
         if (table.tableName === 'wallets') {
+          syncedRows.forEach((row) => {
+            if (row.id) {
+              accessibleWalletIds.add(row.id);
+            }
+          });
           await ensureWalletOwnerMembership(syncedRows, user.email || '', validProfileId);
         }
       } else {
         if (shouldSkipRemoteTable(table, error)) {
           continue;
         }
+
+        if (String(error.message || "").includes('row-level security policy') && syncedRows.length > 1) {
+          const syncedIds: string[] = [];
+
+          for (let index = 0; index < records.length; index++) {
+            const record = records[index];
+            const sourceRow = syncedRows[index];
+            const singleResult = await upsertRemoteRecords(table, [record]);
+
+            if (!singleResult.error) {
+              syncedIds.push(sourceRow.id);
+              continue;
+            }
+
+            if (
+              table.tableName === 'budgets' &&
+              sourceRow?.id &&
+              String(singleResult.error.message || "").includes('row-level security policy') &&
+              sourceRow.profile_id &&
+              activeProfileId &&
+              sourceRow.profile_id !== activeProfileId
+            ) {
+              await db.runAsync(
+                `UPDATE budgets SET sync_status = 'synced' WHERE id = ?`,
+                [sourceRow.id],
+              );
+              console.log(`[Sync] Mengabaikan budget ${sourceRow.id} di luar profil aktif agar tidak terus gagal sync.`);
+              continue;
+            }
+
+            console.error(`Failed to push ${table.tableName} row ${sourceRow?.id ?? 'unknown'}:`, singleResult.error.message);
+          }
+
+          if (syncedIds.length > 0) {
+            await db.runAsync(
+              `UPDATE ${table.tableName} SET sync_status = 'synced' WHERE id IN (${syncedIds.map(() => "?").join(",")})`,
+              syncedIds,
+            );
+          }
+
+          continue;
+        }
+
         console.error(`Failed to push ${table.tableName}:`, error.message);
       }
     }
@@ -588,6 +821,7 @@ function mapRecordFromSupabase(table: string, row: any): any {
   if (table === "saving_goals") {
     if ("is_completed" in record) record.is_completed = record.is_completed ? 1 : 0;
     if ("reminder_enabled" in record) record.reminder_enabled = record.reminder_enabled ? 1 : 0;
+    record.deadline_at = record.deadline_at ?? record.estimated_date ?? Date.now();
   }
   if (table === "budgets") {
     if ("reminder_enabled" in record) record.reminder_enabled = record.reminder_enabled ? 1 : 0;
@@ -612,12 +846,58 @@ function mapRecordFromSupabase(table: string, row: any): any {
 /**
  * PULL: Ambil perubahan dari Supabase
  */
-async function pullChanges() {
+async function reconcileRemoteDeletesForTable(
+  db: Awaited<ReturnType<typeof getInitializedDatabase>>,
+  table: SyncTable,
+): Promise<void> {
+  const { data, error } = await supabase.from(table.tableName).select("id");
+
+  if (error) {
+    if (shouldSkipRemoteTable(table, error)) {
+      return;
+    }
+    throw error;
+  }
+
+  const remoteIds = new Set((data ?? []).map((row: any) => row.id));
+  const localRows = await db.getAllAsync<{ id: string; goal_id?: string }>(
+    `SELECT id${table.tableName === "saving_logs" ? ", goal_id" : ""} FROM ${table.tableName} WHERE sync_status = 'synced'`,
+  );
+  const staleRows = localRows.filter((row) => !remoteIds.has(row.id));
+
+  if (staleRows.length === 0) {
+    return;
+  }
+
+  const staleIds = staleRows.map((row) => row.id);
+  await db.runAsync(
+    `DELETE FROM ${table.tableName} WHERE id IN (${staleIds.map(() => "?").join(",")})`,
+    staleIds,
+  );
+
+  if (table.tableName === "saving_logs") {
+    const affectedGoalIds = staleRows.map((row) => row.goal_id).filter(Boolean) as string[];
+    await reconcileSavingGoalAggregates(db, affectedGoalIds);
+  }
+}
+
+async function pullChanges(options?: { forceFullPull?: boolean }) {
   const db = await getInitializedDatabase();
-  const rawLastSync = await getLastSyncTime();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return;
+  }
+
+  const rawLastSync = options?.forceFullPull ? 0 : await getLastSyncTime();
   // Pastikan lastSync adalah angka valid (bukan string atau NaN)
   const lastSync = Number(rawLastSync) || 0;
   let maxUpdatedAt = lastSync;
+  const savingGoalIdsNeedingReconcile = new Set<string>();
+  const accessibleWalletIds = new Set<string>(
+    user.email ? await fetchAccessibleRemoteWalletIds(user.id, user.email) : [],
+  );
 
   for (const table of SYNC_TABLES) {
     if (unsupportedRemoteTables.has(table.tableName)) {
@@ -626,10 +906,27 @@ async function pullChanges() {
 
     try {
       const remoteUpdatedAtColumn = table.remoteUpdatedAtColumn ?? "updated_at";
-      const { data, error } = await supabase
-        .from(table.tableName)
-        .select("*")
-        .gt(remoteUpdatedAtColumn, lastSync); // Ambil yang berubah sejak sync terakhir
+      let query = supabase.from(table.tableName).select("*");
+      if (table.tableName === "profiles") {
+        query = query.eq("user_id", user.id);
+      } else if (table.tableName === "wallets") {
+        if (accessibleWalletIds.size === 0) {
+          await reconcileRemoteDeletesForTable(db, table);
+          continue;
+        }
+        query = query.in("id", [...accessibleWalletIds]);
+      } else if (isWalletScopedSyncTable(table.tableName)) {
+        if (accessibleWalletIds.size === 0) {
+          await reconcileRemoteDeletesForTable(db, table);
+          continue;
+        }
+        query = query.in("wallet_id", [...accessibleWalletIds]);
+      }
+
+      const { data, error } =
+        options?.forceFullPull || lastSync === 0
+          ? await query
+          : await query.gt(remoteUpdatedAtColumn, lastSync); // Ambil yang berubah sejak sync terakhir
 
       if (error) {
         if (shouldSkipRemoteTable(table, error)) {
@@ -639,12 +936,28 @@ async function pullChanges() {
         continue;
       }
 
-      if (!data || data.length === 0) continue;
+      let scopedData = data ?? [];
+      if (table.tableName === "saving_logs" && scopedData.length > 0) {
+        const goalIds = [...new Set(scopedData.map((row: any) => row.goal_id).filter(Boolean))] as string[];
+        if (goalIds.length > 0) {
+          const accessibleGoals = await db.getAllAsync<{ id: string }>(
+            `SELECT id FROM saving_goals WHERE id IN (${goalIds.map(() => "?").join(",")}) AND sync_status != 'pending_delete'`,
+            goalIds,
+          );
+          const accessibleGoalIds = new Set(accessibleGoals.map((goal) => goal.id));
+          scopedData = scopedData.filter((row: any) => accessibleGoalIds.has(row.goal_id));
+        }
+      }
+
+      if (scopedData.length === 0) {
+        await reconcileRemoteDeletesForTable(db, table);
+        continue;
+      }
 
       // [SELF-HEALING] Pastikan foreign key parent (wallet_id) ada di lokal sebelum insert
       // Karena shared wallet mungkin tidak ter-pull jika 'updated_at' nya lebih tua dari lastSync
       if (['transactions', 'saving_goals', 'budgets'].includes(table.tableName)) {
-        const walletIds = [...new Set(data.map((r: any) => r.wallet_id).filter(Boolean))] as string[];
+        const walletIds = [...new Set(scopedData.map((r: any) => r.wallet_id).filter(Boolean))] as string[];
         if (walletIds.length > 0) {
           const placeholders = walletIds.map(() => "?").join(",");
           const existing = await db.getAllAsync<any>(
@@ -680,7 +993,24 @@ async function pullChanges() {
       }
 
       await db.withTransactionAsync(async () => {
-        for (const row of data) {
+        for (const row of scopedData) {
+          const existing = await db.getFirstAsync<{ sync_status: LocalSyncStatus; updated_at: number | null }>(
+            `SELECT sync_status, updated_at FROM ${table.tableName} WHERE id = ?`,
+            [row.id],
+          );
+          const remoteUpdatedAt = getRemoteRowUpdatedAt(table, row);
+          if (
+            !shouldApplyRemoteChange({
+              tableName: table.tableName,
+              localSyncStatus: existing?.sync_status,
+              eventType: 'UPDATE',
+              localUpdatedAt: existing?.updated_at ?? null,
+              remoteUpdatedAt,
+            })
+          ) {
+            continue;
+          }
+
           // Mapping data types
           const localRow = mapRecordFromSupabase(table.tableName, row);
 
@@ -695,6 +1025,14 @@ async function pullChanges() {
             [...values],
           );
 
+          if (table.tableName === 'saving_logs' && localRow.goal_id) {
+            savingGoalIdsNeedingReconcile.add(localRow.goal_id);
+          }
+
+          if (table.tableName === 'saving_goals' && localRow.id) {
+            savingGoalIdsNeedingReconcile.add(localRow.id);
+          }
+
           // Track max updated_at
           const syncMarker = row.updated_at ?? row[remoteUpdatedAtColumn] ?? row.created_at;
           if (syncMarker && syncMarker > maxUpdatedAt) {
@@ -702,6 +1040,8 @@ async function pullChanges() {
           }
         }
       });
+
+      await reconcileRemoteDeletesForTable(db, table);
     } catch (e) {
       console.error(`Error processing pull for ${table.tableName}:`, e);
     }
@@ -711,12 +1051,14 @@ async function pullChanges() {
   if (maxUpdatedAt > lastSync) {
     await setLastSyncTime(maxUpdatedAt);
   }
+
+  await reconcileSavingGoalAggregates(db, [...savingGoalIdsNeedingReconcile]);
 }
 
 /**
  * Fungsi utama Sync
  */
-export async function syncDatabase() {
+export async function syncDatabase(options?: { forceFullPull?: boolean }) {
   if (activeSyncPromise) {
     return activeSyncPromise;
   }
@@ -737,7 +1079,7 @@ export async function syncDatabase() {
       }
 
       try {
-        await pullChanges();
+        await pullChanges(options);
       } catch (e) {
         console.error("Pull changes failed:", e);
       }
@@ -770,12 +1112,18 @@ export async function handleRealtimePayload(tableName: string, payload: any): Pr
       if (!row || !row.id) return false;
 
       // Filter: jangan timpa kalau data lokal lebih baru (jika ada pending_update lokal)
-      const existing = await db.getFirstAsync<{ sync_status: string }>(
-        `SELECT sync_status FROM ${tableName} WHERE id = ?`,
+      const existing = await db.getFirstAsync<{ sync_status: LocalSyncStatus; updated_at: number | null }>(
+        `SELECT sync_status, updated_at FROM ${tableName} WHERE id = ?`,
         [row.id]
       );
-      if (existing && existing.sync_status === 'pending_update') {
-        // Lokal masih punya update yang belum ter-push, biarkan push() yang menangani nanti
+      const remoteUpdatedAt = getRemoteRowUpdatedAt(tableDef, row);
+      if (!shouldApplyRealtimePayload(
+        tableName,
+        existing?.sync_status as LocalSyncStatus,
+        payload.eventType,
+        existing?.updated_at ?? null,
+        remoteUpdatedAt,
+      )) {
         return false;
       }
 
@@ -798,21 +1146,36 @@ export async function handleRealtimePayload(tableName: string, payload: any): Pr
         `INSERT OR REPLACE INTO ${tableName} (${columns}, sync_status) VALUES (${placeholders}, 'synced')`,
         [...values]
       );
+      if (tableName === 'saving_logs' && localRow.goal_id) {
+        await reconcileSavingGoalAggregates(db, [localRow.goal_id]);
+      }
+      if (tableName === 'saving_goals' && localRow.id) {
+        await reconcileSavingGoalAggregates(db, [localRow.id]);
+      }
       return true;
 
     } else if (payload.eventType === 'DELETE') {
       const row = payload.old;
       if (!row || !row.id) return false;
 
-      const existing = await db.getFirstAsync<{ sync_status: string }>(
-        `SELECT sync_status FROM ${tableName} WHERE id = ?`,
+      const existing = await db.getFirstAsync<{ sync_status: LocalSyncStatus; updated_at: number | null; goal_id?: string }>(
+        `SELECT sync_status, updated_at${tableName === 'saving_logs' ? ', goal_id' : ''} FROM ${tableName} WHERE id = ?`,
         [row.id]
       );
-      if (existing && existing.sync_status === 'pending_update') {
-        return false; // don't delete yet if local has dirty updates
+      if (!shouldApplyRealtimePayload(
+        tableName,
+        existing?.sync_status as LocalSyncStatus,
+        payload.eventType,
+        existing?.updated_at ?? null,
+        getRemoteRowUpdatedAt(tableDef, row),
+      )) {
+        return false;
       }
 
       await db.runAsync(`DELETE FROM ${tableName} WHERE id = ?`, [row.id]);
+      if (tableName === 'saving_logs' && existing?.goal_id) {
+        await reconcileSavingGoalAggregates(db, [existing.goal_id]);
+      }
       return true;
     }
   } catch (e) {

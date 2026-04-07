@@ -2,18 +2,165 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Alert } from 'react-native';
+import { getInitializedDatabase } from '../database/schema';
 import type { Transaction } from '../types/transaction';
 import type { SavingGoal } from '../types/saving';
 import { formatCurrency } from './currency';
 import { formatDateLong } from './date';
 
 export type ExportFormat = 'json' | 'csv' | 'txt';
+export const FULL_BACKUP_VERSION = 2;
+
+interface ExportProfile {
+  id: string;
+  user_id?: string | null;
+  name: string;
+  icon: string;
+  color: string;
+  created_at: number;
+  updated_at?: number;
+}
+
+interface ExportWallet {
+  id: string;
+  profile_id?: string | null;
+  name: string;
+  type: string;
+  color: string;
+  balance: number;
+  is_default: boolean;
+  created_at: number;
+  updated_at?: number;
+}
+
+interface ExportBudget {
+  id: string;
+  category: string;
+  amount: number;
+  month: number;
+  year: number;
+  reminder_enabled: boolean;
+  reminder_time: string | null;
+  created_at: number;
+  updated_at?: number;
+  wallet_id?: string | null;
+  profile_id?: string | null;
+}
+
+interface ExportSavingLog {
+  id: string;
+  goal_id: string;
+  amount: number;
+  note: string | null;
+  date: number;
+  created_at: number;
+  updated_at?: number;
+}
+
+interface ExportWalletMember {
+  id: string;
+  wallet_id: string;
+  user_email: string;
+  role: string;
+  status: string;
+  created_at: number;
+  updated_at?: number;
+}
+
+interface ExportWalletGoalShare {
+  id: string;
+  goal_id: string;
+  wallet_id: string;
+  user_email: string;
+  shared_by: string;
+  shared_at: number;
+  created_at: number;
+  updated_at?: number;
+  permission_level?: string | null;
+}
+
+interface ExportSharingActivity {
+  id: string;
+  goal_id: string;
+  wallet_id: string;
+  user_email: string;
+  action: string;
+  performed_by: string;
+  metadata: string | null;
+  timestamp: number;
+  created_at: number;
+  updated_at: number;
+}
 
 export interface ExportData {
   version: number;
   exportedAt: number;
   transactions: Transaction[];
   goals: SavingGoal[];
+  profiles?: ExportProfile[];
+  wallets?: ExportWallet[];
+  budgets?: ExportBudget[];
+  savingLogs?: ExportSavingLog[];
+  walletMembers?: ExportWalletMember[];
+  walletGoalShares?: ExportWalletGoalShare[];
+  sharingActivity?: ExportSharingActivity[];
+}
+
+function mapExportGoalRow(row: any): SavingGoal {
+  return {
+    ...row,
+    is_completed: Boolean(row.is_completed),
+    reminder_enabled: Boolean(row.reminder_enabled),
+    deadline_at: row.deadline_at ?? row.estimated_date,
+  };
+}
+
+function mapExportWalletRow(row: any): ExportWallet {
+  return {
+    ...row,
+    is_default: Boolean(row.is_default),
+  };
+}
+
+function mapExportBudgetRow(row: any): ExportBudget {
+  return {
+    ...row,
+    reminder_enabled: Boolean(row.reminder_enabled),
+    reminder_time: row.reminder_time ?? null,
+  };
+}
+
+async function fetchTableRows<T = any>(tableName: string): Promise<T[]> {
+  const db = await getInitializedDatabase();
+  return db.getAllAsync<T>(`SELECT * FROM ${tableName} WHERE sync_status != 'pending_delete' ORDER BY created_at ASC`);
+}
+
+export async function buildFullBackupExportData(): Promise<ExportData> {
+  const [profiles, wallets, transactions, budgets, goals, savingLogs, walletMembers, walletGoalShares, sharingActivity] = await Promise.all([
+    fetchTableRows<ExportProfile>('profiles'),
+    fetchTableRows<any>('wallets'),
+    fetchTableRows<Transaction>('transactions'),
+    fetchTableRows<any>('budgets'),
+    fetchTableRows<any>('saving_goals'),
+    fetchTableRows<ExportSavingLog>('saving_logs'),
+    fetchTableRows<ExportWalletMember>('wallet_members'),
+    fetchTableRows<ExportWalletGoalShare>('wallet_goals_shared'),
+    fetchTableRows<ExportSharingActivity>('sharing_activity_log'),
+  ]);
+
+  return {
+    version: FULL_BACKUP_VERSION,
+    exportedAt: Date.now(),
+    profiles,
+    wallets: wallets.map(mapExportWalletRow),
+    transactions,
+    budgets: budgets.map(mapExportBudgetRow),
+    goals: goals.map(mapExportGoalRow),
+    savingLogs,
+    walletMembers,
+    walletGoalShares,
+    sharingActivity,
+  };
 }
 
 /**
@@ -204,6 +351,38 @@ export async function exportTransactionsOnly(
   }
 }
 
+export async function exportGoalsOnly(
+  goals: SavingGoal[],
+  format: ExportFormat = 'csv'
+): Promise<void> {
+  try {
+    if (goals.length === 0) {
+      Alert.alert('Info', 'Tidak ada target tabungan untuk diekspor');
+      return;
+    }
+
+    switch (format) {
+      case 'json':
+        await exportToJSON({
+          version: 1,
+          exportedAt: Date.now(),
+          transactions: [],
+          goals,
+        });
+        break;
+      case 'csv':
+        await exportGoalsToCSV(goals);
+        break;
+      case 'txt':
+        await exportGoalsToTXT(goals);
+        break;
+    }
+  } catch (error) {
+    console.error('Failed to export goals:', error);
+    Alert.alert('Error', 'Gagal mengekspor target tabungan');
+  }
+}
+
 /**
  * Export transactions to CSV
  */
@@ -273,6 +452,55 @@ async function exportTransactionsToTXT(transactions: Transaction[]): Promise<voi
   await Sharing.shareAsync(fileUri, {
     mimeType: 'text/plain',
     dialogTitle: 'Export Transaksi Tabungin (TXT)',
+    UTI: 'public.plain-text',
+  });
+}
+
+async function exportGoalsToCSV(goals: SavingGoal[]): Promise<void> {
+  let csv = 'ID,Nama,Target,Terkumpul,Deadline,Estimasi,Status,Nabung Per Periode,Periode,Warna\n';
+
+  for (const goal of goals) {
+    const deadline = new Date(goal.deadline_at).toISOString().split('T')[0];
+    const estimated = new Date(goal.estimated_date).toISOString().split('T')[0];
+    csv += `"${goal.id}","${goal.name}","${goal.target_amount}","${goal.current_amount}","${deadline}","${estimated}","${goal.is_completed ? 'completed' : 'active'}","${goal.saving_per_period}","${goal.period_type}","${goal.color}"\n`;
+  }
+
+  const fileName = `tabungin_target_${new Date().toISOString().split('T')[0]}.csv`;
+  const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+  await FileSystem.writeAsStringAsync(fileUri, csv);
+  await Sharing.shareAsync(fileUri, {
+    mimeType: 'text/csv',
+    dialogTitle: 'Export Target Tabungan Tabungin (CSV)',
+    UTI: 'public.comma-separated-values-text',
+  });
+}
+
+async function exportGoalsToTXT(goals: SavingGoal[]): Promise<void> {
+  let txt = `Laporan Target Tabungan Tabungin\n`;
+  txt += `Tanggal: ${formatDateLong(Date.now())}\n`;
+  txt += `Jumlah Target: ${goals.length}\n`;
+  txt += `${'='.repeat(40)}\n\n`;
+
+  for (const goal of goals) {
+    const progress = goal.target_amount > 0
+      ? Math.round((goal.current_amount / goal.target_amount) * 100)
+      : 0;
+
+    txt += `${goal.emoji} ${goal.name}\n`;
+    txt += `  Target: ${formatCurrency(goal.target_amount)}\n`;
+    txt += `  Terkumpul: ${formatCurrency(goal.current_amount)}\n`;
+    txt += `  Progress: ${progress}%\n`;
+    txt += `  Deadline: ${formatDateLong(goal.deadline_at)}\n`;
+    txt += `  Estimasi: ${formatDateLong(goal.estimated_date)}\n`;
+    txt += `  Status: ${goal.is_completed ? 'Selesai' : 'Berjalan'}\n\n`;
+  }
+
+  const fileName = `tabungin_target_${new Date().toISOString().split('T')[0]}.txt`;
+  const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+  await FileSystem.writeAsStringAsync(fileUri, txt);
+  await Sharing.shareAsync(fileUri, {
+    mimeType: 'text/plain',
+    dialogTitle: 'Export Target Tabungan Tabungin (TXT)',
     UTI: 'public.plain-text',
   });
 }

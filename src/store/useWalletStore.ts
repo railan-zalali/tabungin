@@ -14,6 +14,11 @@ import { handleRealtimePayload, syncDatabase } from '../database/sync';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { syncAccessibleWalletsFromServer } from '../database/walletSharingService';
 
+function triggerBackgroundSyncIfAllowed() {
+    if (!useAuthStore.getState().canSync) return;
+    syncDatabase().catch(console.error);
+}
+
 interface WalletState {
     wallets: Wallet[];
     totalBalance: number;
@@ -69,7 +74,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
             const profileId = useProfileStore.getState().activeProfileId;
             await insertWallet({ ...data, profile_id: profileId || undefined });
             await get().loadWallets(); // Reload all to refresh order and defaults
-            syncDatabase().catch(console.error); // Latar belakang
+            triggerBackgroundSyncIfAllowed();
         } catch (error: any) {
             console.error('Failed to add wallet:', error);
             set({ error: error.message || 'Gagal menambah dompet.' });
@@ -84,7 +89,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
         try {
             await updateWallet(id, data);
             await get().loadWallets();
-            syncDatabase().catch(console.error);
+            triggerBackgroundSyncIfAllowed();
         } catch (error: any) {
             console.error('Failed to edit wallet:', error);
             set({ error: error.message || 'Gagal mengubah dompet.' });
@@ -99,7 +104,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
         try {
             await deleteWallet(id);
             await get().loadWallets();
-            syncDatabase().catch(console.error);
+            triggerBackgroundSyncIfAllowed();
         } catch (error: any) {
             console.error('Failed to delete wallet:', error);
             set({ error: error.message || 'Gagal menghapus dompet.' });
@@ -113,6 +118,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
 
     realtimeChannel: null,
     initRealtime: () => {
+        if (!useAuthStore.getState().canSync) return;
         const channel = get().realtimeChannel;
         if (channel) return;
 

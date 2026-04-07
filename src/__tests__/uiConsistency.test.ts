@@ -61,4 +61,37 @@ describe('ui consistency guardrails', () => {
       expect(source).not.toContain('TAB_BAR_OVERLAY_OFFSET');
     }
   });
+
+  it('keeps tab navigation on brand accents instead of semantic status colors', () => {
+    const source = readFile('src/navigation/TabNavigator.tsx');
+    expect(source).not.toContain("accent: 'success'");
+    expect(source).not.toContain("accent: 'warning'");
+    expect(source).not.toContain("accent: 'info'");
+    expect(source).toContain('return colors.primary;');
+  });
+
+  it('routes picker palettes through the shared accent palette', () => {
+    for (const file of [
+      'src/components/profile/ProfileSwitcher.tsx',
+      'src/screens/settings/AddWalletScreen.tsx',
+      'src/constants/categories.ts',
+    ]) {
+      const source = readFile(file);
+      expect(source).toContain('AppAccentPalette');
+      expect(source).not.toContain('#1DB954');
+    }
+  });
+
+  it('derives icon contrast from dynamic color surfaces', () => {
+    for (const file of [
+      'src/components/profile/ProfileSwitcher.tsx',
+      'src/screens/settings/AddWalletScreen.tsx',
+      'src/screens/wallet/JoinWalletScreen.tsx',
+      'src/screens/settings/WalletListScreen.tsx',
+      'src/screens/saving/AddSavingGoalScreen.tsx',
+    ]) {
+      const source = readFile(file);
+      expect(source).toContain('getReadableTextColor');
+    }
+  });
 });

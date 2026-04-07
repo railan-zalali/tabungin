@@ -119,6 +119,10 @@ export function getSharingActivityLabel(activity: GoalSharingActivity): string {
             return 'Target dibuat';
         case 'contribution_added':
             return 'Tabungan ditambahkan';
+        case 'contribution_updated':
+            return 'Kontribusi diubah';
+        case 'contribution_removed':
+            return 'Kontribusi dihapus';
         case 'shared':
         default:
             return 'Target dibagikan';
@@ -140,6 +144,10 @@ export function getSharingActivityDescription(activity: GoalSharingActivity): st
             return `${actor} membuat target ini untuk konteks bersama.`;
         case 'contribution_added':
             return `${actor} menambahkan kontribusi ke target ini.`;
+        case 'contribution_updated':
+            return `${actor} memperbarui nominal kontribusi untuk target ini.`;
+        case 'contribution_removed':
+            return `${actor} menghapus satu kontribusi dari target ini.`;
         case 'shared':
         default:
             return `${actor} membagikan target ini ke ${recipient}.`;

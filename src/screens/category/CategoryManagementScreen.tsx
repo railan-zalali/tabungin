@@ -18,9 +18,11 @@ import { FormSection } from '../../components/common/FormSection';
 import { Input } from '../../components/common/Input';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { SegmentedControl } from '../../components/common/SegmentedControl';
+import { AppAccentPalette, Colors } from '../../constants/colors';
+import { getReadableTextColor } from '../../utils/colorContrast';
 
 const DEFAULT_ICONS = ['tag', 'food', 'car', 'shopping', 'gamepad', 'file-document', 'medical-bag', 'school', 'cash', 'star', 'trending-up', 'gift'];
-const DEFAULT_COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#2ECC71', '#F39C12', '#3498DB', '#E91E63', '#9B59B6'];
+const DEFAULT_COLORS = [...AppAccentPalette, '#F97316', '#E11D48', '#7C3AED', '#0EA5E9'];
 
 export function CategoryManagementScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<any>>();
@@ -34,7 +36,7 @@ export function CategoryManagementScreen() {
     const [formType, setFormType] = useState<CategoryType>('expense');
     const [formName, setFormName] = useState('');
     const [formIcon, setFormIcon] = useState('tag');
-    const [formColor, setFormColor] = useState('#1DB954');
+    const [formColor, setFormColor] = useState<string>(Colors.primary);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [editingCategory, setEditingCategory] = useState<ResolvedCategory | null>(null);
 
@@ -51,7 +53,7 @@ export function CategoryManagementScreen() {
         setFormType('expense');
         setFormName('');
         setFormIcon('tag');
-        setFormColor('#1DB954');
+        setFormColor(Colors.primary);
     };
 
     const closeModal = () => { setShowAddModal(false); resetForm(); };
@@ -182,7 +184,16 @@ export function CategoryManagementScreen() {
                             <View style={styles.optionWrap}>
                                 {DEFAULT_COLORS.map((item) => (
                                     <TouchableOpacity key={item} style={[styles.colorButton, { backgroundColor: item }]} onPress={() => setFormColor(item)}>
-                                        {formColor === item ? <MaterialCommunityIcons name="check" size={16} color={colors.textInverse} /> : null}
+                                        {formColor === item ? (
+                                            <MaterialCommunityIcons
+                                                name="check"
+                                                size={16}
+                                                color={getReadableTextColor(item, {
+                                                    light: colors.textInverse,
+                                                    dark: colors.textPrimary,
+                                                })}
+                                            />
+                                        ) : null}
                                     </TouchableOpacity>
                                 ))}
                             </View>

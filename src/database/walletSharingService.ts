@@ -43,6 +43,8 @@ type RemoteBudget = {
   amount: number;
   month: number;
   year: number;
+  reminder_enabled: boolean;
+  reminder_time: string | null;
   created_at: number;
   updated_at: number;
   wallet_id: string | null;
@@ -60,6 +62,7 @@ type RemoteSavingGoal = {
   period_type: string;
   color: string;
   start_date: number;
+  deadline_at: number | null;
   estimated_date: number;
   is_completed: boolean;
   reminder_enabled: boolean;
@@ -68,6 +71,8 @@ type RemoteSavingGoal = {
   updated_at: number;
   wallet_id: string | null;
   profile_id: string | null;
+  owner_user_id: string | null;
+  created_by_user_id: string | null;
 };
 
 type RemoteSavingLog = {
@@ -82,6 +87,16 @@ type RemoteSavingLog = {
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
+}
+
+export function isActiveWalletMemberForEmail(
+  members: Array<{ user_email: string; status: string }>,
+  email: string,
+): boolean {
+  const normalizedEmail = normalizeEmail(email);
+  return members.some(
+    (member) => normalizeEmail(member.user_email) === normalizedEmail && member.status === 'active',
+  );
 }
 
 export async function getAuthenticatedWalletEmail(): Promise<string> {
@@ -260,14 +275,16 @@ async function upsertLocalBudgets(budgets: RemoteBudget[]): Promise<void> {
     for (const budget of budgets) {
       await db.runAsync(
         `INSERT OR REPLACE INTO budgets (
-          id, category, amount, month, year, created_at, updated_at, wallet_id, profile_id, sync_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`,
+          id, category, amount, month, year, reminder_enabled, reminder_time, created_at, updated_at, wallet_id, profile_id, sync_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`,
         [
           budget.id,
           budget.category,
           budget.amount,
           budget.month,
           budget.year,
+          budget.reminder_enabled ? 1 : 0,
+          budget.reminder_time,
           budget.created_at,
           budget.updated_at,
           budget.wallet_id,
@@ -288,9 +305,9 @@ async function upsertLocalSavingGoals(goals: RemoteSavingGoal[]): Promise<void> 
       await db.runAsync(
         `INSERT OR REPLACE INTO saving_goals (
           id, name, target_amount, current_amount, emoji, photo_uri, saving_per_period, period_type,
-          color, start_date, estimated_date, is_completed, reminder_enabled, reminder_time,
-          created_at, updated_at, wallet_id, profile_id, sync_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`,
+          color, start_date, deadline_at, estimated_date, is_completed, reminder_enabled, reminder_time,
+          created_at, updated_at, wallet_id, profile_id, owner_user_id, created_by_user_id, sync_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`,
         [
           goal.id,
           goal.name,
@@ -302,6 +319,7 @@ async function upsertLocalSavingGoals(goals: RemoteSavingGoal[]): Promise<void> 
           goal.period_type,
           goal.color,
           goal.start_date,
+          goal.deadline_at ?? goal.estimated_date,
           goal.estimated_date,
           goal.is_completed ? 1 : 0,
           goal.reminder_enabled ? 1 : 0,
@@ -310,9 +328,68 @@ async function upsertLocalSavingGoals(goals: RemoteSavingGoal[]): Promise<void> 
           goal.updated_at,
           goal.wallet_id,
           goal.profile_id,
+          goal.owner_user_id,
+          goal.created_by_user_id,
         ],
       );
     }
+  });
+}
+
+async function pruneStaleAccessibleWallets(remoteWalletIds: string[]): Promise<void> {
+  const db = await getInitializedDatabase();
+  const localWallets = await db.getAllAsync<{ id: string }>(
+    "SELECT id FROM wallets WHERE sync_status = 'synced'",
+  );
+  const staleWalletIds = localWallets.map((wallet) => wallet.id).filter((id) => !remoteWalletIds.includes(id));
+
+  if (staleWalletIds.length === 0) {
+    return;
+  }
+
+  const goalRows = await db.getAllAsync<{ id: string }>(
+    `SELECT id FROM saving_goals WHERE wallet_id IN (${staleWalletIds.map(() => "?").join(",")})`,
+    staleWalletIds,
+  );
+  const goalIds = goalRows.map((row) => row.id);
+
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      `DELETE FROM wallet_members WHERE wallet_id IN (${staleWalletIds.map(() => "?").join(",")}) AND sync_status = 'synced'`,
+      staleWalletIds,
+    );
+    await db.runAsync(
+      `DELETE FROM transactions WHERE wallet_id IN (${staleWalletIds.map(() => "?").join(",")}) AND sync_status = 'synced'`,
+      staleWalletIds,
+    );
+    await db.runAsync(
+      `DELETE FROM budgets WHERE wallet_id IN (${staleWalletIds.map(() => "?").join(",")}) AND sync_status = 'synced'`,
+      staleWalletIds,
+    );
+
+    if (goalIds.length > 0) {
+      await db.runAsync(
+        `DELETE FROM saving_logs WHERE goal_id IN (${goalIds.map(() => "?").join(",")}) AND sync_status = 'synced'`,
+        goalIds,
+      );
+      await db.runAsync(
+        `DELETE FROM saving_goals WHERE id IN (${goalIds.map(() => "?").join(",")}) AND sync_status = 'synced'`,
+        goalIds,
+      );
+      await db.runAsync(
+        `DELETE FROM wallet_goals_shared WHERE goal_id IN (${goalIds.map(() => "?").join(",")}) AND sync_status = 'synced'`,
+        goalIds,
+      );
+      await db.runAsync(
+        `DELETE FROM sharing_activity_log WHERE goal_id IN (${goalIds.map(() => "?").join(",")}) AND sync_status = 'synced'`,
+        goalIds,
+      );
+    }
+
+    await db.runAsync(
+      `DELETE FROM wallets WHERE id IN (${staleWalletIds.map(() => "?").join(",")}) AND sync_status = 'synced'`,
+      staleWalletIds,
+    );
   });
 }
 
@@ -385,13 +462,11 @@ async function hydrateSharedWallet(walletId: string): Promise<void> {
     savingLogs = (data ?? []) as RemoteSavingLog[];
   }
 
-  await Promise.all([
-    upsertLocalTransactions((transactionsResult.data ?? []) as RemoteTransaction[]),
-    upsertLocalBudgets((budgetsResult.data ?? []) as RemoteBudget[]),
-    upsertLocalSavingGoals(goals),
-    upsertLocalSavingLogs(savingLogs),
-    replaceLocalWalletMembers(walletId, (membersResult.data ?? []) as RemoteWalletMember[]),
-  ]);
+  await upsertLocalTransactions((transactionsResult.data ?? []) as RemoteTransaction[]);
+  await upsertLocalBudgets((budgetsResult.data ?? []) as RemoteBudget[]);
+  await upsertLocalSavingGoals(goals);
+  await upsertLocalSavingLogs(savingLogs);
+  await replaceLocalWalletMembers(walletId, (membersResult.data ?? []) as RemoteWalletMember[]);
 }
 
 export async function fetchWalletMembersForDisplay(walletId: string): Promise<WalletMember[]> {
@@ -427,6 +502,76 @@ export async function fetchWalletMembersForDisplay(walletId: string): Promise<Wa
   return members.map(mapLocalWalletMember);
 }
 
+async function fetchRemoteOwnedProfileId(userId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.id ?? null;
+}
+
+export async function fetchAccessibleRemoteWallets(userId: string, email: string): Promise<RemoteWallet[]> {
+  const remoteWalletsById = new Map<string, RemoteWallet>();
+  const ownedProfileId = await fetchRemoteOwnedProfileId(userId);
+
+  if (ownedProfileId) {
+    const { data, error } = await supabase
+      .from("wallets")
+      .select("*")
+      .eq("profile_id", ownedProfileId)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      throw error;
+    }
+
+    for (const wallet of (data ?? []) as RemoteWallet[]) {
+      remoteWalletsById.set(wallet.id, wallet);
+    }
+  }
+
+  const { data: memberships, error: membershipsError } = await supabase
+    .from("wallet_members")
+    .select("wallet_id")
+    .eq("user_email", normalizeEmail(email))
+    .eq("status", "active");
+
+  if (membershipsError) {
+    throw membershipsError;
+  }
+
+  const sharedWalletIds = [...new Set((memberships ?? []).map((row: any) => row.wallet_id).filter(Boolean))];
+  const walletIdsToFetch = sharedWalletIds.filter((walletId) => !remoteWalletsById.has(walletId));
+
+  if (walletIdsToFetch.length > 0) {
+    const { data, error } = await supabase
+      .from("wallets")
+      .select("*")
+      .in("id", walletIdsToFetch);
+
+    if (error) {
+      throw error;
+    }
+
+    for (const wallet of (data ?? []) as RemoteWallet[]) {
+      remoteWalletsById.set(wallet.id, wallet);
+    }
+  }
+
+  return [...remoteWalletsById.values()].sort((left, right) => left.created_at - right.created_at);
+}
+
+export async function fetchAccessibleRemoteWalletIds(userId: string, email: string): Promise<string[]> {
+  const wallets = await fetchAccessibleRemoteWallets(userId, email);
+  return wallets.map((wallet) => wallet.id);
+}
+
 export async function syncAccessibleWalletsFromServer(): Promise<void> {
   await runSerializedSyncTask(async () => {
     const {
@@ -437,33 +582,25 @@ export async function syncAccessibleWalletsFromServer(): Promise<void> {
       return;
     }
 
-    const { data: wallets, error: walletsError } = await supabase
-      .from("wallets")
-      .select("*")
-      .order("created_at", { ascending: true });
-
-    if (walletsError) {
-      throw walletsError;
+    const remoteWallets = await fetchAccessibleRemoteWallets(session.user.id, session.user.email ?? "");
+    await pruneStaleAccessibleWallets(remoteWallets.map((wallet) => wallet.id));
+    for (const wallet of remoteWallets) {
+      await upsertLocalWallet(wallet);
     }
-
-    const remoteWallets = (wallets ?? []) as RemoteWallet[];
-    await Promise.all(remoteWallets.map((wallet) => upsertLocalWallet(wallet)));
 
     const walletIds = remoteWallets.map((wallet) => wallet.id);
-    if (walletIds.length === 0) {
-      return;
+    if (walletIds.length > 0) {
+      const { data: members, error: membersError } = await supabase
+        .from("wallet_members")
+        .select("*")
+        .in("wallet_id", walletIds);
+
+      if (membersError) {
+        throw membersError;
+      }
+
+      await replaceLocalWalletMembersForWallets(walletIds, (members ?? []) as RemoteWalletMember[]);
     }
-
-    const { data: members, error: membersError } = await supabase
-      .from("wallet_members")
-      .select("*")
-      .in("wallet_id", walletIds);
-
-    if (membersError) {
-      throw membersError;
-    }
-
-    await replaceLocalWalletMembersForWallets(walletIds, (members ?? []) as RemoteWalletMember[]);
   });
 }
 

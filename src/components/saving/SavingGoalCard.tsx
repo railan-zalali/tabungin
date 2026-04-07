@@ -7,7 +7,7 @@ import { FontFamily, FontSize, scaleFontSize } from '../../constants/typography'
 import { BorderRadius } from '../../constants/theme';
 import type { SavingGoal } from '../../types/saving';
 import { formatRupiah, formatRupiahShort } from '../../utils/currency';
-import { daysFromNow } from '../../utils/date';
+import { daysFromNow, formatDateShort } from '../../utils/date';
 import { calculateProgress } from '../../utils/calculator';
 import { ProgressBar } from './ProgressBar';
 import { useTheme } from '../../store/useThemeStore';
@@ -15,6 +15,7 @@ import { useWalletStore } from '../../store/useWalletStore';
 import { useProfileStore } from '../../store/useProfileStore';
 import { getGoalComputedMeta } from '../../utils/goalSharing';
 import { ContextBadge } from '../common/ContextBadge';
+import { getSavingPlanInsight, getSavingPlanLabel } from '../../utils/savingPlan';
 
 interface SavingGoalCardProps {
     goal: SavingGoal;
@@ -23,7 +24,7 @@ interface SavingGoalCardProps {
     animationDelay?: number;
 }
 
-export function SavingGoalCard({ goal, onPress, onAddSaving, animationDelay = 0 }: SavingGoalCardProps) {
+function SavingGoalCardComponent({ goal, onPress, onAddSaving, animationDelay = 0 }: SavingGoalCardProps) {
     const { colors, textSize } = useTheme();
     const styles = React.useMemo(() => getStyles(colors, textSize), [colors, textSize]);
     const wallets = useWalletStore((state) => state.wallets);
@@ -34,6 +35,7 @@ export function SavingGoalCard({ goal, onPress, onAddSaving, animationDelay = 0 
     const isCompleted = goal.is_completed || goal.current_amount >= goal.target_amount;
     const wallet = wallets.find((item) => item.id === goal.wallet_id);
     const meta = getGoalComputedMeta(goal, wallet, activeProfileId);
+    const planInsight = getSavingPlanInsight(goal.target_amount, goal.current_amount, goal.saving_per_period, goal.period_type, goal.deadline_at);
 
     const periodLabel = goal.period_type === 'daily'
         ? 'hari'
@@ -129,6 +131,24 @@ export function SavingGoalCard({ goal, onPress, onAddSaving, animationDelay = 0 
                             {progress.toFixed(0)}% dari {formatRupiahShort(goal.target_amount)}
                         </Text>
                     </View>
+                    {planInsight ? (
+                        <Text
+                            style={[
+                                styles.planText,
+                                planInsight.status === 'behind'
+                                    ? { color: colors.warning }
+                                    : planInsight.status === 'ahead'
+                                        ? { color: colors.success }
+                                        : { color: colors.info },
+                            ]}
+                        >
+                            {getSavingPlanLabel(planInsight.status)}
+                        </Text>
+                    ) : null}
+                    <View style={styles.deadlineRow}>
+                        <Text style={styles.deadlineText}>Deadline: {formatDateShort(goal.deadline_at)}</Text>
+                        <Text style={styles.deadlineText}>Estimasi: {formatDateShort(goal.estimated_date)}</Text>
+                    </View>
                 </View>
 
                 {!isCompleted && (
@@ -150,6 +170,8 @@ export function SavingGoalCard({ goal, onPress, onAddSaving, animationDelay = 0 
         </Animated.View>
     );
 }
+
+export const SavingGoalCard = React.memo(SavingGoalCardComponent);
 
 const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize']) => StyleSheet.create({
     card: {
@@ -242,6 +264,11 @@ const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize'
     },
     progressSection: { gap: 8 },
     amountRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+    deadlineRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+    planText: {
+        fontFamily: FontFamily.bodyBold,
+        fontSize: scaleFontSize(FontSize.label, textSize),
+    },
     currentAmount: {
         fontFamily: FontFamily.body,
         fontSize: scaleFontSize(FontSize.caption, textSize),
@@ -250,6 +277,12 @@ const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize'
     targetAmount: {
         fontFamily: FontFamily.bodyMedium,
         fontSize: scaleFontSize(FontSize.caption, textSize),
+        color: colors.textSecondary,
+    },
+    deadlineText: {
+        flex: 1,
+        fontFamily: FontFamily.body,
+        fontSize: scaleFontSize(FontSize.label, textSize),
         color: colors.textSecondary,
     },
     addBtn: {

@@ -169,160 +169,167 @@ export function DashboardScreen() {
 
             <ScrollView
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.content}
+                contentContainerStyle={[
+                    styles.content,
+                    metrics.isWide ? styles.contentWide : null,
+                ]}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
             >
-                <Animated.View entering={FadeInDown.delay(40).springify()} style={styles.sectionGap}>
+                <Animated.View entering={FadeInDown.delay(40).springify()} style={[styles.sectionGap, metrics.isWide ? styles.sectionGapWide : null]}>
                     <View style={styles.profileRow}>
                         <ProfileSwitcher />
                         {unreadCount > 0 ? <ContextBadge icon="bell-badge-outline" label={`${unreadCount} belum dibaca`} tone="warning" /> : null}
                     </View>
 
-                    <HeroSummaryCard
-                        eyebrow="Ringkasan Hari Ini"
-                        title="Saldo total lintas dompet"
-                        value={formatCurrency(totalBalance)}
-                        description={
-                            netBalance >= 0
-                                ? 'Arus kas bulan ini masih positif. Waktu yang bagus untuk lanjutkan target utama.'
-                                : 'Pengeluaran sedang lebih tinggi dari pemasukan bulan ini. Perlu cek kategori yang paling aktif.'
-                        }
-                        icon="wallet-outline"
-                        badges={
-                            <>
-                                <ContextBadge icon="piggy-bank-outline" label={`${goals.length} target`} inverse />
-                                <ContextBadge icon="credit-card-multiple-outline" label={`${wallets.length} dompet`} inverse />
-                                {sharedGoalsCount > 0 ? (
-                                    <ContextBadge icon="account-group-outline" label={`${sharedGoalsCount} target bersama`} inverse />
-                                ) : null}
-                            </>
-                        }
-                        stats={[
-                            { label: 'Pemasukan', value: formatCurrency(totalIncome), icon: 'arrow-up' },
-                            { label: 'Pengeluaran', value: formatCurrency(totalExpense), icon: 'arrow-down' },
-                        ]}
-                        ctaLabel="Buka insight keuangan"
-                        onPressCta={() => navigation.navigate('Report')}
-                    />
-                </Animated.View>
+                    <View style={[styles.overviewGrid, metrics.isWide ? styles.overviewGridWide : null]}>
+                        <View style={styles.overviewMain}>
+                            <HeroSummaryCard
+                                eyebrow="Ringkasan Hari Ini"
+                                title="Saldo total lintas dompet"
+                                value={formatCurrency(totalBalance)}
+                                description={
+                                    netBalance >= 0
+                                        ? 'Arus kas bulan ini masih positif. Waktu yang bagus untuk lanjutkan target utama.'
+                                        : 'Pengeluaran sedang lebih tinggi dari pemasukan bulan ini. Perlu cek kategori yang paling aktif.'
+                                }
+                                icon="wallet-outline"
+                                badges={
+                                    <>
+                                        <ContextBadge icon="piggy-bank-outline" label={`${goals.length} target`} inverse />
+                                        <ContextBadge icon="credit-card-multiple-outline" label={`${wallets.length} dompet`} inverse />
+                                        {sharedGoalsCount > 0 ? (
+                                            <ContextBadge icon="account-group-outline" label={`${sharedGoalsCount} target bersama`} inverse />
+                                        ) : null}
+                                    </>
+                                }
+                                stats={[
+                                    { label: 'Pemasukan', value: formatCurrency(totalIncome), icon: 'arrow-up' },
+                                    { label: 'Pengeluaran', value: formatCurrency(totalExpense), icon: 'arrow-down' },
+                                ]}
+                                ctaLabel="Buka insight keuangan"
+                                onPressCta={() => navigation.navigate('Report')}
+                            />
+                        </View>
 
-                <Animated.View entering={FadeInDown.delay(80).springify()} style={styles.sectionGap}>
-                    <SectionHeader
-                        title="Aksi cepat"
-                        subtitle="Tiga pintu masuk utama untuk menjaga ritme harian tetap cepat."
-                    />
-                    <View style={[styles.quickActionGrid, metrics.widthClass === 'compact' ? styles.quickActionGridStack : null]}>
-                        {quickActions.map((item) => (
-                            <QuickActionCard key={item.id} item={item} />
-                        ))}
+                        <View style={styles.overviewSide}>
+                            <SectionHeader
+                                title="Aksi cepat"
+                                subtitle="Pintu masuk utama untuk ritme harian."
+                            />
+                            <View style={[styles.quickActionGrid, metrics.widthClass === 'compact' ? styles.quickActionGridStack : null, metrics.isWide ? styles.quickActionGridWide : null]}>
+                                {quickActions.map((item) => (
+                                    <QuickActionCard key={item.id} item={item} />
+                                ))}
+                            </View>
+
+                            <InsightPanel
+                                title="Fokus yang layak dipantau"
+                                description={
+                                    sharedGoalsCount > 0
+                                        ? `Ada ${sharedGoalsCount} target bersama aktif. Pastikan konteks wallet dan ownership tetap jelas saat menambah progres.`
+                                        : activeGoals.length > 0
+                                            ? `Masih ada ${activeGoals.length} target aktif. Sedikit kontribusi rutin akan menjaga progres tetap sehat.`
+                                            : 'Belum ada target aktif. Membuat satu target utama akan membantu dashboard terasa lebih actionable.'
+                                }
+                                badges={
+                                    <>
+                                        <ContextBadge
+                                            icon={netBalance >= 0 ? 'trending-up' : 'trending-down'}
+                                            label={netBalance >= 0 ? 'Arus kas positif' : 'Perlu perhatian'}
+                                            tone={netBalance >= 0 ? 'success' : 'warning'}
+                                        />
+                                        <ContextBadge icon="calendar-month-outline" label="Bulan berjalan" tone="neutral" />
+                                    </>
+                                }
+                                actionLabel={activeGoals.length > 0 ? 'Lihat target aktif' : 'Buat target pertama'}
+                                onAction={() =>
+                                    navigation.navigate('Savings', {
+                                        screen: activeGoals.length > 0 ? 'SavingList' : 'AddSavingGoal',
+                                    })
+                                }
+                            />
+                        </View>
                     </View>
                 </Animated.View>
 
-                <Animated.View entering={FadeInDown.delay(120).springify()} style={styles.sectionGap}>
-                    <InsightPanel
-                        title="Fokus yang layak dipantau"
-                        description={
-                            sharedGoalsCount > 0
-                                ? `Ada ${sharedGoalsCount} target bersama aktif. Pastikan konteks wallet dan ownership tetap jelas saat menambah progres.`
-                                : activeGoals.length > 0
-                                    ? `Masih ada ${activeGoals.length} target aktif. Sedikit kontribusi rutin akan menjaga progres tetap sehat.`
-                                    : 'Belum ada target aktif. Membuat satu target utama akan membantu dashboard terasa lebih actionable.'
-                        }
-                        badges={
-                            <>
-                                <ContextBadge
-                                    icon={netBalance >= 0 ? 'trending-up' : 'trending-down'}
-                                    label={netBalance >= 0 ? 'Arus kas positif' : 'Perlu perhatian'}
-                                    tone={netBalance >= 0 ? 'success' : 'warning'}
-                                />
-                                <ContextBadge icon="calendar-month-outline" label="Bulan berjalan" tone="neutral" />
-                            </>
-                        }
-                        actionLabel={activeGoals.length > 0 ? 'Lihat target aktif' : 'Buat target pertama'}
-                        onAction={() =>
-                            navigation.navigate('Savings', {
-                                screen: activeGoals.length > 0 ? 'SavingList' : 'AddSavingGoal',
-                            })
-                        }
-                    />
-                </Animated.View>
-
-                <Animated.View entering={FadeInUp.delay(160).springify()} style={styles.sectionGap}>
-                    <SectionHeader
-                        title="Target tabungan"
-                        subtitle="Target yang sedang bergerak sekarang, lengkap dengan konteks personal atau shared."
-                        actionLabel="Lihat semua"
-                        onAction={() => navigation.navigate('Savings', { screen: 'SavingList' })}
-                    />
-
-                    {savingLoading ? (
-                        <View style={styles.cardList}>
-                            <SavingGoalCardSkeleton />
-                            <SavingGoalCardSkeleton />
-                        </View>
-                    ) : activeGoals.length === 0 ? (
-                        <EmptyState
-                            icon="piggy-bank-outline"
-                            title="Belum ada target aktif"
-                            description="Mulai dari satu target utama dulu supaya dashboard punya alasan yang jelas untuk dipantau setiap hari."
-                            actionLabel="Buat target"
-                            onAction={() => navigation.navigate('Savings', { screen: 'AddSavingGoal' })}
+                <Animated.View entering={FadeInUp.delay(160).springify()} style={[styles.bottomGrid, metrics.isWide ? styles.bottomGridWide : null, styles.bottomSpacing]}>
+                    <View style={styles.bottomColumn}>
+                        <SectionHeader
+                            title="Target tabungan"
+                            subtitle="Target yang sedang bergerak sekarang, lengkap dengan konteks personal atau shared."
+                            actionLabel="Lihat semua"
+                            onAction={() => navigation.navigate('Savings', { screen: 'SavingList' })}
                         />
-                    ) : (
-                        <View style={styles.cardList}>
-                            {activeGoals.slice(0, 2).map((goal, index) => (
-                                <SavingGoalCard
-                                    key={goal.id}
-                                    goal={goal}
-                                    animationDelay={index * 70}
-                                    onPress={() => navigation.navigate('Savings', { screen: 'SavingDetail', params: { goalId: goal.id } })}
-                                    onAddSaving={() =>
-                                        navigation.navigate('Savings', { screen: 'SavingDetail', params: { goalId: goal.id } })
-                                    }
-                                />
-                            ))}
-                        </View>
-                    )}
-                </Animated.View>
 
-                <Animated.View entering={FadeInUp.delay(220).springify()} style={[styles.sectionGap, styles.bottomSpacing]}>
-                    <SectionHeader
-                        title="Transaksi terbaru"
-                        subtitle="Pantau apa yang baru berubah sebelum kamu pindah ke layar transaksi penuh."
-                        actionLabel="Lihat semua"
-                        onAction={() => navigation.navigate('Transactions', { screen: 'TransactionList' })}
-                    />
-
-                    <View style={styles.transactionPanel}>
-                        {txLoading ? (
-                            <>
-                                <TransactionItemSkeleton />
-                                <TransactionItemSkeleton />
-                            </>
-                        ) : recentTransactions.length === 0 ? (
+                        {savingLoading ? (
+                            <View style={styles.cardList}>
+                                <SavingGoalCardSkeleton />
+                                <SavingGoalCardSkeleton />
+                            </View>
+                        ) : activeGoals.length === 0 ? (
                             <EmptyState
-                                icon="receipt-text-outline"
-                                title="Belum ada transaksi"
-                                description="Catatan pertama akan langsung membuat dashboard lebih hidup dan laporan lebih berguna."
-                                actionLabel="Tambah transaksi"
-                                onAction={() => navigation.navigate('Transactions', { screen: 'AddTransaction' })}
-                                compact
+                                icon="piggy-bank-outline"
+                                title="Belum ada target aktif"
+                                description="Mulai dari satu target utama dulu supaya dashboard punya alasan yang jelas untuk dipantau setiap hari."
+                                actionLabel="Buat target"
+                                onAction={() => navigation.navigate('Savings', { screen: 'AddSavingGoal' })}
                             />
                         ) : (
-                            recentTransactions.map((transaction, index) => (
-                                <View key={transaction.id}>
-                                    <TransactionItem
-                                        transaction={transaction}
-                                        onDelete={removeTransaction}
-                                        onEdit={(id) => navigation.navigate('Transactions', { screen: 'AddTransaction', params: { editId: id } })}
-                                        onPress={(item) =>
-                                            navigation.navigate('Transactions', { screen: 'TransactionDetail', params: { transactionId: item.id } })
+                            <View style={styles.cardList}>
+                                {activeGoals.slice(0, 2).map((goal, index) => (
+                                    <SavingGoalCard
+                                        key={goal.id}
+                                        goal={goal}
+                                        animationDelay={index * 70}
+                                        onPress={() => navigation.navigate('Savings', { screen: 'SavingDetail', params: { goalId: goal.id } })}
+                                        onAddSaving={() =>
+                                            navigation.navigate('Savings', { screen: 'SavingDetail', params: { goalId: goal.id } })
                                         }
                                     />
-                                    {index < recentTransactions.length - 1 ? <View style={styles.separator} /> : null}
-                                </View>
-                            ))
+                                ))}
+                            </View>
                         )}
+                    </View>
+
+                    <View style={styles.bottomColumn}>
+                        <SectionHeader
+                            title="Transaksi terbaru"
+                            subtitle="Pantau apa yang baru berubah sebelum kamu pindah ke layar transaksi penuh."
+                            actionLabel="Lihat semua"
+                            onAction={() => navigation.navigate('Transactions', { screen: 'TransactionList' })}
+                        />
+
+                        <View style={styles.transactionPanel}>
+                            {txLoading ? (
+                                <>
+                                    <TransactionItemSkeleton />
+                                    <TransactionItemSkeleton />
+                                </>
+                            ) : recentTransactions.length === 0 ? (
+                                <EmptyState
+                                    icon="receipt-text-outline"
+                                    title="Belum ada transaksi"
+                                    description="Catatan pertama akan langsung membuat dashboard lebih hidup dan laporan lebih berguna."
+                                    actionLabel="Tambah transaksi"
+                                    onAction={() => navigation.navigate('Transactions', { screen: 'AddTransaction' })}
+                                    compact
+                                />
+                            ) : (
+                                recentTransactions.map((transaction, index) => (
+                                    <View key={transaction.id}>
+                                        <TransactionItem
+                                            transaction={transaction}
+                                            onDelete={removeTransaction}
+                                            onEdit={(id) => navigation.navigate('Transactions', { screen: 'AddTransaction', params: { editId: id } })}
+                                            onPress={(item) =>
+                                                navigation.navigate('Transactions', { screen: 'TransactionDetail', params: { transactionId: item.id } })
+                                            }
+                                        />
+                                        {index < recentTransactions.length - 1 ? <View style={styles.separator} /> : null}
+                                    </View>
+                                ))
+                            )}
+                        </View>
                     </View>
                 </Animated.View>
             </ScrollView>
@@ -337,8 +344,17 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             paddingBottom: 36,
             gap: 20,
         },
+        contentWide: {
+            maxWidth: 1280,
+            width: '100%',
+            alignSelf: 'center',
+            paddingTop: 10,
+        },
         sectionGap: {
             gap: 14,
+        },
+        sectionGapWide: {
+            gap: 18,
         },
         profileRow: {
             flexDirection: 'row',
@@ -346,12 +362,29 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             justifyContent: 'space-between',
             gap: 12,
         },
+        overviewGrid: {
+            gap: 16,
+        },
+        overviewGridWide: {
+            flexDirection: 'row',
+            alignItems: 'stretch',
+        },
+        overviewMain: {
+            flex: 1.2,
+        },
+        overviewSide: {
+            flex: 0.8,
+            gap: 14,
+        },
         quickActionGrid: {
             flexDirection: 'row',
             flexWrap: 'wrap',
             gap: 12,
         },
         quickActionGridStack: {
+            flexDirection: 'column',
+        },
+        quickActionGridWide: {
             flexDirection: 'column',
         },
         quickActionCard: {
@@ -391,6 +424,17 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             borderRadius: BorderRadius['4xl'],
             padding: 8,
             overflow: 'hidden',
+        },
+        bottomGrid: {
+            gap: 18,
+        },
+        bottomGridWide: {
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+        },
+        bottomColumn: {
+            flex: 1,
+            gap: 14,
         },
         separator: {
             height: 1,

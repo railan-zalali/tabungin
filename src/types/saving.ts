@@ -15,6 +15,7 @@ export interface SavingGoal {
     period_type: PeriodType;
     color: string;
     start_date: number;
+    deadline_at: number;
     estimated_date: number;
     is_completed: boolean;
     reminder_enabled: boolean;
@@ -34,6 +35,8 @@ export interface SavingLog {
     note: string | null;
     date: number;
     created_at: number;
+    updated_at?: number;
+    sync_status?: string;
 }
 
 export interface SavingGoalWithLogs extends SavingGoal {
@@ -52,7 +55,7 @@ export interface GoalSharingActivity {
     goal_id: string;
     wallet_id: string;
     user_email: string;
-    action: 'shared' | 'revoked' | 'permission_changed' | 'access_granted' | 'goal_created' | 'contribution_added';
+    action: 'shared' | 'revoked' | 'permission_changed' | 'access_granted' | 'goal_created' | 'contribution_added' | 'contribution_updated' | 'contribution_removed';
     performed_by: string;
     metadata: string | null;
     timestamp: number;

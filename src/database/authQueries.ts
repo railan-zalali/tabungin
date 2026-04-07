@@ -4,6 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 import { getInitializedDatabase } from './schema';
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
+import { AppAccentPalette } from '../constants/colors';
 
 export interface UserRecord {
     id: string;
@@ -14,7 +15,7 @@ export interface UserRecord {
 }
 
 const SECURE_SESSION_KEY = 'tabungin_session_v2';
-const AVATAR_COLORS = ['#1DB954', '#F5A623', '#3B82F6', '#8B5CF6', '#EC4899', '#06B6D4'];
+const AVATAR_COLORS = [...AppAccentPalette];
 
 function randomAvatarColor(): string {
     return AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];

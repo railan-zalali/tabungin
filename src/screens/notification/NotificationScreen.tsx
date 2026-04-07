@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect } from 'react';
-import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { useNotificationStore } from '../../store/useNotificationStore';
@@ -51,7 +52,7 @@ function resolveNotificationTone(type: string, colors: ReturnType<typeof useThem
     }
 }
 
-function NotificationCard({
+const NotificationCard = React.memo(function NotificationCard({
     item,
     onOpen,
     onRead,
@@ -76,6 +77,9 @@ function NotificationCard({
                 onOpen();
             }}
             activeOpacity={0.9}
+            accessibilityRole="button"
+            accessibilityLabel={`${item.title}. ${item.body}`}
+            accessibilityHint="Buka detail notifikasi atau aksi terkait"
         >
             <View style={[styles.notificationIcon, { backgroundColor: palette.bg }]}>
                 <MaterialCommunityIcons name={palette.icon as any} size={20} color={palette.fg} />
@@ -88,12 +92,17 @@ function NotificationCard({
                 <Text style={styles.notificationBody} numberOfLines={2}>{item.body}</Text>
                 <Text style={styles.notificationTime}>{getTimeAgo(item.created_at)}</Text>
             </View>
-            <TouchableOpacity onPress={() => onDelete(item.id)} style={styles.deleteButton}>
+            <TouchableOpacity
+                onPress={() => onDelete(item.id)}
+                style={styles.deleteButton}
+                accessibilityRole="button"
+                accessibilityLabel={`Hapus notifikasi ${item.title}`}
+            >
                 <MaterialCommunityIcons name="close" size={18} color={colors.textTertiary} />
             </TouchableOpacity>
         </TouchableOpacity>
     );
-}
+});
 
 export function NotificationScreen() {
     const navigation = useNavigation<SettingsChildNavigationProp<'Notifications'>>();
@@ -162,7 +171,7 @@ export function NotificationScreen() {
                 variant="transparent"
             />
 
-            <FlatList
+            <FlashList
                 data={notifications}
                 keyExtractor={(item) => item.id}
                 showsVerticalScrollIndicator={false}

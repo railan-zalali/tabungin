@@ -7,7 +7,14 @@ import {
     fetchBudgetSummary,
     type BudgetWithSpent,
 } from '../database/budgetQueries';
+import { syncDatabase } from '../database/sync';
+import { useAuthStore } from './useAuthStore';
 import { rescheduleCrossFeatureReminders } from '../utils/notificationService';
+
+function triggerBackgroundSyncIfAllowed() {
+    if (!useAuthStore.getState().canSync) return;
+    syncDatabase().catch(console.error);
+}
 
 interface BudgetState {
     budgets: BudgetWithSpent[];
@@ -65,6 +72,7 @@ export const useBudgetStore = create<BudgetState>((set, get) => {
             await upsertBudget(category, amount, m, y, options);
             await get().loadBudgets(m, y);
             await rescheduleCrossFeatureReminders();
+            triggerBackgroundSyncIfAllowed();
         },
 
         removeBudget: async (id) => {
@@ -72,6 +80,7 @@ export const useBudgetStore = create<BudgetState>((set, get) => {
             set((state) => ({ budgets: state.budgets.filter((b) => b.id !== id) }));
             await get().refreshSummary();
             await rescheduleCrossFeatureReminders();
+            triggerBackgroundSyncIfAllowed();
         },
 
         refreshSummary: async () => {

@@ -1,5 +1,6 @@
 import { getInitializedDatabase } from './schema';
 import { v4 as uuidv4 } from 'uuid';
+import { Colors } from '../constants/colors';
 
 export interface Profile {
     id: string;
@@ -17,7 +18,7 @@ export async function fetchProfiles(): Promise<Profile[]> {
     return await db.getAllAsync<Profile>('SELECT * FROM profiles WHERE sync_status != ? ORDER BY created_at ASC', ['pending_delete']);
 }
 
-export async function insertProfile(name: string, icon: string = 'account', color: string = '#1DB954'): Promise<Profile> {
+export async function insertProfile(name: string, icon: string = 'account', color: string = Colors.primary): Promise<Profile> {
     const db = await getInitializedDatabase();
     const id = uuidv4();
     const now = Date.now();

@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { FlashList } from '@shopify/flash-list';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { formatCurrency } from '../../utils/currency';
@@ -16,14 +17,20 @@ import { FilterBar } from '../../components/common/FilterBar';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { TransactionItemSkeleton } from '../../components/common/SkeletonLoader';
 import { TransactionItem } from '../../components/transaction/TransactionItem';
+import { useResponsiveMetrics } from '../../utils/responsive';
 
 type FilterType = 'all' | 'income' | 'expense';
 type PeriodType = 'today' | 'week' | 'month' | 'all';
+type TransactionListRow =
+    | { id: string; kind: 'section'; title: string; totalIncome: number; totalExpense: number }
+    | { id: string; kind: 'transaction'; transaction: Transaction; isLastInSection: boolean }
+    | { id: string; kind: 'spacer' };
 
 export function TransactionListScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<any>>();
     const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const metrics = useResponsiveMetrics();
     const { transactions, isLoading, loadTransactions, removeTransaction } = useTransactionStore();
     const loadCategories = useCategoryStore((state) => state.loadCategories);
     const categoryCount = useCategoryStore((state) => state.categories.length);
@@ -81,6 +88,29 @@ export function TransactionListScreen() {
             totalExpense: group.transactions.filter((item) => item.type === 'expense').reduce((sum, item) => sum + item.amount, 0),
         }));
     }, [transactions]);
+    const rows = useMemo<TransactionListRow[]>(
+        () =>
+            grouped.flatMap((section) => [
+                {
+                    id: `section-${section.date}`,
+                    kind: 'section' as const,
+                    title: section.title,
+                    totalIncome: section.totalIncome,
+                    totalExpense: section.totalExpense,
+                },
+                ...section.data.map((transaction, index) => ({
+                    id: transaction.id,
+                    kind: 'transaction' as const,
+                    transaction,
+                    isLastInSection: index === section.data.length - 1,
+                })),
+                {
+                    id: `spacer-${section.date}`,
+                    kind: 'spacer' as const,
+                },
+            ]),
+        [grouped],
+    );
 
     const netAmount = useMemo(
         () =>
@@ -105,47 +135,51 @@ export function TransactionListScreen() {
                 variant="transparent"
             />
 
-            <View style={styles.content}>
-                <FilterBar
-                    title="Cari dan saring"
-                    subtitle="Supaya daftar panjang tetap terasa ringan dipindai."
-                    searchValue={search}
-                    onSearchChange={setSearch}
-                    searchPlaceholder="Cari kategori atau catatan..."
-                    resultLabel={`${grouped.length} kelompok hari`}
-                    segmentValue={filterType}
-                    segmentOptions={[
-                        { id: 'all', label: 'Semua' },
-                        { id: 'income', label: 'Pemasukan' },
-                        { id: 'expense', label: 'Pengeluaran' },
-                    ]}
-                    onSegmentChange={setFilterType}
-                    chipValue={filterPeriod}
-                    chipOptions={[
-                        { id: 'today', label: 'Hari ini' },
-                        { id: 'week', label: 'Minggu ini' },
-                        { id: 'month', label: 'Bulan ini' },
-                        { id: 'all', label: 'Semua' },
-                    ]}
-                    onChipChange={setFilterPeriod}
-                />
+            <View style={[styles.content, metrics.isWide ? styles.contentWide : null]}>
+                <View style={[styles.topGrid, metrics.isWide ? styles.topGridWide : null]}>
+                    <View style={styles.topMain}>
+                        <FilterBar
+                            title="Cari dan saring"
+                            subtitle="Supaya daftar panjang tetap terasa ringan dipindai."
+                            searchValue={search}
+                            onSearchChange={setSearch}
+                            searchPlaceholder="Cari kategori atau catatan..."
+                            resultLabel={`${grouped.length} kelompok hari`}
+                            segmentValue={filterType}
+                            segmentOptions={[
+                                { id: 'all', label: 'Semua' },
+                                { id: 'income', label: 'Pemasukan' },
+                                { id: 'expense', label: 'Pengeluaran' },
+                            ]}
+                            onSegmentChange={setFilterType}
+                            chipValue={filterPeriod}
+                            chipOptions={[
+                                { id: 'today', label: 'Hari ini' },
+                                { id: 'week', label: 'Minggu ini' },
+                                { id: 'month', label: 'Bulan ini' },
+                                { id: 'all', label: 'Semua' },
+                            ]}
+                            onChipChange={setFilterPeriod}
+                        />
+                    </View>
 
-                <View style={styles.summaryStrip}>
-                    <View style={styles.summaryItem}>
-                        <Text style={styles.summaryLabel}>Transaksi</Text>
-                        <Text style={styles.summaryValue}>{transactions.length}</Text>
-                    </View>
-                    <View style={styles.summaryDivider} />
-                    <View style={styles.summaryItem}>
-                        <Text style={styles.summaryLabel}>Net</Text>
-                        <Text style={[styles.summaryValue, { color: netAmount >= 0 ? colors.success : colors.danger }]}>
-                            {formatCurrency(Math.abs(netAmount))}
-                        </Text>
-                    </View>
-                    <View style={styles.summaryDivider} />
-                    <View style={styles.summaryItem}>
-                        <Text style={styles.summaryLabel}>Mode</Text>
-                        <Text style={styles.summaryValue}>{filterPeriod === 'all' ? 'Semua' : filterPeriod}</Text>
+                    <View style={[styles.summaryStrip, metrics.isWide ? styles.summaryStripWide : null]}>
+                        <View style={styles.summaryItem}>
+                            <Text style={styles.summaryLabel}>Transaksi</Text>
+                            <Text style={styles.summaryValue}>{transactions.length}</Text>
+                        </View>
+                        <View style={[styles.summaryDivider, metrics.isWide ? styles.summaryDividerWide : null]} />
+                        <View style={styles.summaryItem}>
+                            <Text style={styles.summaryLabel}>Net</Text>
+                            <Text style={[styles.summaryValue, { color: netAmount >= 0 ? colors.success : colors.danger }]}>
+                                {formatCurrency(Math.abs(netAmount))}
+                            </Text>
+                        </View>
+                        <View style={[styles.summaryDivider, metrics.isWide ? styles.summaryDividerWide : null]} />
+                        <View style={styles.summaryItem}>
+                            <Text style={styles.summaryLabel}>Mode</Text>
+                            <Text style={styles.summaryValue}>{filterPeriod === 'all' ? 'Semua' : filterPeriod}</Text>
+                        </View>
                     </View>
                 </View>
 
@@ -166,34 +200,41 @@ export function TransactionListScreen() {
                         />
                     </View>
                 ) : (
-                    <SectionList
-                        sections={grouped}
+                    <FlashList
+                        data={rows}
                         keyExtractor={(item) => item.id}
                         showsVerticalScrollIndicator={false}
-                        stickySectionHeadersEnabled={false}
                         contentContainerStyle={styles.listContent}
                         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-                        renderSectionHeader={({ section }) => (
-                            <View style={styles.sectionHeader}>
-                                <Text style={styles.sectionTitle}>{section.title}</Text>
-                                <View style={styles.sectionMeta}>
-                                    {section.totalIncome > 0 ? <Text style={styles.incomeText}>+{formatCurrency(section.totalIncome)}</Text> : null}
-                                    {section.totalExpense > 0 ? <Text style={styles.expenseText}>-{formatCurrency(section.totalExpense)}</Text> : null}
+                        renderItem={({ item }) => {
+                            if (item.kind === 'section') {
+                                return (
+                                    <View style={styles.sectionHeader}>
+                                        <Text style={styles.sectionTitle}>{item.title}</Text>
+                                        <View style={styles.sectionMeta}>
+                                            {item.totalIncome > 0 ? <Text style={styles.incomeText}>+{formatCurrency(item.totalIncome)}</Text> : null}
+                                            {item.totalExpense > 0 ? <Text style={styles.expenseText}>-{formatCurrency(item.totalExpense)}</Text> : null}
+                                        </View>
+                                    </View>
+                                );
+                            }
+
+                            if (item.kind === 'spacer') {
+                                return <View style={styles.sectionSpacer} />;
+                            }
+
+                            return (
+                                <View style={styles.itemBlock}>
+                                    <TransactionItem
+                                        transaction={item.transaction}
+                                        onDelete={removeTransaction}
+                                        onEdit={(id) => navigation.navigate('AddTransaction', { editId: id })}
+                                        onPress={(transaction) => navigation.navigate('TransactionDetail', { transactionId: transaction.id })}
+                                    />
+                                    {!item.isLastInSection ? <View style={styles.separator} /> : null}
                                 </View>
-                            </View>
-                        )}
-                        renderItem={({ item, index, section }) => (
-                            <View style={styles.itemBlock}>
-                                <TransactionItem
-                                    transaction={item}
-                                    onDelete={removeTransaction}
-                                    onEdit={(id) => navigation.navigate('AddTransaction', { editId: id })}
-                                    onPress={(transaction) => navigation.navigate('TransactionDetail', { transactionId: transaction.id })}
-                                />
-                                {index < section.data.length - 1 ? <View style={styles.separator} /> : null}
-                            </View>
-                        )}
-                        renderSectionFooter={() => <View style={{ height: 16 }} />}
+                            );
+                        }}
                     />
                 )}
             </View>
@@ -208,6 +249,22 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             paddingHorizontal: 20,
             gap: 14,
         },
+        contentWide: {
+            maxWidth: 1240,
+            width: '100%',
+            alignSelf: 'center',
+            paddingTop: 10,
+        },
+        topGrid: {
+            gap: 14,
+        },
+        topGridWide: {
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+        },
+        topMain: {
+            flex: 1,
+        },
         summaryStrip: {
             flexDirection: 'row',
             alignItems: 'center',
@@ -218,6 +275,13 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             paddingHorizontal: 14,
             paddingVertical: 14,
         },
+        summaryStripWide: {
+            width: 320,
+            minHeight: 136,
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            paddingVertical: 18,
+        },
         summaryItem: {
             flex: 1,
             alignItems: 'center',
@@ -227,6 +291,10 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             width: 1,
             height: 28,
             backgroundColor: colors.divider,
+        },
+        summaryDividerWide: {
+            width: '100%',
+            height: 1,
         },
         summaryLabel: {
             fontFamily: FontFamily.body,
@@ -296,5 +364,8 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             backgroundColor: colors.divider,
             marginLeft: 60,
             marginRight: 12,
+        },
+        sectionSpacer: {
+            height: 16,
         },
     });

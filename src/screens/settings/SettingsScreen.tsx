@@ -31,7 +31,14 @@ function SettingRow({ icon, tone, title, subtitle, onPress, rightElement }: Sett
     const palette = getSemanticColors(colors, tone);
 
     return (
-        <TouchableOpacity style={styles.settingRow} onPress={onPress} disabled={!onPress && !rightElement}>
+        <TouchableOpacity
+            style={styles.settingRow}
+            onPress={onPress}
+            disabled={!onPress && !rightElement}
+            accessibilityRole="button"
+            accessibilityLabel={title}
+            accessibilityHint={subtitle}
+        >
             <View style={[styles.settingIcon, { backgroundColor: palette.softBg, borderColor: palette.border }]}>
                 <MaterialCommunityIcons name={icon as any} size={20} color={palette.icon} />
             </View>
@@ -60,7 +67,7 @@ export function SettingsScreen() {
     const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
     const metrics = useResponsiveMetrics();
-    const { user, hapticEnabled, setHapticEnabled, logout } = useAuthStore();
+    const { user, hapticEnabled, setHapticEnabled, logout, sessionStatus, canUseCloudCollaboration, setPostAuthRedirect } = useAuthStore();
     const { unreadCount } = useNotificationStore();
     const { mode, setMode, textSize, setTextSize } = useThemeStore();
 
@@ -72,6 +79,11 @@ export function SettingsScreen() {
     };
 
     const handleDeleteAccount = () => {
+        if (sessionStatus !== 'authenticated') {
+            Alert.alert('Perlu akun', 'Hapus akun hanya tersedia untuk sesi yang terhubung ke akun.');
+            return;
+        }
+
         Alert.alert(
             'Hapus akun',
             'Semua data transaksi, dompet, target, dan preferensi akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.',
@@ -101,20 +113,82 @@ export function SettingsScreen() {
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
                 <HeroSummaryCard
-                    eyebrow="Akun Utama"
+                    eyebrow={sessionStatus === 'guest' ? 'Mode Guest Lokal' : 'Akun Utama'}
                     title={user?.name ?? 'Pengguna Tabungin'}
-                    value={user?.email || '-'}
-                    description="Profil ini dipakai untuk sinkronisasi, shared wallet, dan konteks identitas utama aplikasi."
+                    value={user?.email || 'Belum terhubung ke akun'}
+                    description={
+                        sessionStatus === 'guest'
+                            ? 'Kamu sedang memakai mode lokal. Data tetap bisa dipakai di perangkat ini, tetapi sinkronisasi dan shared wallet belum aktif.'
+                            : 'Profil ini dipakai untuk sinkronisasi, shared wallet, dan konteks identitas utama aplikasi.'
+                    }
                     icon="account-circle-outline"
                     badges={
                         <>
                             <ContextBadge icon="bell-outline" label={unreadCount > 0 ? `${unreadCount} notifikasi` : 'Inbox bersih'} inverse />
                             <ContextBadge icon="theme-light-dark" label={mode === 'dark' ? 'Mode gelap aktif' : 'Mode terang aktif'} inverse />
+                            {!canUseCloudCollaboration ? <ContextBadge icon="cloud-off-outline" label="Cloud nonaktif" inverse /> : null}
                         </>
                     }
                 />
 
-                <TouchableOpacity style={styles.profileCard} onPress={() => navigation.navigate('Profile')}>
+                {!canUseCloudCollaboration ? (
+                    <View style={styles.guestNotice}>
+                        <MaterialCommunityIcons name="information-outline" size={18} color={colors.primary} />
+                        <Text style={styles.guestNoticeText}>
+                            Shared wallet, sinkronisasi cloud, dan reset password membutuhkan akun. Fitur lokal seperti pencatatan, export, dan import tetap tersedia.
+                        </Text>
+                    </View>
+                ) : null}
+
+                {!canUseCloudCollaboration ? (
+                    <View style={styles.accountUpgradeRow}>
+                        <TouchableOpacity
+                            style={[styles.accountUpgradeButton, styles.accountUpgradePrimary]}
+                            onPress={() => {
+                                setPostAuthRedirect({ screen: 'Settings', params: { screen: 'SettingsMain' } });
+                                navigation.navigate('Login');
+                            }}
+                            accessibilityRole="button"
+                            accessibilityLabel="Masuk dengan akun"
+                        >
+                            <Text style={styles.accountUpgradePrimaryText}>Masuk dengan akun</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.accountUpgradeButton, styles.accountUpgradeSecondary]}
+                            onPress={() => {
+                                setPostAuthRedirect({ screen: 'Settings', params: { screen: 'SettingsMain' } });
+                                navigation.navigate('Register');
+                            }}
+                            accessibilityRole="button"
+                            accessibilityLabel="Buat akun baru"
+                        >
+                            <Text style={styles.accountUpgradeSecondaryText}>Buat akun</Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : null}
+
+                <View style={styles.capabilityCard}>
+                    <Text style={styles.capabilityTitle}>Capability Matrix</Text>
+                    <View style={styles.capabilityRow}>
+                        <Text style={styles.capabilityLabel}>Pencatatan lokal</Text>
+                        <ContextBadge icon="check-circle-outline" label="Aktif" tone="success" />
+                    </View>
+                    <View style={styles.capabilityRow}>
+                        <Text style={styles.capabilityLabel}>Sinkronisasi cloud</Text>
+                        <ContextBadge icon={canUseCloudCollaboration ? 'cloud-check-outline' : 'cloud-off-outline'} label={canUseCloudCollaboration ? 'Aktif' : 'Nonaktif'} tone={canUseCloudCollaboration ? 'success' : 'warning'} />
+                    </View>
+                    <View style={styles.capabilityRow}>
+                        <Text style={styles.capabilityLabel}>Shared wallet</Text>
+                        <ContextBadge icon={canUseCloudCollaboration ? 'account-group-outline' : 'account-off-outline'} label={canUseCloudCollaboration ? 'Aktif' : 'Butuh akun'} tone={canUseCloudCollaboration ? 'info' : 'warning'} />
+                    </View>
+                </View>
+
+                <TouchableOpacity
+                    style={styles.profileCard}
+                    onPress={() => navigation.navigate('Profile')}
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit profil utama"
+                >
                     <View style={[styles.avatar, { backgroundColor: user?.avatarColor ?? colors.primary }]}>
                         <Text style={styles.avatarText}>{userInitial}</Text>
                     </View>
@@ -181,6 +255,9 @@ export function SettingsScreen() {
                                         textSize === option.id ? styles.textSizeButtonActive : null,
                                     ]}
                                     onPress={() => setTextSize(option.id as typeof textSize)}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Atur ukuran teks ${option.label}`}
+                                    accessibilityState={{ selected: textSize === option.id }}
                                 >
                                     <Text style={[styles.textSizeButtonText, textSize === option.id ? styles.textSizeButtonTextActive : null]}>
                                         {option.label}
@@ -276,8 +353,12 @@ export function SettingsScreen() {
                     <SettingRow
                         icon="delete-alert-outline"
                         tone="danger"
-                        title="Hapus akun"
-                        subtitle="Hapus permanen seluruh data dan identitas akun."
+                        title={sessionStatus === 'authenticated' ? 'Hapus akun' : 'Akun belum terhubung'}
+                        subtitle={
+                            sessionStatus === 'authenticated'
+                                ? 'Hapus permanen seluruh data dan identitas akun.'
+                                : 'Masuk dengan akun bila ingin mengelola atau menghapus akun cloud.'
+                        }
                         onPress={handleDeleteAccount}
                     />
                 </SettingSection>
@@ -292,6 +373,77 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             paddingHorizontal: 20,
             paddingBottom: 108,
             gap: 18,
+        },
+        guestNotice: {
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            gap: 12,
+            backgroundColor: colors.primaryBg,
+            borderWidth: 1,
+            borderColor: `${colors.primary}22`,
+            borderRadius: BorderRadius['3xl'],
+            padding: 16,
+        },
+        guestNoticeText: {
+            flex: 1,
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            lineHeight: 20,
+            color: colors.textSecondary,
+        },
+        accountUpgradeRow: {
+            flexDirection: 'row',
+            gap: 12,
+        },
+        accountUpgradeButton: {
+            flex: 1,
+            minHeight: 52,
+            borderRadius: BorderRadius['2xl'],
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingHorizontal: 14,
+        },
+        accountUpgradePrimary: {
+            backgroundColor: colors.primary,
+        },
+        accountUpgradeSecondary: {
+            backgroundColor: colors.surfaceElevated,
+            borderWidth: 1,
+            borderColor: colors.borderStrong,
+        },
+        accountUpgradePrimaryText: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.body,
+            color: colors.textInverse,
+        },
+        accountUpgradeSecondaryText: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.body,
+            color: colors.textPrimary,
+        },
+        capabilityCard: {
+            gap: 12,
+            backgroundColor: colors.panelSurface,
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: BorderRadius['3xl'],
+            padding: 16,
+        },
+        capabilityTitle: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.body,
+            color: colors.textPrimary,
+        },
+        capabilityRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+        },
+        capabilityLabel: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.body,
+            color: colors.textSecondary,
         },
         profileCard: {
             flexDirection: 'row',

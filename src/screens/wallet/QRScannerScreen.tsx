@@ -7,6 +7,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../store/useThemeStore';
+import { useAuthStore } from '../../store/useAuthStore';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { Button } from '../../components/common/Button';
@@ -17,19 +18,59 @@ export function QRScannerScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const styles = React.useMemo(() => getStyles(colors), [colors]);
+  const canUseCloudCollaboration = useAuthStore((state) => state.canUseCloudCollaboration);
+  const setPostAuthRedirect = useAuthStore((state) => state.setPostAuthRedirect);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [isPickingImage, setIsPickingImage] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{ uri: string; fileName: string } | null>(null);
 
   useEffect(() => {
+    if (!canUseCloudCollaboration) {
+      setHasPermission(false);
+      return;
+    }
+
     const getCameraPermissions = async () => {
       const { status } = await Camera.requestCameraPermissionsAsync();
       setHasPermission(status === 'granted');
     };
 
     getCameraPermissions();
-  }, []);
+  }, [canUseCloudCollaboration]);
+
+  if (!canUseCloudCollaboration) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
+        <LinearGradient colors={[colors.primary, colors.primaryDark, colors.primary]} style={styles.permissionCard}>
+          <MaterialCommunityIcons name="account-lock-outline" size={64} color={colors.textInverse} />
+          <Text style={styles.permissionTitle}>Mode guest belum bisa scan undangan</Text>
+          <Text style={styles.permissionText}>
+            Scan QR undangan dompet membutuhkan akun yang terhubung ke cloud. Setelah masuk, kamu akan kembali ke layar ini.
+          </Text>
+          <Button
+            label="Masuk dengan akun"
+            onPress={() => {
+              setPostAuthRedirect({ screen: 'Wallet', params: { screen: 'QRScanner' } });
+              navigation.navigate('Login');
+            }}
+            fullWidth
+          />
+          <Button
+            label="Buat akun"
+            onPress={() => {
+              setPostAuthRedirect({ screen: 'Wallet', params: { screen: 'QRScanner' } });
+              navigation.navigate('Register');
+            }}
+            variant="secondary"
+            fullWidth
+          />
+          <Button label="Kembali" onPress={() => navigation.goBack()} variant="ghost" fullWidth />
+        </LinearGradient>
+      </View>
+    );
+  }
 
   const handleInvitePayload = (rawValue: string) => {
     setScanned(true);

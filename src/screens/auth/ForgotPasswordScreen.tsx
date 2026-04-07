@@ -8,7 +8,6 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,6 +21,7 @@ import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useTheme } from '../../store/useThemeStore';
+import { triggerHapticNotification } from '../../utils/haptics';
 import { validateEmail } from '../../utils/validation';
 import type { RootStackParamList } from '../../types/navigation';
 
@@ -39,7 +39,7 @@ export function ForgotPasswordScreen() {
         const emailError = validateEmail(email);
         if (emailError) {
             setError(emailError);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            triggerHapticNotification();
             return;
         }
 
@@ -49,7 +49,7 @@ export function ForgotPasswordScreen() {
             if (result.success) {
                 setIsSuccess(true);
                 setError(undefined);
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                triggerHapticNotification();
             } else {
                 setError(result.error || 'Link reset belum berhasil dikirim.');
             }
@@ -62,7 +62,12 @@ export function ForgotPasswordScreen() {
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
                 <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                    <TouchableOpacity style={styles.backLink} onPress={() => navigation.goBack()}>
+                    <TouchableOpacity
+                        style={styles.backLink}
+                        onPress={() => navigation.goBack()}
+                        accessibilityRole="button"
+                        accessibilityLabel="Kembali ke login"
+                    >
                         <MaterialCommunityIcons name="arrow-left" size={18} color={colors.primary} />
                         <Text style={styles.backLinkText}>Kembali ke login</Text>
                     </TouchableOpacity>

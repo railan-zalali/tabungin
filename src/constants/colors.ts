@@ -100,6 +100,17 @@ export const Colors = {
     },
 } as const;
 
+export const AppAccentPalette = [
+    Colors.primary,
+    '#2563EB',
+    '#B7791F',
+    '#0F766E',
+    '#BE185D',
+    '#4338CA',
+    '#B91C1C',
+    '#475569',
+] as const;
+
 // Warna kategori transaksi
 export const CategoryColors: Record<string, string> = {
     'Makan & Minum': '#F59E0B',

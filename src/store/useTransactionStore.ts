@@ -19,6 +19,11 @@ import { useAuthStore } from './useAuthStore';
 import { supabase } from '../lib/supabase';
 import { handleRealtimePayload, syncDatabase } from '../database/sync';
 import { RealtimeChannel } from '@supabase/supabase-js';
+
+function triggerBackgroundSyncIfAllowed() {
+    if (!useAuthStore.getState().canSync) return;
+    syncDatabase().catch(console.error);
+}
 interface TransactionState {
     transactions: Transaction[];
     recentTransactions: Transaction[];
@@ -82,7 +87,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         await get().refreshSummary();
         // Refresh saldo wallet
         await useWalletStore.getState().loadWallets();
-        syncDatabase().catch(console.error);
+        triggerBackgroundSyncIfAllowed();
         return transaction;
     },
 
@@ -93,7 +98,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         await get().refreshSummary();
         // Refresh saldo wallet (jika ada perubahan wallet atau amount - TODO: handle complex logic)
         await useWalletStore.getState().loadWallets();
-        syncDatabase().catch(console.error);
+        triggerBackgroundSyncIfAllowed();
     },
 
     removeTransaction: async (id) => {
@@ -105,7 +110,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         await get().refreshSummary();
         // Refresh saldo wallet
         await useWalletStore.getState().loadWallets();
-        syncDatabase().catch(console.error);
+        triggerBackgroundSyncIfAllowed();
     },
 
     setFilter: (filter) => {
@@ -144,6 +149,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
 
     realtimeChannel: null,
     initRealtime: () => {
+        if (!useAuthStore.getState().canSync) return;
         const channel = get().realtimeChannel;
         if (channel) return;
 

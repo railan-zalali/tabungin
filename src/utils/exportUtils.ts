@@ -12,6 +12,7 @@ import { formatRupiah } from './currency';
 import type { Transaction } from '../types/transaction';
 import type { SavingGoal } from '../types/saving';
 import type { BudgetWithSpent } from '../database/budgetQueries';
+import { Colors } from '../constants/colors';
 
 // ─── CSV EXPORT ─────────────────────────────────────────────────────
 export async function exportTransactionsCSV(
@@ -91,8 +92,8 @@ export async function exportReportPDF(params: {
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { font-family: Arial, sans-serif; font-size: 12px; color: #1f2937; padding: 32px; }
-            .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #1DB954; }
-            .logo { font-size: 24px; font-weight: 800; color: #1DB954; }
+            .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid ${Colors.primary}; }
+            .logo { font-size: 24px; font-weight: 800; color: ${Colors.primary}; }
             .meta { text-align: right; color: #6b7280; font-size: 11px; }
             .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
             .summary-card { background: #f9fafb; border-radius: 8px; padding: 16px; }

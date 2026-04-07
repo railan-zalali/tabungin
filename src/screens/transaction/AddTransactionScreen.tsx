@@ -14,7 +14,6 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
@@ -32,8 +31,10 @@ import { FormSection } from '../../components/common/FormSection';
 import { Input } from '../../components/common/Input';
 import { PrimaryActionBar } from '../../components/common/PrimaryActionBar';
 import { ScreenShell } from '../../components/common/ScreenShell';
+import { getReadableTextColor } from '../../utils/colorContrast';
 import { SegmentedControl } from '../../components/common/SegmentedControl';
 import { StatePanel } from '../../components/common/StatePanel';
+import { triggerHapticNotification } from '../../utils/haptics';
 
 export function AddTransactionScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<any>>();
@@ -135,7 +136,7 @@ export function AddTransactionScreen() {
         }
 
         if (!valid) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            triggerHapticNotification();
             return;
         }
 
@@ -160,7 +161,7 @@ export function AddTransactionScreen() {
         }
 
         await loadWallets();
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        triggerHapticNotification();
         navigation.goBack();
     };
 
@@ -268,6 +269,13 @@ export function AddTransactionScreen() {
                             <View style={styles.walletWrap}>
                                 {wallets.map((wallet) => {
                                     const active = selectedWalletId === wallet.id;
+                                    const walletIconColor = active
+                                        ? getReadableTextColor(wallet.color, {
+                                            light: colors.textInverse,
+                                            dark: colors.textPrimary,
+                                            threshold: 0.48,
+                                        })
+                                        : colors.textSecondary;
                                     return (
                                         <TouchableOpacity
                                             key={wallet.id}
@@ -286,7 +294,7 @@ export function AddTransactionScreen() {
                                                 <MaterialCommunityIcons
                                                     name={wallet.type === 'bank' ? 'bank' : wallet.type === 'e-wallet' ? 'cellphone' : 'wallet-outline'}
                                                     size={16}
-                                                    color={active ? colors.textInverse : colors.textSecondary}
+                                                    color={walletIconColor}
                                                 />
                                             </View>
                                             <Text style={[styles.walletChipText, active ? styles.walletChipTextActive : null]}>

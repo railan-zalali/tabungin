@@ -16,7 +16,7 @@ import { ScreenShell } from '../../components/common/ScreenShell';
 
 export function ProfileScreen() {
     const navigation = useNavigation();
-    const { user, updateProfile } = useAuthStore();
+    const { user, updateProfile, sessionStatus } = useAuthStore();
     const { colors } = useTheme();
     const metrics = useResponsiveMetrics();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
@@ -68,7 +68,9 @@ export function ProfileScreen() {
                     <View style={styles.heroCopy}>
                         <Text style={styles.heroTitle}>{user?.name ?? 'Pengguna'}</Text>
                         <Text style={styles.heroSubtitle}>
-                            {user?.email || 'Akun utama yang dipakai untuk sinkronisasi dan konteks shared wallet.'}
+                            {user?.email || (sessionStatus === 'guest'
+                                ? 'Mode guest lokal aktif. Nama ini hanya dipakai di perangkat ini sampai kamu masuk dengan akun.'
+                                : 'Akun utama yang dipakai untuk sinkronisasi dan konteks shared wallet.')}
                         </Text>
                     </View>
                 </View>
@@ -104,7 +106,9 @@ export function ProfileScreen() {
                 <View style={styles.infoCard}>
                     <MaterialCommunityIcons name="shield-check-outline" size={18} color={colors.primary} />
                     <Text style={styles.infoText}>
-                        Nama profil dipakai untuk membedakan ownership, aktivitas berbagi, dan identitas utama aplikasi.
+                        {sessionStatus === 'guest'
+                            ? 'Nama ini dipakai sebagai identitas lokal selama mode guest aktif. Sinkronisasi dan shared wallet baru aktif setelah masuk dengan akun.'
+                            : 'Nama profil dipakai untuk membedakan ownership, aktivitas berbagi, dan identitas utama aplikasi.'}
                     </Text>
                 </View>
             </ScrollView>

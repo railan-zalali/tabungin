@@ -9,6 +9,7 @@ import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { Button } from '../../components/common/Button';
+import { useAuthStore } from '../../store/useAuthStore';
 import { useTheme } from '../../store/useThemeStore';
 import type { RootStackParamList } from '../../types/navigation';
 
@@ -62,6 +63,7 @@ export function OnboardingScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const flatListRef = useRef<FlatList<Slide>>(null);
     const [currentIndex, setCurrentIndex] = useState(0);
+    const continueAsGuest = useAuthStore((state) => state.continueAsGuest);
     const { colors, gradients } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
 
@@ -86,7 +88,12 @@ export function OnboardingScreen() {
                     </View>
                 </View>
 
-                <TouchableOpacity style={styles.skipBtn} onPress={() => navigation.navigate('Login')}>
+                <TouchableOpacity
+                    style={styles.skipBtn}
+                    onPress={() => navigation.navigate('Login')}
+                    accessibilityRole="button"
+                    accessibilityLabel="Lewati onboarding dan buka login"
+                >
                     <Text style={styles.skipText}>Lewati</Text>
                 </TouchableOpacity>
             </View>
@@ -146,8 +153,22 @@ export function OnboardingScreen() {
                     fullWidth
                 />
 
-                <TouchableOpacity style={styles.secondaryCta} onPress={() => navigation.navigate('Register')}>
+                <TouchableOpacity
+                    style={styles.secondaryCta}
+                    onPress={() => navigation.navigate('Register')}
+                    accessibilityRole="button"
+                    accessibilityLabel="Buat akun baru"
+                >
                     <Text style={styles.secondaryCtaText}>Belum punya akun? Buat akun baru</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.guestCta}
+                    onPress={() => continueAsGuest()}
+                    accessibilityRole="button"
+                    accessibilityLabel="Lanjut tanpa akun"
+                >
+                    <Text style={styles.guestCtaText}>Lanjut tanpa akun</Text>
                 </TouchableOpacity>
             </View>
         </ScreenShell>
@@ -295,5 +316,17 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             fontFamily: FontFamily.bodyMedium,
             fontSize: FontSize.body,
             color: colors.textSecondary,
+        },
+        guestCta: {
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingVertical: 4,
+        },
+        guestCtaText: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.caption,
+            color: colors.primary,
+            textTransform: 'uppercase',
+            letterSpacing: 0.4,
         },
     });

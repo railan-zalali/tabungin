@@ -14,11 +14,10 @@ import Animated, {
     withSpring,
     withTiming,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
 import { FontFamily, FontSize, scaleFontSize } from '../../constants/typography';
-import { useAuthStore } from '../../store/useAuthStore';
 import { useTheme } from '../../store/useThemeStore';
 import { BorderRadius } from '../../constants/theme';
+import { triggerHapticImpact } from '../../utils/haptics';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -36,6 +35,7 @@ interface ButtonProps {
     iconPosition?: 'left' | 'right';
     style?: ViewStyle;
     textStyle?: TextStyle;
+    accessibilityLabel?: string;
     accessibilityHint?: string;
     fullWidth?: boolean;
     surface?: ButtonSurface;
@@ -55,6 +55,7 @@ export function Button({
     iconPosition = 'left',
     style,
     textStyle,
+    accessibilityLabel,
     accessibilityHint,
     fullWidth = false,
     surface = 'solid',
@@ -62,7 +63,6 @@ export function Button({
 }: ButtonProps) {
     const scale = useSharedValue(1);
     const glowOpacity = useSharedValue(variant === 'primary' ? 1 : 0);
-    const hapticEnabled = useAuthStore((s) => s.hapticEnabled);
     const { colors, motion, textSize } = useTheme();
     const styles = React.useMemo(() => getStyles(colors, textSize), [colors, textSize]);
 
@@ -86,11 +86,9 @@ export function Button({
     }, [glowOpacity, motion.duration.normal, motion.spring.snappy, scale, variant]);
 
     const handlePress = useCallback(() => {
-        if (hapticEnabled) {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
+        triggerHapticImpact();
         onPress();
-    }, [onPress, hapticEnabled]);
+    }, [onPress]);
 
     const buttonStyle = [
         styles.base,
@@ -118,7 +116,7 @@ export function Button({
             disabled={disabled || loading}
             accessible={true}
             accessibilityRole="button"
-            accessibilityLabel={label}
+            accessibilityLabel={accessibilityLabel || label}
             accessibilityHint={accessibilityHint}
             accessibilityState={{ disabled: disabled || loading, busy: loading }}
         >

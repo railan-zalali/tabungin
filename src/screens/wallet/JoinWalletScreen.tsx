@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../store/useThemeStore';
 import { useWalletStore } from '../../store/useWalletStore';
+import { useAuthStore } from '../../store/useAuthStore';
 import { Button } from '../../components/common/Button';
 import { EmptyState } from '../../components/common/EmptyState';
 import { BorderRadius } from '../../constants/theme';
@@ -14,10 +15,11 @@ import { supabase } from '../../lib/supabase';
 import type { WalletStackParamList } from '../../types/navigation';
 import {
   getAuthenticatedWalletEmail,
+  isActiveWalletMemberForEmail,
   joinWalletByInvite,
-  normalizeWalletMemberEmail,
 } from '../../database/walletSharingService';
 import { buildWalletInviteUrl, isValidWalletId } from '../../utils/walletInvite';
+import { getReadableTextColor } from '../../utils/colorContrast';
 
 type JoinWalletScreenRouteProp = RouteProp<WalletStackParamList, 'JoinWallet'>;
 
@@ -29,6 +31,8 @@ export function JoinWalletScreen() {
   const { colors, isDark } = useTheme();
   const styles = React.useMemo(() => getStyles(colors), [colors]);
   const { loadWallets } = useWalletStore();
+  const canUseCloudCollaboration = useAuthStore((state) => state.canUseCloudCollaboration);
+  const setPostAuthRedirect = useAuthStore((state) => state.setPostAuthRedirect);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
@@ -37,13 +41,19 @@ export function JoinWalletScreen() {
   const [alreadyMember, setAlreadyMember] = useState(false);
 
   useEffect(() => {
+    if (!canUseCloudCollaboration) {
+      setError('Shared wallet membutuhkan akun yang terhubung. Masuk dengan akun lalu buka ulang undangan ini.');
+      setIsLoading(false);
+      return;
+    }
+
     if (!isValidWalletId(walletId)) {
       setError('ID dompet tidak valid');
       setIsLoading(false);
       return;
     }
     fetchWalletInfo();
-  }, [walletId]);
+  }, [canUseCloudCollaboration, walletId]);
 
   const fetchWalletInfo = async () => {
     try {
@@ -58,7 +68,7 @@ export function JoinWalletScreen() {
           .select('id, user_email, status')
           .eq('wallet_id', walletId);
 
-        if ((members ?? []).some((member) => normalizeWalletMemberEmail(member.user_email) === authEmail)) {
+        if (isActiveWalletMemberForEmail(members ?? [], authEmail)) {
           setAlreadyMember(true);
         }
       }
@@ -114,6 +124,11 @@ export function JoinWalletScreen() {
   };
 
   const handleJoin = async () => {
+    if (!canUseCloudCollaboration) {
+      Alert.alert('Perlu akun', 'Shared wallet hanya tersedia untuk akun yang terhubung ke cloud.');
+      return;
+    }
+
     const authEmail = await getAuthenticatedWalletEmail();
 
     if (!authEmail) {
@@ -162,6 +177,27 @@ export function JoinWalletScreen() {
           onAction={fetchWalletInfo}
           style={styles.errorState}
         />
+        {!canUseCloudCollaboration ? (
+          <View style={styles.upgradeActions}>
+            <Button
+              label="Masuk dengan akun"
+              onPress={() => {
+                setPostAuthRedirect({ screen: 'Wallet', params: { screen: 'JoinWallet', params: { walletId } } });
+                navigation.navigate('Login');
+              }}
+              fullWidth
+            />
+            <Button
+              label="Buat akun"
+              onPress={() => {
+                setPostAuthRedirect({ screen: 'Wallet', params: { screen: 'JoinWallet', params: { walletId } } });
+                navigation.navigate('Register');
+              }}
+              variant="secondary"
+              fullWidth
+            />
+          </View>
+        ) : null}
         <Button
           label="Kembali"
           onPress={() => navigation.goBack()}
@@ -175,6 +211,10 @@ export function JoinWalletScreen() {
 
   const walletColor = walletInfo?.color || colors.primary;
   const walletTypeLabel = walletInfo?.type?.toUpperCase?.() || 'GENERAL';
+  const walletIconColor = getReadableTextColor(walletColor, {
+    light: colors.textInverse,
+    dark: colors.textPrimary,
+  });
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -182,7 +222,7 @@ export function JoinWalletScreen() {
       <View style={styles.bgAuraTop} pointerEvents="none" />
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Tutup undangan dompet">
           <MaterialCommunityIcons name="close" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Undangan Dompet</Text>
@@ -198,7 +238,7 @@ export function JoinWalletScreen() {
         >
           <View style={styles.heroGlow} />
           <View style={styles.heroIcon}>
-            <MaterialCommunityIcons name="wallet-outline" size={38} color={walletColor} />
+            <MaterialCommunityIcons name="wallet-outline" size={38} color={walletIconColor} />
           </View>
           <Text style={styles.walletName}>{walletInfo?.name}</Text>
           <View style={styles.heroChips}>
@@ -316,6 +356,11 @@ const getStyles = (colors: any) => StyleSheet.create({
   backAction: {
     marginTop: 12,
     width: '100%',
+  },
+  upgradeActions: {
+    width: '100%',
+    gap: 12,
+    marginTop: 16,
   },
   content: {
     flex: 1,

@@ -22,6 +22,8 @@ import { WalletMemberList } from '../../components/wallet/WalletMemberList';
 import { useTheme } from '../../store/useThemeStore';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
+import { AppAccentPalette } from '../../constants/colors';
+import { getReadableTextColor } from '../../utils/colorContrast';
 
 const WALLET_TYPES = [
   { id: 'general', label: 'Umum', icon: 'wallet-outline' },
@@ -30,16 +32,7 @@ const WALLET_TYPES = [
   { id: 'e-wallet', label: 'E-Wallet', icon: 'cellphone' },
 ];
 
-const COLORS = [
-  '#16A34A',
-  '#F59E0B',
-  '#2563EB',
-  '#7C3AED',
-  '#DB2777',
-  '#DC2626',
-  '#4B5563',
-  '#0891B2',
-];
+const COLORS = [...AppAccentPalette];
 
 export function AddWalletScreen() {
   const navigation = useNavigation<any>();
@@ -230,7 +223,14 @@ export function AddWalletScreen() {
                 >
                   {color === c && (
                     <View style={styles.checkIcon}>
-              <MaterialCommunityIcons name="check" size={16} color={colors.textInverse} />
+              <MaterialCommunityIcons
+                name="check"
+                size={16}
+                color={getReadableTextColor(c, {
+                  light: colors.textInverse,
+                  dark: colors.textPrimary,
+                })}
+              />
                     </View>
                   )}
                 </TouchableOpacity>

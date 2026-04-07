@@ -18,8 +18,10 @@ import { useWalletStore } from '../../store/useWalletStore';
 import { useTransactionStore } from '../../store/useTransactionStore';
 import { useSavingStore } from '../../store/useSavingStore';
 import { useTheme } from '../../store/useThemeStore';
+import { AppAccentPalette } from '../../constants/colors';
+import { getReadableTextColor } from '../../utils/colorContrast';
 
-const PROFILE_COLORS = ['#16A34A', '#2563EB', '#F59E0B', '#DC2626', '#9333EA', '#0891B2'];
+const PROFILE_COLORS = [...AppAccentPalette];
 const PROFILE_ICONS = ['account', 'briefcase', 'home', 'school', 'gamepad-variant', 'cart'];
 
 export function ProfileSwitcher() {
@@ -90,6 +92,12 @@ export function ProfileSwitcher() {
 
     if (!activeProfile) return null;
 
+    const activeAvatarColor = activeProfile.color || colors.primary;
+    const activeAvatarIconColor = getReadableTextColor(activeAvatarColor, {
+        light: colors.textInverse,
+        dark: colors.textPrimary,
+    });
+
     return (
         <>
             <TouchableOpacity 
@@ -97,11 +105,11 @@ export function ProfileSwitcher() {
                 onPress={() => setVisible(true)}
                 activeOpacity={0.8}
             >
-                <View style={[styles.avatar, { backgroundColor: activeProfile.color || colors.primary }]}>
+                <View style={[styles.avatar, { backgroundColor: activeAvatarColor }]}>
                 <MaterialCommunityIcons 
                         name={activeProfile.icon as any || 'account'} 
                         size={20} 
-                        color={colors.textInverse}
+                        color={activeAvatarIconColor}
                     />
                 </View>
                 <Text style={styles.triggerText} numberOfLines={1}>
@@ -143,7 +151,14 @@ export function ProfileSwitcher() {
                                             onPress={() => handleSwitch(p.id)}
                                         >
                                             <View style={[styles.avatar, { backgroundColor: p.color || colors.primary }]}>
-                                                <MaterialCommunityIcons name={p.icon as any || 'account'} size={20} color={colors.textInverse} />
+                                                <MaterialCommunityIcons
+                                                    name={p.icon as any || 'account'}
+                                                    size={20}
+                                                    color={getReadableTextColor(p.color || colors.primary, {
+                                                        light: colors.textInverse,
+                                                        dark: colors.textPrimary,
+                                                    })}
+                                                />
                                             </View>
                                             <Text style={[
                                                 styles.profileName,
@@ -222,7 +237,14 @@ export function ProfileSwitcher() {
                                                     onPress={() => setNewColor(color)}
                                                 >
                                                     {newColor === color && (
-                                                        <MaterialCommunityIcons name="check" size={16} color={colors.textInverse} />
+                                                        <MaterialCommunityIcons
+                                                            name="check"
+                                                            size={16}
+                                                            color={getReadableTextColor(color, {
+                                                                light: colors.textInverse,
+                                                                dark: colors.textPrimary,
+                                                            })}
+                                                        />
                                                     )}
                                                 </TouchableOpacity>
                                             ))}

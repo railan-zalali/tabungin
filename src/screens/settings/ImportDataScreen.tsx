@@ -69,7 +69,12 @@ export function ImportDataScreen() {
             setPreview(result);
             await Promise.all([loadGoals(), loadTransactions(), loadRecent(), refreshSummary(), loadWallets()]);
             await syncDatabase();
-            Alert.alert('Import selesai', `${result.importedTransactions} transaksi dan ${result.importedGoals} target berhasil dimasukkan.`);
+            Alert.alert(
+                'Import selesai',
+                result.fullBackup
+                    ? `${result.importedProfiles} profil, ${result.importedWallets} dompet, ${result.importedTransactions} transaksi, ${result.importedGoals} target, dan ${result.importedSavingLogs} log tabungan berhasil dimasukkan.`
+                    : `${result.importedTransactions} transaksi dan ${result.importedGoals} target berhasil dimasukkan.`,
+            );
         } catch (error: any) {
             Alert.alert('Import gagal', error?.message || 'Data belum berhasil diimpor.');
         } finally {
@@ -81,7 +86,7 @@ export function ImportDataScreen() {
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
             <AppScreenHeader
                 title="Import data"
-                subtitle="Masukkan backup JSON Tabungin atau CSV transaksi dengan mode merge aman."
+                subtitle="Masukkan backup JSON Tabungin untuk restore aman, atau CSV transaksi untuk impor analisis."
                 showBack
                 onBackPress={() => navigation.goBack()}
                 variant="transparent"
@@ -90,16 +95,21 @@ export function ImportDataScreen() {
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, metrics.widthClass !== 'compact' ? styles.contentWide : null]}>
                 <View style={styles.card}>
                     <Text style={styles.title}>Format yang didukung</Text>
-                    <Text style={styles.body}>JSON Tabungin v1 untuk restore merge transaksi dan target, atau CSV transaksi untuk pencatatan massal.</Text>
+                    <Text style={styles.body}>JSON Tabungin dipakai untuk restore backup lengkap. CSV tetap didukung untuk impor transaksi massal, tetapi bukan restore penuh.</Text>
                     <View style={styles.badges}>
-                        <ContextBadge icon="code-json" label="JSON backup v1" tone="success" />
+                        <ContextBadge icon="code-json" label="JSON backup" tone="success" />
                         <ContextBadge icon="file-delimited-outline" label="CSV transaksi" tone="info" />
                         <ContextBadge icon="shield-check-outline" label="Non-destruktif" tone="primary" />
                     </View>
                 </View>
 
                 <View style={styles.card}>
-                    <TouchableOpacity style={styles.filePicker} onPress={handlePickFile}>
+                    <TouchableOpacity
+                        style={styles.filePicker}
+                        onPress={handlePickFile}
+                        accessibilityRole="button"
+                        accessibilityLabel={selectedFileName ? `Ganti file import, saat ini ${selectedFileName}` : 'Pilih file import'}
+                    >
                         <View style={styles.filePickerIcon}>
                             <MaterialCommunityIcons name="file-upload-outline" size={24} color={colors.primary} />
                         </View>
@@ -141,7 +151,11 @@ export function ImportDataScreen() {
                                     <Text style={styles.statLabel}>Baris gagal</Text>
                                 </View>
                             </View>
-                            <Text style={styles.body}>Import berjalan dalam mode merge aman. Data existing tidak akan ditimpa.</Text>
+                            <Text style={styles.body}>
+                                {preview.fullBackup
+                                    ? `Backup JSON ini juga memuat ${preview.importedProfiles} profil, ${preview.importedWallets} dompet, ${preview.importedBudgets} budget, dan ${preview.importedSavingLogs} log tabungan.`
+                                    : 'Import berjalan dalam mode merge aman. Data existing tidak akan ditimpa.'}
+                            </Text>
                         </View>
 
                         <View style={styles.card}>

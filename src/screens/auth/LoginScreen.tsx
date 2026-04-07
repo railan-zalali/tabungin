@@ -9,7 +9,6 @@ import {
     View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -23,6 +22,7 @@ import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useTheme } from '../../store/useThemeStore';
+import { triggerHapticNotification } from '../../utils/haptics';
 import { validateEmail, validatePassword } from '../../utils/validation';
 import type { RootStackParamList } from '../../types/navigation';
 
@@ -30,7 +30,7 @@ const REMEMBER_EMAIL_KEY = '@tabungin_remember_email';
 
 export function LoginScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-    const { login, authError } = useAuthStore();
+    const { login, authError, continueAsGuest, sessionStatus, pendingGuestMergeResolution, postAuthRedirect, clearPostAuthRedirect } = useAuthStore();
     const { colors, gradients } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
     const [email, setEmail] = useState('');
@@ -50,6 +50,16 @@ export function LoginScreen() {
             .catch((error) => console.error('Failed to load remembered email:', error));
     }, []);
 
+    useEffect(() => {
+        if (sessionStatus === 'authenticated' && !pendingGuestMergeResolution) {
+            navigation.reset({
+                index: 0,
+                routes: [{ name: 'Main', params: postAuthRedirect ?? undefined }],
+            });
+            clearPostAuthRedirect();
+        }
+    }, [clearPostAuthRedirect, navigation, pendingGuestMergeResolution, postAuthRedirect, sessionStatus]);
+
     const validate = () => {
         const nextErrors: typeof errors = {};
         const emailError = validateEmail(email);
@@ -64,7 +74,7 @@ export function LoginScreen() {
 
     const handleLogin = async () => {
         if (!validate()) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            triggerHapticNotification();
             return;
         }
 
@@ -92,6 +102,9 @@ export function LoginScreen() {
                         <Text style={styles.eyebrow}>Masuk ke ritme keuanganmu</Text>
                         <Text style={styles.title}>Semua dompet, target, dan insight harian siap dilanjutkan.</Text>
                         <Text style={styles.subtitle}>Masuk untuk melihat konteks profil aktif, target tabungan, dan arus kas terbaru di satu tempat.</Text>
+                        {sessionStatus === 'guest' ? (
+                            <Text style={styles.guestUpgradeNote}>Data lokal guest tetap ada. Setelah masuk, data lokal yang belum sinkron akan ikut terbawa ke akun.</Text>
+                        ) : null}
                     </View>
 
                     <FormSection title="Masuk ke akun" subtitle="Kami buat tetap singkat supaya kamu cepat kembali ke aktivitas utama.">
@@ -150,6 +163,13 @@ export function LoginScreen() {
                         ) : null}
 
                         <Button label="Masuk" onPress={handleLogin} variant="primary" size="lg" fullWidth loading={isLoading} />
+                        <Button
+                            label="Lanjut tanpa akun"
+                            onPress={continueAsGuest}
+                            variant="outline"
+                            size="lg"
+                            fullWidth
+                        />
                     </FormSection>
 
                     <TouchableOpacity style={styles.bottomLink} onPress={() => navigation.navigate('Register')}>
@@ -196,6 +216,12 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             fontSize: FontSize.body,
             lineHeight: 22,
             color: colors.textSecondary,
+        },
+        guestUpgradeNote: {
+            fontFamily: FontFamily.bodyMedium,
+            fontSize: FontSize.caption,
+            lineHeight: 20,
+            color: colors.primary,
         },
         optionsRow: {
             flexDirection: 'row',
