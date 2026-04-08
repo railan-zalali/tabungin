@@ -101,12 +101,12 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
     StyleSheet.create({
         card: {
             borderRadius: BorderRadius['5xl'],
-            padding: 22,
+            padding: 24,
             overflow: 'hidden',
             borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.14)',
+            borderColor: colors.heroBorder,
             shadowColor: colors.shadowColor,
-            shadowOffset: { width: 0, height: 14 },
+            shadowOffset: { width: 0, height: 16 },
             shadowOpacity: 0.16,
             shadowRadius: 24,
             elevation: 6,
@@ -168,9 +168,9 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             borderRadius: BorderRadius['2xl'],
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: 'rgba(255,255,255,0.14)',
+            backgroundColor: 'rgba(255,255,255,0.12)',
             borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.12)',
+            borderColor: colors.heroBorder,
         },
         badges: {
             flexDirection: 'row',
@@ -193,7 +193,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             borderRadius: BorderRadius.full,
             backgroundColor: 'rgba(255,255,255,0.12)',
             borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.12)',
+            borderColor: colors.heroBorder,
         },
         statValue: {
             fontFamily: FontFamily.bodyBold,
@@ -215,7 +215,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             paddingVertical: 12,
             backgroundColor: 'rgba(255,255,255,0.12)',
             borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.14)',
+            borderColor: colors.heroBorder,
         },
         ctaText: {
             fontFamily: FontFamily.bodyBold,

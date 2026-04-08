@@ -1,4 +1,3 @@
-// App.tsx - Entry point utama Tabungin
 import 'react-native-get-random-values';
 import './src/utils/runtimeWarnings';
 import React, { useEffect, useState } from 'react';
@@ -20,6 +19,7 @@ import {
     PlusJakartaSans_600SemiBold,
     PlusJakartaSans_700Bold,
 } from '@expo-google-fonts/plus-jakarta-sans';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
     DMSans_400Regular,
     DMSans_500Medium,
@@ -43,6 +43,7 @@ export default function App() {
         DMSans_400Regular,
         DMSans_500Medium,
         DMSans_700Bold,
+        ...MaterialCommunityIcons.font,
     });
 
     useEffect(() => {
@@ -110,7 +111,7 @@ export default function App() {
                         styles.loadingCard,
                         {
                             backgroundColor: colors.surfaceGlass,
-                            borderColor: colors.glassStroke,
+                            borderColor: colors.cardBorder,
                             shadowColor: colors.shadowColor,
                         },
                     ]}
@@ -118,9 +119,19 @@ export default function App() {
                     accessibilityLabel="Memuat aplikasi Tabungin"
                 >
                     <View style={styles.logoContainer}>
-                        <Text style={[styles.logoText, { color: colors.primary }]} accessibilityElementsHidden={true}>
-                            🐷
-                        </Text>
+                        <View
+                            style={[
+                                styles.logoMark,
+                                {
+                                    backgroundColor: colors.primaryBg,
+                                    borderColor: colors.cardBorderStrong,
+                                },
+                            ]}
+                        >
+                            <Text style={[styles.logoGlyph, { color: colors.primary }]} accessibilityElementsHidden={true}>
+                                T
+                            </Text>
+                        </View>
                         <Text style={[styles.appName, { color: colors.textPrimary }]} allowFontScaling={false}>
                             Tabungin
                         </Text>
@@ -211,8 +222,23 @@ const styles = StyleSheet.create({
         shadowRadius: 30,
         elevation: 10,
     },
-    logoContainer: { alignItems: 'center', gap: 10 },
-    logoText: { fontSize: 64 },
+    logoContainer: {
+        alignItems: 'center',
+        gap: 12,
+    },
+    logoMark: {
+        width: 84,
+        height: 84,
+        borderRadius: 28,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+    },
+    logoGlyph: {
+        fontSize: 42,
+        fontWeight: '700',
+        letterSpacing: -1,
+    },
     appName: {
         fontSize: 32,
         fontWeight: 'bold',

@@ -28,10 +28,11 @@ import type { TransactionType } from '../../types/transaction';
 import { CategoryPicker } from '../../components/transaction/CategoryPicker';
 import { AppScreenHeader } from '../../components/common/AppScreenHeader';
 import { FormSection } from '../../components/common/FormSection';
+import { InfoRow } from '../../components/common/InfoRow';
 import { Input } from '../../components/common/Input';
 import { PrimaryActionBar } from '../../components/common/PrimaryActionBar';
 import { ScreenShell } from '../../components/common/ScreenShell';
-import { getReadableTextColor } from '../../utils/colorContrast';
+import { SelectionChip } from '../../components/common/SelectionChip';
 import { SegmentedControl } from '../../components/common/SegmentedControl';
 import { StatePanel } from '../../components/common/StatePanel';
 import { triggerHapticNotification } from '../../utils/haptics';
@@ -169,6 +170,7 @@ export function AddTransactionScreen() {
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
                 <AppScreenHeader
+                    eyebrow={isEditMode ? 'Edit Flow' : 'New Transaction'}
                     title={isEditMode ? 'Edit Transaksi' : 'Tambah Transaksi'}
                     subtitle={isEditMode ? 'Perbarui detail transaksi tanpa mengubah struktur input.' : 'Simpan transaksi baru dengan konteks dompet dan kategori yang jelas.'}
                     showClose
@@ -191,13 +193,15 @@ export function AddTransactionScreen() {
                             styles.content,
                             {
                                 paddingHorizontal: metrics.horizontalPadding,
-                                paddingBottom: metrics.bottomActionInset + 24,
+                                paddingBottom: metrics.floatingActionClearance + 24,
                             },
                         ]}
                     >
                         <FormSection
+                            eyebrow="Amount First"
                             title="Ringkasan transaksi"
                             subtitle="Pilih jenis transaksi lalu isi nominal utama sebelum melengkapi konteks lainnya."
+                            variant="highlight"
                         >
                             <SegmentedControl<TransactionType>
                                 value={txType}
@@ -229,22 +233,26 @@ export function AddTransactionScreen() {
                                     />
                                 </View>
                                 <View style={styles.amountMetaRow}>
-                                    <View style={styles.metaChip}>
-                                        <MaterialCommunityIcons name="wallet-outline" size={14} color={colors.textSecondary} />
-                                        <Text style={styles.metaChipText}>{selectedWallet?.name ?? 'Pilih dompet'}</Text>
-                                    </View>
-                                    <View style={styles.metaChip}>
-                                        <MaterialCommunityIcons name="calendar-blank-outline" size={14} color={colors.textSecondary} />
-                                        <Text style={styles.metaChipText}>{formatDateLong(date.getTime())}</Text>
-                                    </View>
+                                    <InfoRow
+                                        icon="wallet-outline"
+                                        label="Dompet aktif"
+                                        value={selectedWallet?.name ?? 'Pilih dompet'}
+                                    />
+                                    <InfoRow
+                                        icon="calendar-blank-outline"
+                                        label="Tanggal"
+                                        value={formatDateLong(date.getTime())}
+                                    />
                                 </View>
                                 {amountError ? <Text style={styles.errorText}>{amountError}</Text> : null}
                             </View>
                         </FormSection>
 
                         <FormSection
+                            eyebrow="Context"
                             title="Konteks transaksi"
                             subtitle="Pastikan tanggal dan dompet sudah sesuai sebelum transaksi disimpan."
+                            density="compact"
                         >
                             <TouchableOpacity style={styles.selectionRow} onPress={() => setShowDatePicker(true)}>
                                 <View style={styles.selectionIcon}>
@@ -269,46 +277,25 @@ export function AddTransactionScreen() {
                             <View style={styles.walletWrap}>
                                 {wallets.map((wallet) => {
                                     const active = selectedWalletId === wallet.id;
-                                    const walletIconColor = active
-                                        ? getReadableTextColor(wallet.color, {
-                                            light: colors.textInverse,
-                                            dark: colors.textPrimary,
-                                            threshold: 0.48,
-                                        })
-                                        : colors.textSecondary;
                                     return (
-                                        <TouchableOpacity
+                                        <SelectionChip
                                             key={wallet.id}
-                                            style={[
-                                                styles.walletChip,
-                                                active ? { borderColor: wallet.color, backgroundColor: `${wallet.color}16` } : null,
-                                            ]}
+                                            icon={wallet.type === 'bank' ? 'bank' : wallet.type === 'e-wallet' ? 'cellphone' : 'wallet-outline'}
+                                            label={wallet.name}
+                                            selected={active}
+                                            accentColor={wallet.color}
                                             onPress={() => setSelectedWalletId(wallet.id)}
-                                        >
-                                            <View
-                                                style={[
-                                                    styles.walletChipIcon,
-                                                    { backgroundColor: active ? wallet.color : colors.surfaceAlt },
-                                                ]}
-                                            >
-                                                <MaterialCommunityIcons
-                                                    name={wallet.type === 'bank' ? 'bank' : wallet.type === 'e-wallet' ? 'cellphone' : 'wallet-outline'}
-                                                    size={16}
-                                                    color={walletIconColor}
-                                                />
-                                            </View>
-                                            <Text style={[styles.walletChipText, active ? styles.walletChipTextActive : null]}>
-                                                {wallet.name}
-                                            </Text>
-                                        </TouchableOpacity>
+                                        />
                                     );
                                 })}
                             </View>
                         </FormSection>
 
                         <FormSection
+                            eyebrow="Categorize"
                             title="Kategori"
                             subtitle="Kategori yang tepat akan membuat laporan dan ringkasan harian tetap akurat."
+                            density="compact"
                         >
                             {categoryError ? <Text style={styles.errorText}>{categoryError}</Text> : null}
                             <CategoryPicker
@@ -322,8 +309,11 @@ export function AddTransactionScreen() {
                         </FormSection>
 
                         <FormSection
+                            eyebrow="Optional Context"
                             title="Catatan"
                             subtitle="Opsional, tetapi berguna untuk menambahkan konteks di layar detail."
+                            density="compact"
+                            variant="subtle"
                         >
                             <Input
                                 label="Catatan"
@@ -343,7 +333,7 @@ export function AddTransactionScreen() {
                         primaryLabel={isEditMode ? 'Simpan Perubahan' : 'Simpan Transaksi'}
                         onPrimaryPress={handleSave}
                         primaryLoading={isLoading}
-                        offset={metrics.bottomActionInset - metrics.safeBottomSpacing}
+                        bottomInset={metrics.tabBarClearance}
                     />
                 ) : null}
             </KeyboardAvoidingView>
@@ -367,7 +357,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         amountCard: {
             backgroundColor: colors.surfaceAlt,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.cardBorder,
             borderRadius: BorderRadius['3xl'],
             padding: 18,
             gap: 12,
@@ -399,25 +389,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             paddingVertical: 0,
         },
         amountMetaRow: {
-            flexDirection: 'row',
-            flexWrap: 'wrap',
             gap: 10,
-        },
-        metaChip: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 6,
-            paddingHorizontal: 12,
-            paddingVertical: 8,
-            borderRadius: BorderRadius.full,
-            backgroundColor: colors.surface,
-            borderWidth: 1,
-            borderColor: colors.border,
-        },
-        metaChipText: {
-            fontFamily: FontFamily.body,
-            fontSize: FontSize.caption,
-            color: colors.textSecondary,
         },
         selectionRow: {
             flexDirection: 'row',
@@ -425,7 +397,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             gap: 12,
             backgroundColor: colors.surfaceAlt,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.cardBorder,
             borderRadius: BorderRadius['3xl'],
             padding: 16,
         },
@@ -454,33 +426,6 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             flexDirection: 'row',
             flexWrap: 'wrap',
             gap: 10,
-        },
-        walletChip: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 8,
-            paddingHorizontal: 10,
-            paddingVertical: 8,
-            borderRadius: BorderRadius.full,
-            borderWidth: 1,
-            borderColor: colors.border,
-            backgroundColor: colors.surfaceAlt,
-        },
-        walletChipIcon: {
-            width: 30,
-            height: 30,
-            borderRadius: BorderRadius.xl,
-            alignItems: 'center',
-            justifyContent: 'center',
-        },
-        walletChipText: {
-            fontFamily: FontFamily.body,
-            fontSize: FontSize.caption,
-            color: colors.textSecondary,
-        },
-        walletChipTextActive: {
-            fontFamily: FontFamily.bodyBold,
-            color: colors.textPrimary,
         },
         errorText: {
             fontFamily: FontFamily.body,

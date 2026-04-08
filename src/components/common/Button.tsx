@@ -68,7 +68,7 @@ export function Button({
 
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [{ scale: scale.value }],
-        opacity: disabled || loading ? 0.48 : 1,
+        opacity: disabled || loading ? 0.54 : 1,
     }));
 
     const glowStyle = useAnimatedStyle(() => ({
@@ -151,19 +151,19 @@ const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize'
         minWidth: 48,
         borderRadius: BorderRadius['2xl'],
         borderWidth: 1,
-        borderColor: 'transparent',
+        borderColor: colors.cardBorder,
     },
     fullWidth: { width: '100%' },
     mediumEmphasis: {
         shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 6 },
+        shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.08,
-        shadowRadius: 14,
+        shadowRadius: 16,
         elevation: 3,
     },
     glass: {
         backgroundColor: colors.surfaceGlass,
-        borderColor: colors.glassStroke,
+        borderColor: colors.cardBorder,
     },
 
     primary: {
@@ -176,15 +176,18 @@ const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize'
         elevation: 6,
     },
     secondary: {
-        backgroundColor: colors.surfaceElevated,
-        borderColor: colors.borderStrong,
+        backgroundColor: colors.panelSurfaceStrong,
+        borderColor: colors.cardBorderStrong,
     },
     outline: {
         backgroundColor: 'transparent',
         borderWidth: 1.2,
-        borderColor: `${colors.primary}66`,
+        borderColor: colors.chipSelectedBorder,
     },
-    ghost: { backgroundColor: 'transparent' },
+    ghost: {
+        backgroundColor: colors.interactiveSoft,
+        borderColor: 'transparent',
+    },
     danger: {
         backgroundColor: colors.danger,
         borderColor: `${colors.danger}66`,
@@ -224,6 +227,6 @@ const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize'
     lgText: { fontSize: scaleFontSize(FontSize.h4, textSize) },
     primaryGlow: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(255,255,255,0.12)',
+        backgroundColor: 'rgba(255,255,255,0.1)',
     },
 });

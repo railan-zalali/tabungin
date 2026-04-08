@@ -22,10 +22,13 @@ import { AppScreenHeader } from '../../components/common/AppScreenHeader';
 import { Button } from '../../components/common/Button';
 import { EmptyState } from '../../components/common/EmptyState';
 import { FormSection } from '../../components/common/FormSection';
+import { InlineNotice } from '../../components/common/InlineNotice';
 import { Input } from '../../components/common/Input';
 import { PrimaryActionBar } from '../../components/common/PrimaryActionBar';
 import { ScreenShell } from '../../components/common/ScreenShell';
+import { SelectionChip } from '../../components/common/SelectionChip';
 import { SectionHeader } from '../../components/common/SectionHeader';
+import { StatStrip } from '../../components/common/StatStrip';
 
 export function BudgetScreen() {
     const navigation = useNavigation();
@@ -104,7 +107,7 @@ export function BudgetScreen() {
                     styles.content,
                     {
                         paddingHorizontal: metrics.horizontalPadding,
-                        paddingBottom: showEditor ? 168 : 40,
+                        paddingBottom: showEditor ? metrics.floatingActionClearance + 20 : metrics.contentBottomInset,
                     },
                 ]}
             >
@@ -142,33 +145,42 @@ export function BudgetScreen() {
                     </View>
                 </LinearGradient>
 
+                <StatStrip
+                    items={[
+                        { label: 'Kategori aktif', value: String(budgets.length) },
+                        { label: 'Terpakai', value: formatRupiah(totalSpent) },
+                        { label: 'Sisa', value: formatRupiah(Math.max(0, budgetLeft)), valueColor: budgetLeft < 0 ? colors.danger : colors.textPrimary },
+                    ]}
+                    vertical={metrics.widthClass === 'compact'}
+                />
+
                 {showEditor ? (
                     <FormSection
+                        eyebrow="Category Budget"
                         title={selectedCategory ? 'Perbarui budget kategori' : 'Atur budget kategori'}
                         subtitle="Pilih kategori prioritas lalu tetapkan batas yang realistis untuk bulan berjalan."
+                        variant="highlight"
                     >
                         <View style={styles.chipWrap}>
                             {EXPENSE_CATEGORIES.map((category) => {
                                 const active = selectedCategory === category.id;
                                 return (
-                                    <TouchableOpacity
+                                    <SelectionChip
                                         key={category.id}
-                                        style={[styles.categoryChip, active ? styles.categoryChipActive : null]}
+                                        icon={category.icon}
+                                        label={category.name}
+                                        selected={active}
                                         onPress={() => setSelectedCategory(category.id)}
-                                        activeOpacity={0.9}
-                                    >
-                                        <MaterialCommunityIcons
-                                            name={category.icon as any}
-                                            size={16}
-                                            color={active ? colors.textInverse : colors.textSecondary}
-                                        />
-                                        <Text style={[styles.categoryChipText, active ? styles.categoryChipTextActive : null]}>
-                                            {category.name}
-                                        </Text>
-                                    </TouchableOpacity>
+                                    />
                                 );
                             })}
                         </View>
+
+                        <InlineNotice
+                            icon="lightbulb-outline"
+                            description="Pilih kategori yang benar-benar perlu dijaga. Budget yang terlalu banyak justru membuat monitoring terasa berat."
+                            tone="info"
+                        />
 
                         <Input
                             label="Nominal Budget"
@@ -182,6 +194,7 @@ export function BudgetScreen() {
                     </FormSection>
                 ) : (
                     <FormSection
+                        eyebrow="Quick Add"
                         title="Tambah budget baru"
                         subtitle="Buat batas baru kapan saja tanpa harus meninggalkan ringkasan yang sedang dibaca."
                     >
@@ -257,6 +270,7 @@ export function BudgetScreen() {
                     onPrimaryPress={handleSave}
                     secondaryLabel="Batal"
                     onSecondaryPress={resetEditor}
+                    bottomInset={metrics.tabBarClearance}
                 />
             ) : null}
         </ScreenShell>
@@ -333,29 +347,6 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             flexDirection: 'row',
             flexWrap: 'wrap',
             gap: 10,
-        },
-        categoryChip: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 8,
-            paddingHorizontal: 14,
-            paddingVertical: 10,
-            borderRadius: BorderRadius.full,
-            backgroundColor: colors.surfaceAlt,
-            borderWidth: 1,
-            borderColor: colors.border,
-        },
-        categoryChipActive: {
-            backgroundColor: colors.primary,
-            borderColor: colors.primary,
-        },
-        categoryChipText: {
-            fontFamily: FontFamily.bodyMedium,
-            fontSize: FontSize.caption,
-            color: colors.textPrimary,
-        },
-        categoryChipTextActive: {
-            color: colors.textInverse,
         },
         loadingWrap: {
             paddingVertical: 28,

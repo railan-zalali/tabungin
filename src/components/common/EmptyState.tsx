@@ -50,7 +50,7 @@ export function EmptyState({
                 styles.container,
                 compact && styles.compact,
                 illustrationVariant === 'ring' && styles.containerRing,
-                { backgroundColor: palette.bg },
+                { backgroundColor: palette.bg, borderColor: colors.cardBorder },
                 style,
             ]}
             accessible={true}
@@ -102,10 +102,10 @@ const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize'
         paddingHorizontal: 28,
         paddingVertical: 34,
         gap: 14,
-        backgroundColor: colors.surfaceElevated,
-        borderRadius: BorderRadius['4xl'],
-        borderWidth: 1,
-        borderColor: colors.border,
+            backgroundColor: colors.emptyStateBg,
+            borderRadius: BorderRadius['4xl'],
+            borderWidth: 1,
+            borderColor: colors.cardBorder,
         shadowColor: colors.shadowColor,
         shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.08,
@@ -130,7 +130,7 @@ const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize'
         width: 120,
         height: 120,
         borderRadius: BorderRadius.full,
-        backgroundColor: colors.primaryBg,
+            backgroundColor: colors.emptyStateHalo,
     },
     iconContainer: {
         width: 96,
@@ -140,8 +140,8 @@ const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize'
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
-        borderColor: colors.border,
-    },
+            borderColor: colors.emptyStateRing,
+        },
     iconContainerRing: {
         backgroundColor: 'transparent',
     },

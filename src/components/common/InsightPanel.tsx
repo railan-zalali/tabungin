@@ -12,6 +12,7 @@ interface InsightPanelProps {
     badges?: React.ReactNode;
     actionLabel?: string;
     onAction?: () => void;
+    tone?: 'primary' | 'success' | 'warning' | 'info';
 }
 
 export function InsightPanel({
@@ -21,15 +22,23 @@ export function InsightPanel({
     badges,
     actionLabel,
     onAction,
+    tone = 'primary',
 }: InsightPanelProps) {
     const { colors, textSize } = useTheme();
     const styles = React.useMemo(() => getStyles(colors, textSize), [colors, textSize]);
+    const palette = tone === 'success'
+        ? { accent: colors.success, softBg: colors.successBg }
+        : tone === 'warning'
+            ? { accent: colors.warning, softBg: colors.warningBg }
+            : tone === 'info'
+                ? { accent: colors.info, softBg: colors.infoBg }
+                : { accent: colors.primary, softBg: colors.primaryBg };
 
     return (
         <View style={styles.panel}>
             <View style={styles.header}>
-                <View style={styles.iconWrap}>
-                    <MaterialCommunityIcons name={icon as any} size={18} color={colors.primary} />
+                <View style={[styles.iconWrap, { backgroundColor: palette.softBg }]}>
+                    <MaterialCommunityIcons name={icon as any} size={18} color={palette.accent} />
                 </View>
                 <View style={styles.copy}>
                     <Text style={styles.title}>{title}</Text>
@@ -56,7 +65,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             borderRadius: BorderRadius['4xl'],
             padding: 18,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.cardBorder,
             shadowColor: colors.shadowColor,
             shadowOffset: { width: 0, height: 10 },
             shadowOpacity: 0.08,
@@ -105,9 +114,9 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             gap: 4,
             paddingVertical: 10,
             borderRadius: BorderRadius.xl,
-            backgroundColor: colors.panelSurfaceAlt,
+            backgroundColor: colors.panelSurfaceStrong,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.cardBorder,
         },
         actionText: {
             fontFamily: FontFamily.bodyBold,

@@ -3,6 +3,7 @@ import { StatusBar, StyleSheet, View, type ViewProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BorderRadius } from '../../constants/theme';
 import { useTheme } from '../../store/useThemeStore';
+import { useResponsiveMetrics } from '../../utils/responsive';
 
 interface ScreenShellProps extends ViewProps {
     children: React.ReactNode;
@@ -29,7 +30,8 @@ export function ScreenShell({
 }: ScreenShellProps) {
     const insets = useSafeAreaInsets();
     const { colors, isDark } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const metrics = useResponsiveMetrics();
+    const styles = React.useMemo(() => getStyles(colors, metrics.isCompact), [colors, metrics.isCompact]);
 
     return (
         <View
@@ -55,7 +57,7 @@ export function ScreenShell({
     );
 }
 
-const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+const getStyles = (colors: ReturnType<typeof useTheme>['colors'], isCompact: boolean) =>
     StyleSheet.create({
         container: {
             flex: 1,
@@ -72,22 +74,22 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         },
         bgAuraTop: {
             position: 'absolute',
-            top: -110,
-            right: -36,
-            width: 240,
-            height: 240,
+            top: isCompact ? -112 : -136,
+            right: -42,
+            width: isCompact ? 220 : 280,
+            height: isCompact ? 220 : 280,
             borderRadius: BorderRadius.full,
-            backgroundColor: colors.primaryLight,
-            opacity: 0.52,
+            backgroundColor: colors.emptyStateHalo,
+            opacity: 0.7,
         },
         bgAuraBottom: {
             position: 'absolute',
-            bottom: 100,
-            left: -64,
-            width: 220,
-            height: 220,
+            bottom: isCompact ? 56 : 84,
+            left: -72,
+            width: isCompact ? 210 : 250,
+            height: isCompact ? 210 : 250,
             borderRadius: BorderRadius.full,
-            backgroundColor: colors.infoBg,
-            opacity: 0.24,
+            backgroundColor: colors.illustrationSecondary,
+            opacity: 0.34,
         },
     });

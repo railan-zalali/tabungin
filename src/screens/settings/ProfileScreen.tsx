@@ -10,6 +10,7 @@ import { validateName } from '../../utils/validation';
 import { useResponsiveMetrics } from '../../utils/responsive';
 import { AppScreenHeader } from '../../components/common/AppScreenHeader';
 import { FormSection } from '../../components/common/FormSection';
+import { InlineNotice } from '../../components/common/InlineNotice';
 import { Input } from '../../components/common/Input';
 import { PrimaryActionBar } from '../../components/common/PrimaryActionBar';
 import { ScreenShell } from '../../components/common/ScreenShell';
@@ -45,6 +46,7 @@ export function ProfileScreen() {
     return (
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
             <AppScreenHeader
+                eyebrow="Identity"
                 title="Edit Profil"
                 subtitle="Perbarui identitas utama akun tanpa mengubah konteks sinkronisasi."
                 showBack
@@ -57,7 +59,7 @@ export function ProfileScreen() {
                     styles.content,
                     {
                         paddingHorizontal: metrics.horizontalPadding,
-                        paddingBottom: 152,
+                        paddingBottom: metrics.floatingActionClearance,
                     },
                 ]}
             >
@@ -76,8 +78,10 @@ export function ProfileScreen() {
                 </View>
 
                 <FormSection
+                    eyebrow="Primary Profile"
                     title="Informasi profil"
                     subtitle="Nama tampilan ini akan muncul di ruang personal, shared wallet, dan aktivitas kolaborasi."
+                    variant="highlight"
                 >
                     <Input
                         label="Nama Lengkap"
@@ -103,17 +107,16 @@ export function ProfileScreen() {
                     ) : null}
                 </FormSection>
 
-                <View style={styles.infoCard}>
-                    <MaterialCommunityIcons name="shield-check-outline" size={18} color={colors.primary} />
-                    <Text style={styles.infoText}>
-                        {sessionStatus === 'guest'
-                            ? 'Nama ini dipakai sebagai identitas lokal selama mode guest aktif. Sinkronisasi dan shared wallet baru aktif setelah masuk dengan akun.'
-                            : 'Nama profil dipakai untuk membedakan ownership, aktivitas berbagi, dan identitas utama aplikasi.'}
-                    </Text>
-                </View>
+                <InlineNotice
+                    icon="shield-check-outline"
+                    description={sessionStatus === 'guest'
+                        ? 'Nama ini dipakai sebagai identitas lokal selama mode guest aktif. Sinkronisasi dan shared wallet baru aktif setelah masuk dengan akun.'
+                        : 'Nama profil dipakai untuk membedakan ownership, aktivitas berbagi, dan identitas utama aplikasi.'}
+                    tone="primary"
+                />
             </ScrollView>
 
-            <PrimaryActionBar primaryLabel="Simpan Perubahan" onPrimaryPress={handleSave} primaryLoading={isSaving} />
+            <PrimaryActionBar primaryLabel="Simpan Perubahan" onPrimaryPress={handleSave} primaryLoading={isSaving} bottomInset={metrics.tabBarClearance} />
         </ScreenShell>
     );
 }
@@ -159,22 +162,5 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             lineHeight: 22,
             color: colors.textSecondary,
             marginTop: 4,
-        },
-        infoCard: {
-            flexDirection: 'row',
-            alignItems: 'flex-start',
-            gap: 12,
-            backgroundColor: colors.primaryBg,
-            borderWidth: 1,
-            borderColor: `${colors.primary}22`,
-            borderRadius: BorderRadius['3xl'],
-            padding: 16,
-        },
-        infoText: {
-            flex: 1,
-            fontFamily: FontFamily.body,
-            fontSize: FontSize.caption,
-            lineHeight: 20,
-            color: colors.textSecondary,
         },
     });

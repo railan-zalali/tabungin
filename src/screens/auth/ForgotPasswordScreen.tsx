@@ -16,12 +16,14 @@ import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { FormSection } from '../../components/common/FormSection';
+import { InlineNotice } from '../../components/common/InlineNotice';
 import { StatePanel } from '../../components/common/StatePanel';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useTheme } from '../../store/useThemeStore';
 import { triggerHapticNotification } from '../../utils/haptics';
+import { useResponsiveMetrics } from '../../utils/responsive';
 import { validateEmail } from '../../utils/validation';
 import type { RootStackParamList } from '../../types/navigation';
 
@@ -29,7 +31,8 @@ export function ForgotPasswordScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const { sendResetPassword } = useAuthStore();
     const { colors, gradients } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const metrics = useResponsiveMetrics();
+    const styles = React.useMemo(() => getStyles(colors, metrics.isCompact), [colors, metrics.isCompact]);
     const [email, setEmail] = useState('');
     const [error, setError] = useState<string | undefined>();
     const [isLoading, setIsLoading] = useState(false);
@@ -61,24 +64,43 @@ export function ForgotPasswordScreen() {
     return (
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                    <TouchableOpacity
-                        style={styles.backLink}
-                        onPress={() => navigation.goBack()}
-                        accessibilityRole="button"
-                        accessibilityLabel="Kembali ke login"
-                    >
-                        <MaterialCommunityIcons name="arrow-left" size={18} color={colors.primary} />
-                        <Text style={styles.backLinkText}>Kembali ke login</Text>
-                    </TouchableOpacity>
+                <ScrollView
+                    contentContainerStyle={[
+                        styles.content,
+                        {
+                            paddingHorizontal: metrics.horizontalPadding,
+                            paddingTop: metrics.headerTopOffset + 20,
+                            paddingBottom: metrics.safeBottomSpacing + 12,
+                            gap: metrics.verticalGap + 2,
+                        },
+                    ]}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <View style={styles.backLinkWrap}>
+                        <TouchableOpacity
+                            style={styles.backLink}
+                            onPress={() => navigation.goBack()}
+                            accessibilityRole="button"
+                            accessibilityLabel="Kembali ke login"
+                        >
+                            <MaterialCommunityIcons name="arrow-left" size={18} color={colors.primary} />
+                            <Text style={styles.backLinkText}>Kembali ke login</Text>
+                        </TouchableOpacity>
+                    </View>
 
                     <View style={styles.hero}>
                         <LinearGradient colors={gradients.hero as unknown as [string, string, ...string[]]} style={styles.heroIcon}>
                             <MaterialCommunityIcons name="lock-reset" size={32} color={colors.textInverse} />
                         </LinearGradient>
-                        <Text style={styles.eyebrow}>Reset akses akun</Text>
+                        <Text style={styles.eyebrow}>Recovery Flow</Text>
                         <Text style={styles.title}>Kami bantu kirim link reset tanpa membuat flow terasa membingungkan.</Text>
                         <Text style={styles.subtitle}>Masukkan email akun utama. Setelah itu, cek inbox atau folder spam untuk link pemulihan.</Text>
+                        <InlineNotice
+                            icon="email-fast-outline"
+                            description="Link reset berlaku terbatas. Buka segera setelah email masuk agar proses pemulihan tetap mulus."
+                            tone="info"
+                        />
                     </View>
 
                     {isSuccess ? (
@@ -91,7 +113,12 @@ export function ForgotPasswordScreen() {
                             onAction={() => navigation.navigate('Login')}
                         />
                     ) : (
-                        <FormSection title="Kirim link reset" subtitle="Kami hanya perlu satu detail: email akun yang ingin dipulihkan.">
+                        <FormSection
+                            eyebrow="Reset Access"
+                            title="Kirim link reset"
+                            subtitle="Kami hanya perlu satu detail: email akun yang ingin dipulihkan."
+                            variant="highlight"
+                        >
                             <Input
                                 label="Email"
                                 value={email}
@@ -124,20 +151,20 @@ export function ForgotPasswordScreen() {
     );
 }
 
-const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+const getStyles = (colors: ReturnType<typeof useTheme>['colors'], isCompact: boolean) =>
     StyleSheet.create({
         flex: { flex: 1 },
         content: {
-            paddingHorizontal: 20,
-            paddingTop: 72,
-            paddingBottom: 28,
-            gap: 20,
+            gap: 18,
+        },
+        backLinkWrap: {
+            alignItems: 'flex-start',
         },
         backLink: {
             flexDirection: 'row',
             alignItems: 'center',
             gap: 8,
-            alignSelf: 'flex-start',
+            minHeight: 42,
         },
         backLinkText: {
             fontFamily: FontFamily.bodyBold,
@@ -145,11 +172,11 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             color: colors.primary,
         },
         hero: {
-            gap: 10,
+            gap: 8,
         },
         heroIcon: {
-            width: 58,
-            height: 58,
+            width: isCompact ? 52 : 58,
+            height: isCompact ? 52 : 58,
             borderRadius: BorderRadius['2xl'],
             alignItems: 'center',
             justifyContent: 'center',
@@ -168,7 +195,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         subtitle: {
             fontFamily: FontFamily.body,
             fontSize: FontSize.body,
-            lineHeight: 22,
+            lineHeight: 21,
             color: colors.textSecondary,
         },
     });

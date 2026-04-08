@@ -10,12 +10,12 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1DB954"
+      "backgroundColor": "#1D7D53"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1DB954"
+        "backgroundColor": "#1D7D53"
       },
       "package": "com.tabungin.app"
     },
@@ -27,7 +27,7 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#1DB954"
+          "color": "#1D7D53"
         }
       ],
       "expo-camera",

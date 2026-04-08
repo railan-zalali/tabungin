@@ -17,12 +17,14 @@ import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { FormSection } from '../../components/common/FormSection';
+import { InlineNotice } from '../../components/common/InlineNotice';
 import { StatePanel } from '../../components/common/StatePanel';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useTheme } from '../../store/useThemeStore';
 import { triggerHapticNotification } from '../../utils/haptics';
+import { useResponsiveMetrics } from '../../utils/responsive';
 import { validateEmail, validatePassword } from '../../utils/validation';
 import type { RootStackParamList } from '../../types/navigation';
 
@@ -32,7 +34,8 @@ export function LoginScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const { login, authError, continueAsGuest, sessionStatus, pendingGuestMergeResolution, postAuthRedirect, clearPostAuthRedirect } = useAuthStore();
     const { colors, gradients } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const metrics = useResponsiveMetrics();
+    const styles = React.useMemo(() => getStyles(colors, metrics.isCompact), [colors, metrics.isCompact]);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [rememberMe, setRememberMe] = useState(false);
@@ -94,20 +97,42 @@ export function LoginScreen() {
     return (
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                <ScrollView
+                    contentContainerStyle={[
+                        styles.content,
+                        {
+                            paddingHorizontal: metrics.horizontalPadding,
+                            paddingTop: metrics.headerTopOffset + 20,
+                            paddingBottom: metrics.safeBottomSpacing + 12,
+                            gap: metrics.verticalGap + 2,
+                        },
+                    ]}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                >
                     <View style={styles.hero}>
                         <LinearGradient colors={gradients.hero as unknown as [string, string, ...string[]]} style={styles.heroIcon}>
                             <MaterialCommunityIcons name="piggy-bank-outline" size={32} color={colors.textInverse} />
                         </LinearGradient>
-                        <Text style={styles.eyebrow}>Masuk ke ritme keuanganmu</Text>
+                        <Text style={styles.eyebrow}>Finance Premium Workspace</Text>
                         <Text style={styles.title}>Semua dompet, target, dan insight harian siap dilanjutkan.</Text>
-                        <Text style={styles.subtitle}>Masuk untuk melihat konteks profil aktif, target tabungan, dan arus kas terbaru di satu tempat.</Text>
+                        <Text style={styles.subtitle}>Masuk untuk kembali ke ritme keuanganmu tanpa kehilangan konteks profil, target, dan arus kas terbaru.</Text>
                         {sessionStatus === 'guest' ? (
-                            <Text style={styles.guestUpgradeNote}>Data lokal guest tetap ada. Setelah masuk, data lokal yang belum sinkron akan ikut terbawa ke akun.</Text>
+                            <InlineNotice
+                                icon="account-switch-outline"
+                                title="Data guest tetap aman"
+                                description="Setelah masuk, data lokal yang belum sinkron akan tetap dibawa agar transisi ke akun terasa aman."
+                                tone="primary"
+                            />
                         ) : null}
                     </View>
 
-                    <FormSection title="Masuk ke akun" subtitle="Kami buat tetap singkat supaya kamu cepat kembali ke aktivitas utama.">
+                    <FormSection
+                        eyebrow="Secure Sign In"
+                        title="Masuk ke akun"
+                        subtitle="Flow ini dibuat singkat supaya kamu cepat kembali ke aktivitas utama."
+                        variant="highlight"
+                    >
                         <Input
                             label="Email"
                             value={email}
@@ -166,7 +191,7 @@ export function LoginScreen() {
                         <Button
                             label="Lanjut tanpa akun"
                             onPress={continueAsGuest}
-                            variant="outline"
+                            variant="secondary"
                             size="lg"
                             fullWidth
                         />
@@ -181,21 +206,18 @@ export function LoginScreen() {
     );
 }
 
-const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+const getStyles = (colors: ReturnType<typeof useTheme>['colors'], isCompact: boolean) =>
     StyleSheet.create({
         flex: { flex: 1 },
         content: {
-            paddingHorizontal: 20,
-            paddingTop: 72,
-            paddingBottom: 28,
-            gap: 20,
+            gap: 18,
         },
         hero: {
-            gap: 10,
+            gap: 8,
         },
         heroIcon: {
-            width: 58,
-            height: 58,
+            width: isCompact ? 52 : 58,
+            height: isCompact ? 52 : 58,
             borderRadius: BorderRadius['2xl'],
             alignItems: 'center',
             justifyContent: 'center',
@@ -214,19 +236,14 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         subtitle: {
             fontFamily: FontFamily.body,
             fontSize: FontSize.body,
-            lineHeight: 22,
+            lineHeight: 21,
             color: colors.textSecondary,
-        },
-        guestUpgradeNote: {
-            fontFamily: FontFamily.bodyMedium,
-            fontSize: FontSize.caption,
-            lineHeight: 20,
-            color: colors.primary,
         },
         optionsRow: {
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
+            flexWrap: 'wrap',
             gap: 12,
         },
         checkRow: {

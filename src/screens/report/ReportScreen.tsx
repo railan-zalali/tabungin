@@ -13,12 +13,15 @@ import { useTheme } from '../../store/useThemeStore';
 import { useTransactionStore } from '../../store/useTransactionStore';
 import { AppScreenHeader } from '../../components/common/AppScreenHeader';
 import { ContextBadge } from '../../components/common/ContextBadge';
+import { EmptyIllustrationState } from '../../components/common/EmptyIllustrationState';
 import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
 import { InsightPanel } from '../../components/common/InsightPanel';
+import { MetricCard } from '../../components/common/MetricCard';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { SectionHeader } from '../../components/common/SectionHeader';
 import { SegmentedControl } from '../../components/common/SegmentedControl';
-import { EmptyState } from '../../components/common/EmptyState';
+import { StatStrip } from '../../components/common/StatStrip';
+import { useResponsiveMetrics } from '../../utils/responsive';
 
 type PeriodFilter = 'month' | '3months' | '6months' | 'year';
 
@@ -83,6 +86,7 @@ function generateHTMLReport(
 export function ReportScreen() {
     const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const metrics = useResponsiveMetrics();
     const { getCategorySummary, getMonthlyData } = useTransactionStore();
     const { categories, loadCategories } = useCategoryStore();
     const [period, setPeriod] = useState<PeriodFilter>('month');
@@ -140,6 +144,7 @@ export function ReportScreen() {
     return (
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
             <AppScreenHeader
+                eyebrow="Analytics"
                 title="Laporan"
                 subtitle="Snapshot, tren, dan breakdown utama untuk membaca ritme keuanganmu."
                 rightSlot={
@@ -154,7 +159,16 @@ export function ReportScreen() {
                 variant="transparent"
             />
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[
+                    styles.content,
+                    {
+                        paddingHorizontal: metrics.horizontalPadding,
+                        paddingBottom: metrics.contentBottomInset,
+                    },
+                ]}
+            >
                 <HeroSummaryCard
                     eyebrow="Snapshot Periode"
                     title="Selisih kas pada periode terpilih"
@@ -172,6 +186,7 @@ export function ReportScreen() {
 
                 <View style={styles.periodCard}>
                     <SectionHeader
+                        eyebrow="Time Horizon"
                         title="Pilih periode"
                         subtitle="Ubah horizon waktu supaya snapshot dan insight tetap relevan."
                     />
@@ -204,20 +219,45 @@ export function ReportScreen() {
                             />
                         </>
                     }
+                    tone={netBalance >= 0 ? 'success' : 'warning'}
                 />
 
                 {isLoading ? (
-                    <EmptyState icon="chart-box-outline" title="Menyiapkan laporan" description="Sedang memuat snapshot dan breakdown kategori." compact />
+                    <EmptyIllustrationState icon="chart-box-outline" title="Menyiapkan laporan" description="Sedang memuat snapshot dan breakdown kategori." />
                 ) : expenseCategories.length === 0 && incomeCategories.length === 0 ? (
-                    <EmptyState
+                    <EmptyIllustrationState
                         icon="chart-box-outline"
                         title="Belum ada data laporan"
                         description="Tambahkan transaksi dulu agar snapshot dan insight mulai terbentuk."
                     />
                 ) : (
                     <>
+                        <View style={styles.metricGrid}>
+                            <MetricCard
+                                label="Total pemasukan"
+                                value={formatCurrency(totalIncome)}
+                                icon="arrow-up-circle-outline"
+                                tone="success"
+                            />
+                            <MetricCard
+                                label="Total pengeluaran"
+                                value={formatCurrency(totalExpense)}
+                                icon="arrow-down-circle-outline"
+                                tone="danger"
+                            />
+                        </View>
+
+                        <StatStrip
+                            items={[
+                                { label: 'Net', value: formatCurrency(netBalance), valueColor: netBalance >= 0 ? colors.success : colors.danger },
+                                { label: 'Kategori aktif', value: `${expenseCategories.length + incomeCategories.length}` },
+                                { label: 'Saving rate', value: totalIncome > 0 ? `${Math.max(0, ((totalIncome - totalExpense) / totalIncome) * 100).toFixed(0)}%` : '0%' },
+                            ]}
+                        />
+
                         <View style={styles.panel}>
                             <SectionHeader
+                                eyebrow="Top Categories"
                                 title="Breakdown kategori"
                                 subtitle="Kategori dengan dampak terbesar pada periode yang sedang dibaca."
                             />
@@ -243,6 +283,7 @@ export function ReportScreen() {
 
                         <View style={styles.panel}>
                             <SectionHeader
+                                eyebrow="Monthly Trend"
                                 title="Tren bulanan"
                                 subtitle="Perbandingan cepat pemasukan dan pengeluaran beberapa bulan terakhir."
                             />
@@ -255,7 +296,7 @@ export function ReportScreen() {
                                                     styles.chartBar,
                                                     {
                                                         height: Math.max((month.totalIncome / maxMonthly) * 110, 6),
-                                                        backgroundColor: colors.success,
+                                                        backgroundColor: colors.chartIncome,
                                                     },
                                                 ]}
                                             />
@@ -264,7 +305,7 @@ export function ReportScreen() {
                                                     styles.chartBar,
                                                     {
                                                         height: Math.max((month.totalExpense / maxMonthly) * 110, 6),
-                                                        backgroundColor: colors.danger,
+                                                        backgroundColor: colors.chartExpense,
                                                     },
                                                 ]}
                                             />
@@ -291,25 +332,28 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             justifyContent: 'center',
             backgroundColor: colors.panelSurface,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.cardBorder,
         },
         content: {
-            paddingHorizontal: 20,
-            paddingBottom: 108,
             gap: 18,
+        },
+        metricGrid: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 12,
         },
         periodCard: {
             gap: 14,
             backgroundColor: colors.panelSurface,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.cardBorder,
             borderRadius: BorderRadius['4xl'],
             padding: 18,
         },
         panel: {
             backgroundColor: colors.panelSurface,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.cardBorder,
             borderRadius: BorderRadius['4xl'],
             padding: 18,
             gap: 12,

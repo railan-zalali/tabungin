@@ -34,12 +34,15 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
     set({ isLoading: true });
     try {
       const userId = useAuthStore.getState().user?.id;
+      const canSync = useAuthStore.getState().canSync;
       if (!userId) return;
 
-      try {
-        await syncRemoteCategories(userId);
-      } catch (error) {
-        console.warn('Category sync skipped, falling back to local cache:', error);
+      if (canSync) {
+        try {
+          await syncRemoteCategories(userId);
+        } catch (error) {
+          console.warn('Category sync skipped, falling back to local cache:', error);
+        }
       }
       const categories = await fetchLocalCategories(userId);
 
@@ -57,12 +60,15 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
     set({ isLoading: true });
     try {
       const userId = useAuthStore.getState().user?.id;
+      const canSync = useAuthStore.getState().canSync;
       if (!userId) return;
 
-      try {
-        await syncRemoteCategories(userId);
-      } catch (error) {
-        console.warn('Category sync skipped, falling back to local cache:', error);
+      if (canSync) {
+        try {
+          await syncRemoteCategories(userId);
+        } catch (error) {
+          console.warn('Category sync skipped, falling back to local cache:', error);
+        }
       }
       const categories = await fetchLocalCategories(userId, type);
 
@@ -78,12 +84,15 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
 
   addCategory: async (category) => {
     const userId = useAuthStore.getState().user?.id;
+    const canSync = useAuthStore.getState().canSync;
     if (!userId) return;
 
     const newCategory = await insertCategory({ ...category, user_id: userId });
-    syncRemoteCategories(userId).catch((error) => {
-      console.warn('Category background sync failed after add:', error);
-    });
+    if (canSync) {
+      syncRemoteCategories(userId).catch((error) => {
+        console.warn('Category background sync failed after add:', error);
+      });
+    }
 
     set((state) => {
       const updated = [...state.categories, newCategory];
@@ -98,7 +107,8 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
   updateCategory: async (id, updates) => {
     await updateCategory(id, updates);
     const userId = useAuthStore.getState().user?.id;
-    if (userId) {
+    const canSync = useAuthStore.getState().canSync;
+    if (userId && canSync) {
       syncRemoteCategories(userId).catch((error) => {
         console.warn('Category background sync failed after update:', error);
       });
@@ -120,7 +130,8 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
   deleteCategory: async (id) => {
     await deleteCategory(id);
     const userId = useAuthStore.getState().user?.id;
-    if (userId) {
+    const canSync = useAuthStore.getState().canSync;
+    if (userId && canSync) {
       syncRemoteCategories(userId).catch((error) => {
         console.warn('Category background sync failed after delete:', error);
       });

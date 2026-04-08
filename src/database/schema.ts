@@ -42,7 +42,7 @@ const MIGRATIONS: Record<number, string[]> = {
             photo_uri TEXT,
             saving_per_period REAL NOT NULL,
             period_type TEXT NOT NULL CHECK(period_type IN ('daily', 'weekly', 'monthly')),
-            color TEXT NOT NULL DEFAULT '#1DB954',
+            color TEXT NOT NULL DEFAULT '#1D7D53',
             start_date INTEGER NOT NULL,
             deadline_at INTEGER NOT NULL,
             estimated_date INTEGER NOT NULL,
@@ -81,7 +81,7 @@ const MIGRATIONS: Record<number, string[]> = {
             name TEXT NOT NULL,
             email TEXT NOT NULL UNIQUE,
             password_hash TEXT NOT NULL,
-            avatar_color TEXT NOT NULL DEFAULT '#1DB954',
+            avatar_color TEXT NOT NULL DEFAULT '#1D7D53',
             created_at INTEGER NOT NULL
         );`,
         `CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);`,
@@ -116,7 +116,7 @@ const MIGRATIONS: Record<number, string[]> = {
             id TEXT PRIMARY KEY NOT NULL,
             name TEXT NOT NULL,
             type TEXT NOT NULL DEFAULT 'general',
-            color TEXT NOT NULL DEFAULT '#1DB954',
+            color TEXT NOT NULL DEFAULT '#1D7D53',
             balance REAL NOT NULL DEFAULT 0,
             is_default INTEGER NOT NULL DEFAULT 0,
             created_at INTEGER NOT NULL,
@@ -138,7 +138,7 @@ const MIGRATIONS: Record<number, string[]> = {
             user_id TEXT, -- Nullable untuk data lama yang belum terkait user cloud
             name TEXT NOT NULL,
             icon TEXT DEFAULT 'account',
-            color TEXT DEFAULT '#1DB954',
+            color TEXT DEFAULT '#1D7D53',
             created_at INTEGER NOT NULL,
             updated_at INTEGER,
             sync_status TEXT DEFAULT 'pending_create'
@@ -255,7 +255,7 @@ const MIGRATIONS: Record<number, string[]> = {
             name TEXT NOT NULL,
             type TEXT NOT NULL CHECK(type IN ('income', 'expense', 'both')),
             icon TEXT NOT NULL DEFAULT 'tag',
-            color TEXT NOT NULL DEFAULT '#1DB954',
+            color TEXT NOT NULL DEFAULT '#1D7D53',
             is_default INTEGER NOT NULL DEFAULT 0,
             created_at INTEGER NOT NULL,
             updated_at INTEGER,
@@ -343,7 +343,7 @@ const SCHEMA_GUARDS: string[] = [
         id TEXT PRIMARY KEY NOT NULL,
         name TEXT NOT NULL,
         type TEXT NOT NULL DEFAULT 'general',
-        color TEXT NOT NULL DEFAULT '#1DB954',
+        color TEXT NOT NULL DEFAULT '#1D7D53',
         balance REAL NOT NULL DEFAULT 0,
         is_default INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER NOT NULL,
@@ -357,7 +357,7 @@ const SCHEMA_GUARDS: string[] = [
         user_id TEXT,
         name TEXT NOT NULL,
         icon TEXT DEFAULT 'account',
-        color TEXT DEFAULT '#1DB954',
+        color TEXT DEFAULT '#1D7D53',
         created_at INTEGER NOT NULL,
         updated_at INTEGER,
         sync_status TEXT DEFAULT 'pending_create'
@@ -452,7 +452,7 @@ const SCHEMA_GUARDS: string[] = [
         name TEXT NOT NULL,
         type TEXT NOT NULL CHECK(type IN ('income', 'expense', 'both')),
         icon TEXT NOT NULL DEFAULT 'tag',
-        color TEXT NOT NULL DEFAULT '#1DB954',
+        color TEXT NOT NULL DEFAULT '#1D7D53',
         is_default INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER NOT NULL,
         updated_at INTEGER,
@@ -643,7 +643,7 @@ async function runSchemaGuards(database: SQLite.SQLiteDatabase): Promise<void> {
                     name TEXT NOT NULL,
                     type TEXT NOT NULL CHECK(type IN ('income', 'expense', 'both')),
                     icon TEXT NOT NULL DEFAULT 'tag',
-                    color TEXT NOT NULL DEFAULT '#1DB954',
+                    color TEXT NOT NULL DEFAULT '#1D7D53',
                     is_default INTEGER NOT NULL DEFAULT 0,
                     created_at INTEGER NOT NULL,
                     updated_at INTEGER,
@@ -868,7 +868,7 @@ export async function initDatabase(): Promise<void> {
                     await database.runAsync(
                         `INSERT INTO wallets (id, name, type, color, is_default, created_at, updated_at, sync_status)
                          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                        [defaultWalletId, 'Dompet Utama', 'cash', '#1DB954', 1, now, now, 'pending_create']
+                        [defaultWalletId, 'Dompet Utama', 'cash', '#1D7D53', 1, now, now, 'pending_create']
                     );
                     
                     // Assign semua data lama ke dompet ini
@@ -900,7 +900,7 @@ export async function initDatabase(): Promise<void> {
                     await database.runAsync(
                         `INSERT INTO profiles (id, name, icon, color, created_at, updated_at, sync_status)
                          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                        [defaultProfileId, 'Pribadi', 'account', '#1DB954', now, now, 'pending_create']
+                        [defaultProfileId, 'Pribadi', 'account', '#1D7D53', now, now, 'pending_create']
                     );
                     
                     // Assign semua data lama ke profil ini
@@ -1017,7 +1017,7 @@ export async function seedDummyData(database: SQLite.SQLiteDatabase): Promise<vo
     const goals = [
         { id: macbookId, name: 'MacBook Air M3', target_amount: 18000000, current_amount: 4500000, emoji: '💻', saving_per_period: 1500000, period_type: 'monthly', color: '#3B82F6', start_date: daysAgo(30), estimated_date: daysAgo(-270), is_completed: 0, reminder_enabled: 1, reminder_time: '08:00' },
         { id: baliId, name: 'Liburan ke Bali', target_amount: 5000000, current_amount: 2000000, emoji: '🌴', saving_per_period: 500000, period_type: 'monthly', color: '#F5A623', start_date: daysAgo(45), estimated_date: daysAgo(-180), is_completed: 0, reminder_enabled: 1, reminder_time: '09:00' },
-        { id: ps5Id, name: 'PS5', target_amount: 8000000, current_amount: 7800000, emoji: '🎮', saving_per_period: 1000000, period_type: 'monthly', color: '#1DB954', start_date: daysAgo(210), estimated_date: daysAgo(-1), is_completed: 0, reminder_enabled: 0, reminder_time: null },
+        { id: ps5Id, name: 'PS5', target_amount: 8000000, current_amount: 7800000, emoji: '🎮', saving_per_period: 1000000, period_type: 'monthly', color: '#1D7D53', start_date: daysAgo(210), estimated_date: daysAgo(-1), is_completed: 0, reminder_enabled: 0, reminder_time: null },
     ];
 
     for (const g of goals) {

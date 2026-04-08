@@ -1,515 +1,373 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, StatusBar } from 'react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useTheme } from '../../store/useThemeStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Button } from '../../components/common/Button';
 import { EmptyState } from '../../components/common/EmptyState';
+import { AppScreenHeader } from '../../components/common/AppScreenHeader';
+import { FormSection } from '../../components/common/FormSection';
+import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
+import { InfoRow } from '../../components/common/InfoRow';
+import { InlineNotice } from '../../components/common/InlineNotice';
+import { ScreenShell } from '../../components/common/ScreenShell';
+import { StatStrip } from '../../components/common/StatStrip';
 import { BorderRadius } from '../../constants/theme';
-import { FontFamily, FontSize, Typography } from '../../constants/typography';
+import { FontFamily, FontSize } from '../../constants/typography';
 import { supabase } from '../../lib/supabase';
 import type { WalletStackParamList } from '../../types/navigation';
 import {
-  getAuthenticatedWalletEmail,
-  isActiveWalletMemberForEmail,
-  joinWalletByInvite,
+    getAuthenticatedWalletEmail,
+    isActiveWalletMemberForEmail,
+    joinWalletByInvite,
 } from '../../database/walletSharingService';
 import { buildWalletInviteUrl, isValidWalletId } from '../../utils/walletInvite';
-import { getReadableTextColor } from '../../utils/colorContrast';
+import { useResponsiveMetrics } from '../../utils/responsive';
 
 type JoinWalletScreenRouteProp = RouteProp<WalletStackParamList, 'JoinWallet'>;
 
 export function JoinWalletScreen() {
-  const navigation = useNavigation<any>();
-  const route = useRoute<JoinWalletScreenRouteProp>();
-  const { walletId } = route.params;
-  const insets = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
-  const styles = React.useMemo(() => getStyles(colors), [colors]);
-  const { loadWallets } = useWalletStore();
-  const canUseCloudCollaboration = useAuthStore((state) => state.canUseCloudCollaboration);
-  const setPostAuthRedirect = useAuthStore((state) => state.setPostAuthRedirect);
+    const navigation = useNavigation<any>();
+    const route = useRoute<JoinWalletScreenRouteProp>();
+    const { walletId } = route.params;
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const metrics = useResponsiveMetrics();
+    const { loadWallets } = useWalletStore();
+    const canUseCloudCollaboration = useAuthStore((state) => state.canUseCloudCollaboration);
+    const setPostAuthRedirect = useAuthStore((state) => state.setPostAuthRedirect);
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [isJoining, setIsJoining] = useState(false);
-  const [walletInfo, setWalletInfo] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [alreadyMember, setAlreadyMember] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isJoining, setIsJoining] = useState(false);
+    const [walletInfo, setWalletInfo] = useState<any>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [alreadyMember, setAlreadyMember] = useState(false);
 
-  useEffect(() => {
-    if (!canUseCloudCollaboration) {
-      setError('Shared wallet membutuhkan akun yang terhubung. Masuk dengan akun lalu buka ulang undangan ini.');
-      setIsLoading(false);
-      return;
-    }
-
-    if (!isValidWalletId(walletId)) {
-      setError('ID dompet tidak valid');
-      setIsLoading(false);
-      return;
-    }
-    fetchWalletInfo();
-  }, [canUseCloudCollaboration, walletId]);
-
-  const fetchWalletInfo = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const authEmail = await getAuthenticatedWalletEmail();
-
-      if (authEmail) {
-        const { data: members } = await supabase
-          .from('wallet_members')
-          .select('id, user_email, status')
-          .eq('wallet_id', walletId);
-
-        if (isActiveWalletMemberForEmail(members ?? [], authEmail)) {
-          setAlreadyMember(true);
+    useEffect(() => {
+        if (!canUseCloudCollaboration) {
+            setError('Shared wallet membutuhkan akun yang terhubung. Masuk dengan akun lalu buka ulang undangan ini.');
+            setIsLoading(false);
+            return;
         }
-      }
 
-      const { data: walletPreview, error: rpcError } = await supabase.rpc('get_wallet_preview', {
-        p_wallet_id: walletId,
-      });
+        if (!isValidWalletId(walletId)) {
+            setError('ID dompet tidak valid.');
+            setIsLoading(false);
+            return;
+        }
 
-      if (!rpcError && walletPreview && walletPreview.length > 0) {
-        setWalletInfo({
-          id: walletPreview[0].id,
-          name: walletPreview[0].name,
-          type: walletPreview[0].type,
-          color: walletPreview[0].color || colors.primary,
-          created_at: walletPreview[0].created_at,
-        });
-        return;
-      }
+        fetchWalletInfo();
+    }, [canUseCloudCollaboration, walletId]);
 
-      const { data: directWallet, error: directError } = await supabase
-        .from('wallets')
-        .select('id, name, type, color, created_at')
-        .eq('id', walletId)
-        .single();
+    const fetchWalletInfo = async () => {
+        try {
+            setIsLoading(true);
+            setError(null);
 
-      if (!directError && directWallet) {
-        setWalletInfo({
-          id: directWallet.id,
-          name: directWallet.name,
-          type: directWallet.type,
-          color: directWallet.color || colors.primary,
-          created_at: directWallet.created_at,
-        });
-      } else {
-        setWalletInfo({
-          name: 'Dompet Bersama',
-          type: 'general',
-          color: colors.primary,
-          isLocked: true,
-        });
-      }
-    } catch (e: any) {
-      console.error(e);
-      setError(e.message || 'Gagal memuat informasi dompet');
-    } finally {
-      setIsLoading(false);
+            const authEmail = await getAuthenticatedWalletEmail();
+
+            if (authEmail) {
+                const { data: members } = await supabase
+                    .from('wallet_members')
+                    .select('id, user_email, status')
+                    .eq('wallet_id', walletId);
+
+                if (isActiveWalletMemberForEmail(members ?? [], authEmail)) {
+                    setAlreadyMember(true);
+                }
+            }
+
+            const { data: walletPreview, error: rpcError } = await supabase.rpc('get_wallet_preview', {
+                p_wallet_id: walletId,
+            });
+
+            if (!rpcError && walletPreview && walletPreview.length > 0) {
+                setWalletInfo({
+                    id: walletPreview[0].id,
+                    name: walletPreview[0].name,
+                    type: walletPreview[0].type,
+                    color: walletPreview[0].color || colors.primary,
+                    created_at: walletPreview[0].created_at,
+                });
+                return;
+            }
+
+            const { data: directWallet, error: directError } = await supabase
+                .from('wallets')
+                .select('id, name, type, color, created_at')
+                .eq('id', walletId)
+                .single();
+
+            if (!directError && directWallet) {
+                setWalletInfo({
+                    id: directWallet.id,
+                    name: directWallet.name,
+                    type: directWallet.type,
+                    color: directWallet.color || colors.primary,
+                    created_at: directWallet.created_at,
+                });
+            } else {
+                setWalletInfo({
+                    name: 'Dompet bersama',
+                    type: 'general',
+                    color: colors.primary,
+                    isLocked: true,
+                });
+            }
+        } catch (e: any) {
+            console.error(e);
+            setError(e.message || 'Gagal memuat informasi dompet.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleOpenWallets = async () => {
+        await loadWallets();
+        navigation.replace('WalletList');
+    };
+
+    const handleJoin = async () => {
+        if (!canUseCloudCollaboration) {
+            Alert.alert('Perlu akun', 'Shared wallet hanya tersedia untuk akun yang terhubung ke cloud.');
+            return;
+        }
+
+        const authEmail = await getAuthenticatedWalletEmail();
+
+        if (!authEmail) {
+            Alert.alert('Login diperlukan', 'Silakan login kembali.');
+            return;
+        }
+
+        try {
+            setIsJoining(true);
+            const result = await joinWalletByInvite(walletId);
+            await loadWallets();
+            setAlreadyMember(true);
+
+            Alert.alert(
+                result.alreadyMember ? 'Sudah bergabung' : 'Sukses',
+                result.alreadyMember ? 'Anda sudah menjadi anggota dompet ini.' : 'Berhasil bergabung ke dompet.',
+                [{ text: 'OK', onPress: handleOpenWallets }],
+            );
+        } catch (e: any) {
+            console.error(e);
+            Alert.alert('Gagal', e.message || 'Terjadi kesalahan.');
+        } finally {
+            setIsJoining(false);
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
+                <AppScreenHeader
+                    title="Undangan dompet"
+                    subtitle="Memeriksa detail undangan sebelum ditampilkan."
+                    eyebrow="Wallet Invite"
+                    showBack
+                    onBackPress={() => navigation.goBack()}
+                    variant="transparent"
+                />
+                <View style={styles.loadingWrap}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <Text style={styles.loadingText}>Memeriksa undangan...</Text>
+                </View>
+            </ScreenShell>
+        );
     }
-  };
 
-  const handleOpenWallets = async () => {
-    await loadWallets();
-    navigation.replace('WalletList');
-  };
-
-  const handleJoin = async () => {
-    if (!canUseCloudCollaboration) {
-      Alert.alert('Perlu akun', 'Shared wallet hanya tersedia untuk akun yang terhubung ke cloud.');
-      return;
+    if (error) {
+        return (
+            <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
+                <AppScreenHeader
+                    title="Undangan dompet"
+                    subtitle="Ada kendala saat membuka tautan undangan."
+                    eyebrow="Wallet Invite"
+                    showBack
+                    onBackPress={() => navigation.goBack()}
+                    variant="transparent"
+                />
+                <View style={styles.errorWrap}>
+                    <EmptyState
+                        icon="alert-circle-outline"
+                        title="Undangan tidak bisa dibuka"
+                        description={error}
+                        actionLabel="Coba lagi"
+                        onAction={fetchWalletInfo}
+                    />
+                    {!canUseCloudCollaboration ? (
+                        <View style={styles.errorActions}>
+                            <Button
+                                label="Masuk dengan akun"
+                                onPress={() => {
+                                    setPostAuthRedirect({ screen: 'Wallet', params: { screen: 'JoinWallet', params: { walletId } } });
+                                    navigation.navigate('Login');
+                                }}
+                                fullWidth
+                            />
+                            <Button
+                                label="Buat akun"
+                                onPress={() => {
+                                    setPostAuthRedirect({ screen: 'Wallet', params: { screen: 'JoinWallet', params: { walletId } } });
+                                    navigation.navigate('Register');
+                                }}
+                                variant="secondary"
+                                fullWidth
+                            />
+                        </View>
+                    ) : null}
+                    <Button label="Kembali" onPress={() => navigation.goBack()} variant="outline" fullWidth />
+                </View>
+            </ScreenShell>
+        );
     }
 
-    const authEmail = await getAuthenticatedWalletEmail();
+    const walletName = walletInfo?.name || 'Dompet bersama';
+    const walletTypeLabel = walletInfo?.type ? String(walletInfo.type).replace('-', ' ') : 'General';
 
-    if (!authEmail) {
-      Alert.alert('Login diperlukan', 'Silakan login kembali.');
-      return;
-    }
-
-    try {
-      setIsJoining(true);
-      const result = await joinWalletByInvite(walletId);
-      await loadWallets();
-      setAlreadyMember(true);
-
-      Alert.alert(
-        result.alreadyMember ? 'Sudah bergabung' : 'Sukses',
-        result.alreadyMember ? 'Anda sudah menjadi anggota dompet ini.' : 'Berhasil bergabung ke dompet!',
-        [{ text: 'OK', onPress: handleOpenWallets }],
-      );
-    } catch (e: any) {
-      console.error(e);
-      Alert.alert('Gagal', e.message || 'Terjadi kesalahan.');
-    } finally {
-      setIsJoining(false);
-    }
-  };
-
-  if (isLoading) {
     return (
-      <View style={[styles.container, styles.center]}>
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Memeriksa undangan...</Text>
-      </View>
+        <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
+            <AppScreenHeader
+                title="Undangan dompet"
+                subtitle="Tinjau konteks dompet bersama sebelum memutuskan untuk bergabung."
+                eyebrow="Wallet Invite"
+                showBack
+                onBackPress={() => navigation.goBack()}
+                variant="transparent"
+            />
+
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[
+                    styles.content,
+                    {
+                        paddingHorizontal: metrics.horizontalPadding,
+                        paddingBottom: metrics.contentBottomInset,
+                        gap: metrics.verticalGap,
+                    },
+                    metrics.widthClass !== 'compact' ? styles.contentWide : null,
+                ]}
+            >
+                <HeroSummaryCard
+                    eyebrow="Invite Preview"
+                    title={walletName}
+                    value={walletTypeLabel}
+                    description="Bergabung ke dompet ini akan menyinkronkan saldo, transaksi, dan akses anggota sesuai izin yang berlaku."
+                    icon="wallet-outline"
+                    stats={[
+                        { label: 'Keamanan', value: 'Terverifikasi', icon: 'shield-check-outline' },
+                        { label: 'Tujuan', value: 'Kolaborasi', icon: 'account-group-outline' },
+                        { label: 'Status', value: alreadyMember ? 'Sudah masuk' : 'Siap bergabung', icon: 'door' },
+                    ]}
+                />
+
+                <InlineNotice
+                    icon="account-group-outline"
+                    title="Sebelum bergabung"
+                    description="Dompet bersama cocok untuk keluarga, tim kecil, atau kebutuhan kolaboratif lain yang butuh saldo dan transaksi tetap sinkron."
+                    tone="info"
+                />
+
+                <StatStrip
+                    items={[
+                        { label: 'Akses', value: 'Dompet bersama' },
+                        { label: 'Tipe', value: walletTypeLabel },
+                        { label: 'Status', value: alreadyMember ? 'Aktif' : 'Menunggu aksi' },
+                    ]}
+                    vertical={metrics.widthClass === 'compact'}
+                />
+
+                <FormSection
+                    eyebrow="Sharing Context"
+                    title="Apa yang akan ikut terlihat"
+                    subtitle="Informasi ini membantu kamu memahami dampak bergabung ke dompet bersama sebelum menekan CTA utama."
+                    variant="highlight"
+                >
+                    <InfoRow icon="cash-multiple" label="Saldo & transaksi" value="Tersinkron lintas anggota sesuai izin." tone="primary" />
+                    <InfoRow icon="account-key-outline" label="Akses anggota" value="Hak akses mengikuti peran yang ditetapkan owner." />
+                    <InfoRow icon="link-variant" label="Tautan undangan" value="Bisa dibuka ulang atau dibagikan kembali bila perlu." />
+                </FormSection>
+
+                <FormSection
+                    eyebrow="Invite Link"
+                    title="Tautan undangan"
+                    subtitle="Simpan atau bagikan tautan ini bila kamu perlu membuka ulang invite dari perangkat lain."
+                    density="compact"
+                >
+                    <View style={styles.inviteBox}>
+                        <Text style={styles.inviteText}>{buildWalletInviteUrl(walletId)}</Text>
+                    </View>
+                </FormSection>
+
+                {alreadyMember ? (
+                    <FormSection
+                        eyebrow="Ready"
+                        title="Kamu sudah tergabung"
+                        subtitle="Dompet ini sudah aktif di akunmu. Tinggal buka daftar dompet untuk mulai mengelolanya."
+                    >
+                        <Button label="Buka dompet" onPress={handleOpenWallets} fullWidth />
+                    </FormSection>
+                ) : (
+                    <FormSection
+                        eyebrow="Decision"
+                        title="Lanjut bergabung?"
+                        subtitle="Kalau konteks dan tautannya sudah sesuai, kamu bisa langsung masuk ke dompet bersama ini sekarang."
+                    >
+                        <Button label="Gabung sekarang" onPress={handleJoin} loading={isJoining} fullWidth />
+                        <Button label="Batal" onPress={() => navigation.goBack()} variant="outline" fullWidth />
+                    </FormSection>
+                )}
+            </ScrollView>
+        </ScreenShell>
     );
-  }
-
-  if (error) {
-    return (
-      <View style={[styles.container, styles.center, { padding: 20 }]}>
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
-        <EmptyState
-          icon="alert-circle-outline"
-          title="Undangan tidak bisa dibuka"
-          description={error}
-          actionLabel="Coba Lagi"
-          onAction={fetchWalletInfo}
-          style={styles.errorState}
-        />
-        {!canUseCloudCollaboration ? (
-          <View style={styles.upgradeActions}>
-            <Button
-              label="Masuk dengan akun"
-              onPress={() => {
-                setPostAuthRedirect({ screen: 'Wallet', params: { screen: 'JoinWallet', params: { walletId } } });
-                navigation.navigate('Login');
-              }}
-              fullWidth
-            />
-            <Button
-              label="Buat akun"
-              onPress={() => {
-                setPostAuthRedirect({ screen: 'Wallet', params: { screen: 'JoinWallet', params: { walletId } } });
-                navigation.navigate('Register');
-              }}
-              variant="secondary"
-              fullWidth
-            />
-          </View>
-        ) : null}
-        <Button
-          label="Kembali"
-          onPress={() => navigation.goBack()}
-          variant="secondary"
-          fullWidth
-          style={styles.backAction}
-        />
-      </View>
-    );
-  }
-
-  const walletColor = walletInfo?.color || colors.primary;
-  const walletTypeLabel = walletInfo?.type?.toUpperCase?.() || 'GENERAL';
-  const walletIconColor = getReadableTextColor(walletColor, {
-    light: colors.textInverse,
-    dark: colors.textPrimary,
-  });
-
-  return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
-      <View style={styles.bgAuraTop} pointerEvents="none" />
-
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Tutup undangan dompet">
-          <MaterialCommunityIcons name="close" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Undangan Dompet</Text>
-        <View style={{ width: 44 }} />
-      </View>
-
-      <View style={styles.content}>
-        <LinearGradient
-          colors={[walletColor, colors.primaryDark, walletColor]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.heroCard}
-        >
-          <View style={styles.heroGlow} />
-          <View style={styles.heroIcon}>
-            <MaterialCommunityIcons name="wallet-outline" size={38} color={walletIconColor} />
-          </View>
-          <Text style={styles.walletName}>{walletInfo?.name}</Text>
-          <View style={styles.heroChips}>
-            <View style={styles.heroChip}>
-              <MaterialCommunityIcons name="shield-check-outline" size={14} color={colors.textInverse} />
-              <Text style={styles.heroChipText}>Aman untuk bergabung</Text>
-            </View>
-            <View style={styles.heroChip}>
-              <MaterialCommunityIcons name="shape-outline" size={14} color={colors.textInverse} />
-              <Text style={styles.heroChipText}>{walletTypeLabel}</Text>
-            </View>
-          </View>
-        </LinearGradient>
-
-        <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>Siapa saja yang bisa melihat?</Text>
-          <Text style={styles.infoSubtitle}>
-            Bergabung ke dompet ini akan menyinkronkan saldo, transaksi, dan akses anggota sesuai izin yang berlaku.
-          </Text>
-
-          <View style={styles.inviteBox}>
-            <MaterialCommunityIcons name="link-variant" size={18} color={colors.primary} />
-            <Text style={styles.inviteText} numberOfLines={2}>
-              {buildWalletInviteUrl(walletId)}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.metaCard}>
-          <View style={styles.metaRow}>
-            <MaterialCommunityIcons name="account-group-outline" size={18} color={colors.primary} />
-            <Text style={styles.metaText}>Setelah bergabung, dompet ini muncul di daftar utama kamu.</Text>
-          </View>
-          <View style={styles.metaRow}>
-            <MaterialCommunityIcons name="clock-outline" size={18} color={colors.textSecondary} />
-            <Text style={styles.metaText}>Cocok untuk keluarga, tim kecil, atau dompet kolaboratif.</Text>
-          </View>
-        </View>
-
-        {alreadyMember ? (
-          <View style={styles.actionSection}>
-            <View style={styles.alreadyMemberBadge}>
-              <MaterialCommunityIcons name="check-circle" size={22} color={colors.success} />
-              <Text style={styles.alreadyMemberText}>Anda sudah bergabung</Text>
-            </View>
-            <Button label="Buka Dompet" onPress={handleOpenWallets} variant="primary" fullWidth />
-          </View>
-        ) : (
-          <View style={styles.actionSection}>
-            <Button
-              label="Gabung Sekarang"
-              onPress={handleJoin}
-              variant="primary"
-              loading={isJoining}
-              fullWidth
-            />
-            <Button
-              label="Batal"
-              onPress={() => navigation.goBack()}
-              variant="secondary"
-              fullWidth
-            />
-          </View>
-        )}
-      </View>
-    </View>
-  );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  bgAuraTop: {
-    position: 'absolute',
-    top: -120,
-    right: -30,
-    width: 240,
-    height: 240,
-    borderRadius: BorderRadius.full,
-    backgroundColor: colors.primaryLight,
-    opacity: 0.5,
-  },
-  center: { justifyContent: 'center', alignItems: 'center' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    gap: 12,
-  },
-  headerTitle: { ...Typography.h3, color: colors.textPrimary, flex: 1, textAlign: 'center' },
-  backBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: BorderRadius.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  loadingText: {
-    marginTop: 16,
-    color: colors.textSecondary,
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.body,
-  },
-  errorState: {
-    width: '100%',
-  },
-  backAction: {
-    marginTop: 12,
-    width: '100%',
-  },
-  upgradeActions: {
-    width: '100%',
-    gap: 12,
-    marginTop: 16,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingBottom: 28,
-    gap: 16,
-  },
-  heroCard: {
-    borderRadius: 32,
-    padding: 24,
-    alignItems: 'center',
-    gap: 14,
-    overflow: 'hidden',
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 6,
-  },
-  heroGlow: {
-    position: 'absolute',
-    top: -54,
-    right: -28,
-    width: 150,
-    height: 150,
-    borderRadius: BorderRadius.full,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-  },
-  heroIcon: {
-    width: 82,
-    height: 82,
-    borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.94)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
-  },
-  walletName: {
-    fontFamily: FontFamily.heading,
-    fontSize: FontSize.h2,
-    color: colors.textInverse,
-    textAlign: 'center',
-  },
-  heroChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  heroChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
-  },
-  heroChipText: {
-    fontFamily: FontFamily.bodyMedium,
-    fontSize: FontSize.caption,
-    color: colors.textInverse,
-  },
-  infoCard: {
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 24,
-    padding: 18,
-    gap: 10,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 3,
-  },
-  infoTitle: {
-    ...Typography.h4,
-    color: colors.textPrimary,
-  },
-  infoSubtitle: {
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.body,
-    lineHeight: 22,
-    color: colors.textSecondary,
-  },
-  inviteBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    padding: 14,
-    borderRadius: 18,
-    backgroundColor: colors.primaryBg,
-    borderWidth: 1,
-    borderColor: `${colors.primary}22`,
-  },
-  inviteText: {
-    flex: 1,
-    fontFamily: FontFamily.bodyMedium,
-    fontSize: FontSize.caption,
-    color: colors.textPrimary,
-    lineHeight: 18,
-  },
-  metaCard: {
-    gap: 10,
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 24,
-    padding: 18,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 3,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  metaText: {
-    flex: 1,
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.body,
-    color: colors.textSecondary,
-    lineHeight: 22,
-  },
-  actionSection: {
-    marginTop: 'auto',
-    gap: 12,
-  },
-  alreadyMemberBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    padding: 16,
-    backgroundColor: colors.successBg,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: `${colors.success}22`,
-  },
-  alreadyMemberText: {
-    fontFamily: FontFamily.bodyBold,
-    color: colors.success,
-    fontSize: FontSize.body,
-  },
-});
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+    StyleSheet.create({
+        loadingWrap: {
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 14,
+            padding: 24,
+        },
+        loadingText: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.body,
+            color: colors.textSecondary,
+        },
+        errorWrap: {
+            flex: 1,
+            justifyContent: 'center',
+            paddingHorizontal: 16,
+            paddingBottom: 40,
+            gap: 16,
+        },
+        errorActions: {
+            gap: 12,
+        },
+        content: {
+            gap: 18,
+        },
+        contentWide: {
+            width: '100%',
+            maxWidth: 920,
+            alignSelf: 'center',
+        },
+        inviteBox: {
+            backgroundColor: colors.surfaceElevated,
+            borderWidth: 1,
+            borderColor: colors.cardBorder,
+            borderRadius: BorderRadius['2xl'],
+            padding: 16,
+        },
+        inviteText: {
+            fontFamily: FontFamily.bodyMedium,
+            fontSize: FontSize.caption,
+            lineHeight: 20,
+            color: colors.textPrimary,
+        },
+    });

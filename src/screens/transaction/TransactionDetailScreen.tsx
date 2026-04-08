@@ -17,8 +17,11 @@ import { useWalletStore } from '../../store/useWalletStore';
 import { useResponsiveMetrics } from '../../utils/responsive';
 import { AppScreenHeader } from '../../components/common/AppScreenHeader';
 import { ContextBadge } from '../../components/common/ContextBadge';
-import { EmptyState } from '../../components/common/EmptyState';
+import { EmptyIllustrationState } from '../../components/common/EmptyIllustrationState';
 import { FormSection } from '../../components/common/FormSection';
+import { InfoRow } from '../../components/common/InfoRow';
+import { InlineNotice } from '../../components/common/InlineNotice';
+import { MetricCard } from '../../components/common/MetricCard';
 import { PrimaryActionBar } from '../../components/common/PrimaryActionBar';
 import { ScreenShell } from '../../components/common/ScreenShell';
 
@@ -56,9 +59,9 @@ export function TransactionDetailScreen() {
     if (!transaction) {
         return (
             <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
-                <AppScreenHeader title="Detail Transaksi" subtitle="Data transaksi tidak tersedia lagi di daftar aktif." showBack onBackPress={() => navigation.goBack()} />
+                <AppScreenHeader eyebrow="Transaction Detail" title="Detail Transaksi" subtitle="Data transaksi tidak tersedia lagi di daftar aktif." showBack onBackPress={() => navigation.goBack()} />
                 <View style={[styles.emptyWrap, { paddingHorizontal: metrics.horizontalPadding }]}>
-                    <EmptyState
+                    <EmptyIllustrationState
                         icon="file-search-outline"
                         title="Transaksi tidak ditemukan"
                         description="Data transaksi yang kamu cari sudah tidak tersedia atau belum tersinkron."
@@ -116,6 +119,7 @@ export function TransactionDetailScreen() {
     return (
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
             <AppScreenHeader
+                eyebrow="Transaction Detail"
                 title="Detail Transaksi"
                 subtitle="Ringkasan transaksi dengan konteks kategori, tanggal, dan dompet."
                 showBack
@@ -133,7 +137,7 @@ export function TransactionDetailScreen() {
                     styles.content,
                     {
                         paddingHorizontal: metrics.horizontalPadding,
-                        paddingBottom: metrics.bottomActionInset + 24,
+                        paddingBottom: metrics.floatingActionClearance + 24,
                     },
                 ]}
             >
@@ -166,51 +170,57 @@ export function TransactionDetailScreen() {
                 </LinearGradient>
 
                 <FormSection
+                    eyebrow="Key Snapshot"
                     title="Ringkasan cepat"
                     subtitle="Dua informasi yang paling sering dicek sebelum memutuskan edit atau hapus."
+                    variant="highlight"
                 >
-                    <View style={styles.summaryRow}>
-                        <View style={styles.summaryItem}>
-                            <MaterialCommunityIcons name="cash" size={18} color={amountColor} />
-                            <View style={styles.summaryCopy}>
-                                <Text style={styles.summaryLabel}>Nominal</Text>
-                                <Text style={[styles.summaryValue, { color: amountColor }]}>
-                                    {isIncome ? '+' : '-'} {formatRupiah(transaction.amount)}
-                                </Text>
-                            </View>
-                        </View>
-                        <View style={styles.summaryItem}>
-                            <MaterialCommunityIcons name="calendar-check-outline" size={18} color={colors.primary} />
-                            <View style={styles.summaryCopy}>
-                                <Text style={styles.summaryLabel}>Tanggal</Text>
-                                <Text style={styles.summaryValue}>{formatDateLong(transaction.date)}</Text>
-                            </View>
-                        </View>
+                    <View style={styles.metricGrid}>
+                        <MetricCard
+                            label="Nominal"
+                            value={`${isIncome ? '+' : '-'} ${formatRupiah(transaction.amount)}`}
+                            icon="cash"
+                            tone={isIncome ? 'success' : 'danger'}
+                        />
+                        <MetricCard
+                            label="Tanggal"
+                            value={formatDateShort(transaction.date)}
+                            icon="calendar-check-outline"
+                            tone="primary"
+                        />
                     </View>
                 </FormSection>
 
                 <FormSection
+                    eyebrow="Context"
                     title="Rincian transaksi"
                     subtitle="Informasi lengkap yang membantu kamu membaca konteks sebelum melakukan perubahan."
+                    density="compact"
                 >
                     <View style={styles.detailList}>
                         {detailItems.map((item, index) => (
                             <View key={item.label}>
-                                <View style={styles.detailRow}>
-                                    <View style={styles.detailIcon}>
-                                        <MaterialCommunityIcons name={item.icon as any} size={18} color={colors.primary} />
-                                    </View>
-                                    <View style={styles.detailCopy}>
-                                        <Text style={styles.detailLabel}>{item.label}</Text>
-                                        <Text style={styles.detailValue}>{item.value}</Text>
-                                        {item.meta ? <Text style={styles.detailMeta}>{item.meta}</Text> : null}
-                                    </View>
-                                </View>
+                                <InfoRow
+                                    icon={item.icon}
+                                    label={item.label}
+                                    value={item.value}
+                                    tone={item.label === 'Dompet' ? 'primary' : 'neutral'}
+                                />
+                                {item.meta ? <Text style={styles.detailMeta}>{item.meta}</Text> : null}
                                 {index < detailItems.length - 1 ? <View style={styles.divider} /> : null}
                             </View>
                         ))}
                     </View>
                 </FormSection>
+
+                <InlineNotice
+                    icon={isIncome ? 'trending-up' : 'trending-down'}
+                    title={isIncome ? 'Pemasukan tercatat' : 'Pengeluaran tercatat'}
+                    description={isSharedWallet
+                        ? 'Transaksi ini terhubung ke shared wallet, jadi perubahan nominal akan memengaruhi konteks kolaborasi dan histori bersama.'
+                        : 'Transaksi ini terhubung ke dompet personal, jadi perubahan akan langsung memengaruhi ringkasan saldo dan laporan periodik.'}
+                    tone={isIncome ? 'success' : 'warning'}
+                />
             </ScrollView>
 
             <PrimaryActionBar
@@ -218,7 +228,7 @@ export function TransactionDetailScreen() {
                 onPrimaryPress={handleEdit}
                 secondaryLabel="Hapus"
                 onSecondaryPress={handleDelete}
-                offset={metrics.bottomActionInset - metrics.safeBottomSpacing}
+                bottomInset={metrics.tabBarClearance}
             />
         </ScreenShell>
     );
@@ -282,6 +292,11 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         summaryRow: {
             gap: 12,
         },
+        metricGrid: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 12,
+        },
         summaryItem: {
             flexDirection: 'row',
             alignItems: 'center',
@@ -309,44 +324,17 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         detailList: {
             gap: 0,
         },
-        detailRow: {
-            flexDirection: 'row',
-            alignItems: 'flex-start',
-            gap: 12,
-            paddingVertical: 14,
-        },
-        detailIcon: {
-            width: 40,
-            height: 40,
-            borderRadius: BorderRadius.xl,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: colors.primaryBg,
-        },
-        detailCopy: {
-            flex: 1,
-        },
-        detailLabel: {
-            fontFamily: FontFamily.body,
-            fontSize: FontSize.caption,
-            color: colors.textSecondary,
-        },
-        detailValue: {
-            fontFamily: FontFamily.bodyBold,
-            fontSize: FontSize.body,
-            lineHeight: 22,
-            color: colors.textPrimary,
-            marginTop: 3,
-        },
         detailMeta: {
             fontFamily: FontFamily.body,
             fontSize: FontSize.caption,
             color: colors.textTertiary,
-            marginTop: 3,
+            marginTop: 8,
+            marginLeft: 48,
         },
         divider: {
             height: 1,
             backgroundColor: colors.divider,
-            marginLeft: 52,
+            marginLeft: 48,
+            marginTop: 14,
         },
     });

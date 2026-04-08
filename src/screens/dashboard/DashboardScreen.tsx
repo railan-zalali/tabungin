@@ -18,9 +18,11 @@ import { useTransactionStore } from '../../store/useTransactionStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import type { DashboardNavigationProp } from '../../types/navigation';
 import { AppScreenHeader } from '../../components/common/AppScreenHeader';
+import { ActionTile } from '../../components/common/ActionTile';
 import { ContextBadge } from '../../components/common/ContextBadge';
 import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
 import { InsightPanel } from '../../components/common/InsightPanel';
+import { MetricCard } from '../../components/common/MetricCard';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { SectionHeader } from '../../components/common/SectionHeader';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -34,28 +36,9 @@ interface QuickAction {
     id: string;
     label: string;
     icon: string;
+    description: string;
     tone: 'primary' | 'success' | 'warning';
     onPress: () => void;
-}
-
-function QuickActionCard({ item }: { item: QuickAction }) {
-    const { colors } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
-    const toneMap = {
-        primary: { bg: colors.primaryBg, icon: colors.primary },
-        success: { bg: colors.successBg, icon: colors.success },
-        warning: { bg: colors.warningBg, icon: colors.warning },
-    };
-    const palette = toneMap[item.tone];
-
-    return (
-        <TouchableOpacity style={styles.quickActionCard} onPress={item.onPress} activeOpacity={0.9}>
-            <View style={[styles.quickActionIcon, { backgroundColor: palette.bg }]}>
-                <MaterialCommunityIcons name={item.icon as any} size={24} color={palette.icon} />
-            </View>
-            <Text style={styles.quickActionLabel}>{item.label}</Text>
-        </TouchableOpacity>
-    );
 }
 
 export function DashboardScreen() {
@@ -126,6 +109,7 @@ export function DashboardScreen() {
             id: 'income',
             label: 'Catat pemasukan',
             icon: 'arrow-up-circle-outline',
+            description: 'Masukkan pemasukan baru dan kaitkan ke dompet yang tepat.',
             tone: 'success',
             onPress: () => navigation.navigate('Transactions', { screen: 'AddTransaction', params: { type: 'income' } }),
         },
@@ -133,6 +117,7 @@ export function DashboardScreen() {
             id: 'expense',
             label: 'Catat pengeluaran',
             icon: 'arrow-down-circle-outline',
+            description: 'Tambahkan pengeluaran cepat tanpa kehilangan konteks kategori.',
             tone: 'warning',
             onPress: () => navigation.navigate('Transactions', { screen: 'AddTransaction', params: { type: 'expense' } }),
         },
@@ -140,6 +125,7 @@ export function DashboardScreen() {
             id: 'saving',
             label: 'Buat target',
             icon: 'bullseye-arrow',
+            description: 'Mulai satu goal baru agar ritme menabung lebih terarah.',
             tone: 'primary',
             onPress: () => navigation.navigate('Savings', { screen: 'AddSavingGoal' }),
         },
@@ -148,6 +134,7 @@ export function DashboardScreen() {
     return (
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
             <AppScreenHeader
+                eyebrow="Dashboard Harian"
                 title={`Halo, ${user?.name ? user.name.split(' ')[0] : 'Kawan'}`}
                 subtitle={formatDateLong(Date.now())}
                 rightAction={{
@@ -171,6 +158,11 @@ export function DashboardScreen() {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={[
                     styles.content,
+                    {
+                        paddingHorizontal: metrics.horizontalPadding,
+                        paddingBottom: metrics.contentBottomInset,
+                        gap: metrics.verticalGap + 2,
+                    },
                     metrics.isWide ? styles.contentWide : null,
                 ]}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
@@ -184,13 +176,13 @@ export function DashboardScreen() {
                     <View style={[styles.overviewGrid, metrics.isWide ? styles.overviewGridWide : null]}>
                         <View style={styles.overviewMain}>
                             <HeroSummaryCard
-                                eyebrow="Ringkasan Hari Ini"
+                                eyebrow="Financial Overview"
                                 title="Saldo total lintas dompet"
                                 value={formatCurrency(totalBalance)}
                                 description={
                                     netBalance >= 0
-                                        ? 'Arus kas bulan ini masih positif. Waktu yang bagus untuk lanjutkan target utama.'
-                                        : 'Pengeluaran sedang lebih tinggi dari pemasukan bulan ini. Perlu cek kategori yang paling aktif.'
+                                        ? 'Arus kas bulan ini masih positif. Saat yang bagus untuk lanjut menjaga target utama tetap bergerak.'
+                                        : 'Pengeluaran bulan ini lebih agresif dari pemasukan. Cek kategori utama sebelum ritme makin berat.'
                                 }
                                 icon="wallet-outline"
                                 badges={
@@ -209,16 +201,41 @@ export function DashboardScreen() {
                                 ctaLabel="Buka insight keuangan"
                                 onPressCta={() => navigation.navigate('Report')}
                             />
+
+                            <View style={styles.metricRow}>
+                                <MetricCard
+                                    label="Saldo bersih"
+                                    value={formatCurrency(Math.abs(netBalance))}
+                                    icon={netBalance >= 0 ? 'trending-up' : 'trending-down'}
+                                    tone={netBalance >= 0 ? 'success' : 'warning'}
+                                    caption={netBalance >= 0 ? 'Masih surplus di bulan berjalan' : 'Perlu pengendalian pengeluaran'}
+                                />
+                                <MetricCard
+                                    label="Notifikasi"
+                                    value={unreadCount > 0 ? `${unreadCount} baru` : 'Inbox bersih'}
+                                    icon="bell-outline"
+                                    tone="primary"
+                                    caption="Pantau update penting tanpa membuka banyak layar."
+                                />
+                            </View>
                         </View>
 
                         <View style={styles.overviewSide}>
                             <SectionHeader
+                                eyebrow="Next Best Actions"
                                 title="Aksi cepat"
-                                subtitle="Pintu masuk utama untuk ritme harian."
+                                subtitle="Tiga aksi paling sering dipakai, dibuat jelas dan mudah dijangkau."
                             />
                             <View style={[styles.quickActionGrid, metrics.widthClass === 'compact' ? styles.quickActionGridStack : null, metrics.isWide ? styles.quickActionGridWide : null]}>
                                 {quickActions.map((item) => (
-                                    <QuickActionCard key={item.id} item={item} />
+                                    <ActionTile
+                                        key={item.id}
+                                        icon={item.icon}
+                                        title={item.label}
+                                        description={item.description}
+                                        tone={item.tone}
+                                        onPress={item.onPress}
+                                    />
                                 ))}
                             </View>
 
@@ -243,18 +260,20 @@ export function DashboardScreen() {
                                 }
                                 actionLabel={activeGoals.length > 0 ? 'Lihat target aktif' : 'Buat target pertama'}
                                 onAction={() =>
-                                    navigation.navigate('Savings', {
-                                        screen: activeGoals.length > 0 ? 'SavingList' : 'AddSavingGoal',
-                                    })
-                                }
+                                            navigation.navigate('Savings', {
+                                                screen: activeGoals.length > 0 ? 'SavingList' : 'AddSavingGoal',
+                                            })
+                                        }
+                                tone={netBalance >= 0 ? 'primary' : 'warning'}
                             />
                         </View>
                     </View>
                 </Animated.View>
 
-                <Animated.View entering={FadeInUp.delay(160).springify()} style={[styles.bottomGrid, metrics.isWide ? styles.bottomGridWide : null, styles.bottomSpacing]}>
+                <Animated.View entering={FadeInUp.delay(160).springify()} style={[styles.bottomGrid, metrics.isWide ? styles.bottomGridWide : null]}>
                     <View style={styles.bottomColumn}>
                         <SectionHeader
+                            eyebrow="Saving Goals"
                             title="Target tabungan"
                             subtitle="Target yang sedang bergerak sekarang, lengkap dengan konteks personal atau shared."
                             actionLabel="Lihat semua"
@@ -293,6 +312,7 @@ export function DashboardScreen() {
 
                     <View style={styles.bottomColumn}>
                         <SectionHeader
+                            eyebrow="Recent Flow"
                             title="Transaksi terbaru"
                             subtitle="Pantau apa yang baru berubah sebelum kamu pindah ke layar transaksi penuh."
                             actionLabel="Lihat semua"
@@ -340,8 +360,6 @@ export function DashboardScreen() {
 const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     StyleSheet.create({
         content: {
-            paddingHorizontal: 20,
-            paddingBottom: 36,
             gap: 20,
         },
         contentWide: {
@@ -387,32 +405,11 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         quickActionGridWide: {
             flexDirection: 'column',
         },
-        quickActionCard: {
-            flex: 1,
-            backgroundColor: colors.panelSurface,
-            borderWidth: 1,
-            borderColor: colors.border,
-            borderRadius: BorderRadius['4xl'],
-            padding: 16,
+        metricRow: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
             gap: 12,
-            shadowColor: colors.shadowColor,
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.08,
-            shadowRadius: 18,
-            elevation: 3,
-        },
-        quickActionIcon: {
-            width: 50,
-            height: 50,
-            borderRadius: BorderRadius['2xl'],
-            alignItems: 'center',
-            justifyContent: 'center',
-        },
-        quickActionLabel: {
-            fontFamily: FontFamily.bodyBold,
-            fontSize: FontSize.body,
-            lineHeight: 20,
-            color: colors.textPrimary,
+            marginTop: 12,
         },
         cardList: {
             gap: 12,
@@ -420,7 +417,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         transactionPanel: {
             backgroundColor: colors.panelSurface,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.cardBorder,
             borderRadius: BorderRadius['4xl'],
             padding: 8,
             overflow: 'hidden',
@@ -441,8 +438,5 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             backgroundColor: colors.divider,
             marginLeft: 64,
             marginRight: 12,
-        },
-        bottomSpacing: {
-            paddingBottom: 92,
         },
     });

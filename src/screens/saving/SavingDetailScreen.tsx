@@ -23,6 +23,8 @@ import { AppScreenHeader } from '../../components/common/AppScreenHeader';
 import { Button } from '../../components/common/Button';
 import { ContextBadge } from '../../components/common/ContextBadge';
 import { FormSection } from '../../components/common/FormSection';
+import { InlineNotice } from '../../components/common/InlineNotice';
+import { MetricCard } from '../../components/common/MetricCard';
 import { PrimaryActionBar } from '../../components/common/PrimaryActionBar';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { StatePanel } from '../../components/common/StatePanel';
@@ -76,7 +78,7 @@ export function SavingDetailScreen() {
     if (!currentGoal) {
         return (
             <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
-                <AppScreenHeader title="Detail Target" subtitle="Memuat detail target dan aktivitas." showBack onBackPress={() => navigation.goBack()} />
+                <AppScreenHeader eyebrow="Goal Detail" title="Detail Target" subtitle="Memuat detail target dan aktivitas." showBack onBackPress={() => navigation.goBack()} />
                 <View style={[styles.center, { paddingHorizontal: metrics.horizontalPadding }]}>
                     <StatePanel loading title="Memuat target" description="Data target sedang disiapkan." />
                 </View>
@@ -187,9 +189,9 @@ export function SavingDetailScreen() {
 
     return (
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
-            <AppScreenHeader title={currentGoal.name} subtitle="Detail target, ownership, dan aktivitas kontribusi." showBack onBackPress={() => navigation.goBack()} rightAction={{ icon: 'pencil-outline', label: 'Edit target', onPress: handleEdit }} />
+            <AppScreenHeader eyebrow="Goal Detail" title={currentGoal.name} subtitle="Detail target, ownership, dan aktivitas kontribusi." showBack onBackPress={() => navigation.goBack()} rightAction={{ icon: 'pencil-outline', label: 'Edit target', onPress: handleEdit }} />
             {showConfetti ? <View style={styles.confetti}><Text style={styles.confettiEmoji}>🎉</Text><Text style={styles.confettiTitle}>Selamat!</Text><Text style={styles.confettiText}>Target {currentGoal.name} sudah tercapai.</Text></View> : null}
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingHorizontal: metrics.horizontalPadding, paddingBottom: isCompleted ? 40 : metrics.bottomActionInset + 24 }]}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingHorizontal: metrics.horizontalPadding, paddingBottom: isCompleted ? metrics.contentBottomInset : metrics.floatingActionClearance + 24 }]}>
                 <LinearGradient colors={[currentGoal.color, currentGoal.color, currentGoal.color]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
                     <View style={styles.badges}>
                         {wallet ? <ContextBadge icon={goalMeta.isSharedWalletGoal ? 'account-group-outline' : 'wallet-outline'} label={wallet.name} inverse={heroBadgeInverse} /> : null}
@@ -204,13 +206,16 @@ export function SavingDetailScreen() {
                     {isCompleted ? <View style={styles.completed}><MaterialCommunityIcons name="check-circle" size={18} color={colors.success} /><Text style={styles.completedText}>Sudah tercapai</Text></View> : null}
                 </LinearGradient>
 
-                <FormSection title="Ringkasan target" subtitle="Empat angka utama untuk membaca progres sebelum mengambil aksi berikutnya.">
-                    <View style={styles.stack}>
+                <FormSection eyebrow="Performance" title="Ringkasan target" subtitle="Empat angka utama untuk membaca progres sebelum mengambil aksi berikutnya." variant="highlight">
+                    <View style={styles.metricGrid}>
                         {infoItems.map((item) => (
-                            <View key={item.label} style={styles.infoItem}>
-                                <View style={[styles.infoIcon, { backgroundColor: `${currentGoal.color}18` }]}><MaterialCommunityIcons name={item.icon as any} size={18} color={goalAccentColor} /></View>
-                                <View style={styles.flex1}><Text style={styles.label}>{item.label}</Text><Text style={styles.value}>{item.value}</Text></View>
-                            </View>
+                            <MetricCard
+                                key={item.label}
+                                label={item.label}
+                                value={item.value}
+                                icon={item.icon}
+                                tone={item.label === 'Sisa' ? 'warning' : item.label === 'Terkumpul' ? 'success' : 'primary'}
+                            />
                         ))}
                     </View>
                     <View style={styles.timelineCard}>
@@ -255,7 +260,7 @@ export function SavingDetailScreen() {
                     </View>
                 </FormSection>
 
-                <FormSection title="Konteks ownership" subtitle="Menjelaskan scope target, peranmu, dan level akses yang aktif saat ini.">
+                <FormSection eyebrow="Ownership" title="Konteks ownership" subtitle="Menjelaskan scope target, peranmu, dan level akses yang aktif saat ini." density="compact">
                     <View style={styles.row}><View style={styles.context}><Text style={styles.label}>Scope</Text><Text style={styles.value}>{goalMeta.scopeLabel}</Text></View><View style={styles.context}><Text style={styles.label}>Wallet</Text><Text style={styles.value}>{wallet?.name || 'Tanpa dompet khusus'}</Text></View></View>
                     <View style={styles.row}><View style={styles.context}><Text style={styles.label}>Peran kamu</Text><Text style={styles.value}>{permissionLabel(goalMeta.currentUserPermission)}</Text></View><View style={styles.context}><Text style={styles.label}>Akses langsung</Text><Text style={styles.value}>{ownSharingMember ? 'Ya' : 'Turunan wallet / owner'}</Text></View></View>
                     <View style={styles.badgesLight}>
@@ -264,6 +269,15 @@ export function SavingDetailScreen() {
                         <ContextBadge icon="shield-account-outline" label={goalMeta.canManageSharing ? 'Bisa kelola sharing' : 'Sharing terkunci'} tone={goalMeta.canManageSharing ? 'info' : 'neutral'} />
                     </View>
                 </FormSection>
+
+                <InlineNotice
+                    icon={goalMeta.isSharedGoal ? 'account-group-outline' : 'account-outline'}
+                    title={goalMeta.isSharedGoal ? 'Target ini punya konteks kolaborasi' : 'Target ini bersifat personal'}
+                    description={goalMeta.isSharedGoal
+                        ? 'Perubahan kontribusi, izin anggota, dan progres target perlu dibaca bersama konteks shared wallet atau member yang aktif.'
+                        : 'Perubahan target ini hanya memengaruhi konteks personal dan dompet yang terhubung.'}
+                    tone={goalMeta.isSharedGoal ? 'info' : 'primary'}
+                />
 
                 {!isCompleted ? (
                     <SavingSimulator
@@ -276,7 +290,7 @@ export function SavingDetailScreen() {
                 ) : null}
 
                 {goalMeta.isSharedGoal || sharingMembers.length > 0 || sharingActivity.length > 0 ? (
-                    <FormSection title="Akses dan aktivitas shared" subtitle="Lihat siapa yang punya akses dan perubahan penting yang tercatat di target ini.">
+                    <FormSection eyebrow="Sharing" title="Akses dan aktivitas shared" subtitle="Lihat siapa yang punya akses dan perubahan penting yang tercatat di target ini." density="compact">
                         {sharingMembers.length > 0 ? (
                             <View style={styles.stack}>
                                 {sharingMembers.map((member) => (
@@ -311,7 +325,7 @@ export function SavingDetailScreen() {
                 ) : null}
 
                 {currentLogs.length > 0 ? (
-                    <FormSection title="Riwayat tabungan" subtitle={`${currentLogs.length} kontribusi tercatat di target ini.`}>
+                    <FormSection eyebrow="Contribution Log" title="Riwayat tabungan" subtitle={`${currentLogs.length} kontribusi tercatat di target ini.`} density="compact">
                         <View style={styles.stack}>
                             {currentLogs.map((log, index) => (
                                 <View key={log.id}>
@@ -351,7 +365,7 @@ export function SavingDetailScreen() {
                 ) : null}
             </ScrollView>
 
-            {!isCompleted ? <PrimaryActionBar primaryLabel={goalMeta.canContribute ? 'Tambah Tabungan' : 'Akses Read Only'} onPrimaryPress={() => goalMeta.canContribute ? openAddModal() : Alert.alert('Akses terbatas', 'Target ini hanya bisa kamu lihat. Hubungi admin atau editor wallet untuk menambah tabungan.')} offset={metrics.bottomActionInset - metrics.safeBottomSpacing} /> : null}
+            {!isCompleted ? <PrimaryActionBar primaryLabel={goalMeta.canContribute ? 'Tambah Tabungan' : 'Akses Read Only'} onPrimaryPress={() => goalMeta.canContribute ? openAddModal() : Alert.alert('Akses terbatas', 'Target ini hanya bisa kamu lihat. Hubungi admin atau editor wallet untuk menambah tabungan.')} bottomInset={metrics.tabBarClearance} /> : null}
 
             <Modal visible={showAddModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowAddModal(false)}>
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalRoot}>
@@ -384,6 +398,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.
     flex1: { flex: 1 },
     content: { gap: 18, paddingTop: 20 },
     stack: { gap: 10 },
+    metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
     row: { flexDirection: 'row', gap: 12 },
     badges: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     badgesLight: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -394,7 +409,6 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.
     heroDescription: { fontFamily: FontFamily.body, fontSize: FontSize.caption, lineHeight: 20, color: 'rgba(255,255,255,0.82)', textAlign: 'center', paddingHorizontal: 10 },
     completed: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 8, borderRadius: BorderRadius.full, backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border },
     completedText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.caption, color: colors.success },
-    infoItem: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border, borderRadius: BorderRadius['2xl'], padding: 14 },
     infoIcon: { width: 38, height: 38, borderRadius: BorderRadius.xl, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryBg },
     timelineCard: { gap: 10, backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border, borderRadius: BorderRadius['2xl'], padding: 14 },
     timelineRow: { gap: 3 },

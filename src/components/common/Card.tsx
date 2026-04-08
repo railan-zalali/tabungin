@@ -20,6 +20,7 @@ interface CardProps {
     onPress?: () => void;
     accessibilityLabel?: string;
     interactive?: boolean;
+    padding?: number;
 }
 
 export function Card({
@@ -29,6 +30,7 @@ export function Card({
     variant = 'default',
     animationDelay = 0,
     interactive = false,
+    padding,
 }: CardProps) {
     const opacity = useSharedValue(0);
     const translateY = useSharedValue(20);
@@ -60,6 +62,7 @@ export function Card({
                 variant === 'glass' && styles.glass,
                 elevated ? styles.shadowLg : variant !== 'flat' ? styles.shadowSm : null,
                 interactive && styles.interactive,
+                padding !== undefined ? { padding } : null,
                 style,
                 animatedStyle,
             ]}
@@ -77,7 +80,7 @@ const getStyles = (colors: any) =>
             padding: 18,
             overflow: 'hidden',
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.cardBorder,
         },
         flat: {
             backgroundColor: colors.surfaceAlt,
@@ -86,25 +89,25 @@ const getStyles = (colors: any) =>
         outlined: {
             backgroundColor: colors.surface,
             borderWidth: 1,
-            borderColor: colors.borderStrong,
+            borderColor: colors.cardBorderStrong,
         },
         glass: {
             backgroundColor: colors.surfaceGlass,
-            borderColor: colors.glassStroke,
+            borderColor: colors.cardBorder,
         },
         interactive: {
-            shadowOpacity: 0.12,
+            backgroundColor: colors.panelSurfaceStrong,
         },
         shadowSm: {
             shadowColor: colors.shadowColor,
-            shadowOffset: { width: 0, height: 6 },
+            shadowOffset: { width: 0, height: 8 },
             shadowOpacity: 0.08,
-            shadowRadius: 14,
+            shadowRadius: 16,
             elevation: 3,
         },
         shadowLg: {
             shadowColor: colors.shadowColor,
-            shadowOffset: { width: 0, height: 14 },
+            shadowOffset: { width: 0, height: 16 },
             shadowOpacity: 0.12,
             shadowRadius: 24,
             elevation: 8,

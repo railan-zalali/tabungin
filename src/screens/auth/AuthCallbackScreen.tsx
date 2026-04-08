@@ -15,13 +15,15 @@ import { Button } from '../../components/common/Button';
 import { useTheme } from '../../store/useThemeStore';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useResponsiveMetrics } from '../../utils/responsive';
 import type { RootStackParamList } from '../../types/navigation';
 import { extractAuthCallbackParams } from '../../utils/authCallback';
 
 export function AuthCallbackScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const { colors, gradients } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const metrics = useResponsiveMetrics();
+    const styles = React.useMemo(() => getStyles(colors, metrics.isCompact), [colors, metrics.isCompact]);
     const loadSession = useAuthStore((state) => state.loadSession);
     const [status, setStatus] = React.useState<'loading' | 'ready' | 'success' | 'error'>('loading');
     const [password, setPassword] = React.useState('');
@@ -136,7 +138,19 @@ export function AuthCallbackScreen() {
     return (
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                <ScrollView
+                    contentContainerStyle={[
+                        styles.content,
+                        {
+                            paddingHorizontal: metrics.horizontalPadding,
+                            paddingTop: metrics.headerTopOffset + 20,
+                            paddingBottom: metrics.safeBottomSpacing + 12,
+                            gap: metrics.verticalGap + 2,
+                        },
+                    ]}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                >
                     <View style={styles.hero}>
                         <LinearGradient colors={gradients.hero as unknown as [string, string, ...string[]]} style={styles.heroIcon}>
                             <MaterialCommunityIcons name="lock-reset" size={32} color={colors.textInverse} />
@@ -215,21 +229,18 @@ export function AuthCallbackScreen() {
     );
 }
 
-const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+const getStyles = (colors: ReturnType<typeof useTheme>['colors'], isCompact: boolean) =>
     StyleSheet.create({
         flex: { flex: 1 },
         content: {
-            paddingHorizontal: 20,
-            paddingTop: 72,
-            paddingBottom: 28,
-            gap: 20,
+            gap: 18,
         },
         hero: {
-            gap: 10,
+            gap: 8,
         },
         heroIcon: {
-            width: 58,
-            height: 58,
+            width: isCompact ? 52 : 58,
+            height: isCompact ? 52 : 58,
             borderRadius: BorderRadius['2xl'],
             alignItems: 'center',
             justifyContent: 'center',
@@ -248,7 +259,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         subtitle: {
             fontFamily: FontFamily.body,
             fontSize: FontSize.body,
-            lineHeight: 22,
+            lineHeight: 21,
             color: colors.textSecondary,
         },
     });

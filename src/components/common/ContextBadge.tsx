@@ -34,7 +34,7 @@ function resolveBadgeColors(colors: ReturnType<typeof useTheme>['colors'], tone:
             return { backgroundColor: colors.infoBg, borderColor: `${colors.info}26`, textColor: colors.info };
         case 'neutral':
         default:
-            return { backgroundColor: colors.surfaceElevated, borderColor: colors.border, textColor: colors.textSecondary };
+            return { backgroundColor: colors.statSurface, borderColor: colors.cardBorder, textColor: colors.textSecondary };
     }
 }
 

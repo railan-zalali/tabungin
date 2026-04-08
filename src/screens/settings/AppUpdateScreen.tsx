@@ -3,26 +3,50 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-nat
 import { useNavigation } from '@react-navigation/native';
 import type { SettingsChildNavigationProp } from '../../types/navigation';
 import { BorderRadius } from '../../constants/theme';
-import { FontFamily, FontSize, Typography } from '../../constants/typography';
+import { FontFamily, FontSize } from '../../constants/typography';
 import { useTheme } from '../../store/useThemeStore';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { AppScreenHeader } from '../../components/common/AppScreenHeader';
-import { ContextBadge } from '../../components/common/ContextBadge';
 import { Button } from '../../components/common/Button';
+import { FormSection } from '../../components/common/FormSection';
+import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
+import { InlineNotice } from '../../components/common/InlineNotice';
+import { MetricCard } from '../../components/common/MetricCard';
+import { StatStrip } from '../../components/common/StatStrip';
 import { checkForAppUpdate, getCurrentAppVersion, openReleaseDownload, type AppUpdateStatus } from '../../utils/updateService';
 import { useResponsiveMetrics } from '../../utils/responsive';
 
 function describeStatus(status: AppUpdateStatus) {
     if (status.isForceUpdate) {
-        return { title: 'Update wajib tersedia', tone: 'warning' as const, description: 'Versi saat ini sudah di bawah batas minimum yang didukung.' };
+        return {
+            title: 'Update wajib tersedia',
+            tone: 'warning' as const,
+            description: 'Versi saat ini sudah di bawah batas minimum yang didukung.',
+            noticeTone: 'danger' as const,
+        };
     }
     if (status.hasUpdate) {
-        return { title: 'Ada update baru', tone: 'warning' as const, description: 'Versi terbaru siap diunduh beserta catatan rilisnya.' };
+        return {
+            title: 'Ada update baru',
+            tone: 'warning' as const,
+            description: 'Versi terbaru siap diunduh beserta catatan rilisnya.',
+            noticeTone: 'warning' as const,
+        };
     }
     if (status.latestRelease) {
-        return { title: 'Aplikasi sudah terbaru', tone: 'success' as const, description: 'Tidak ada update baru yang perlu dipasang sekarang.' };
+        return {
+            title: 'Aplikasi sudah terbaru',
+            tone: 'success' as const,
+            description: 'Tidak ada update baru yang perlu dipasang sekarang.',
+            noticeTone: 'success' as const,
+        };
     }
-    return { title: 'Status update belum diketahui', tone: 'neutral' as const, description: 'Jalankan pengecekan manual untuk mengambil metadata rilis terbaru.' };
+    return {
+        title: 'Status update belum diketahui',
+        tone: 'info' as const,
+        description: 'Jalankan pengecekan manual untuk mengambil metadata rilis terbaru.',
+        noticeTone: 'info' as const,
+    };
 }
 
 export function AppUpdateScreen() {
@@ -58,50 +82,113 @@ export function AppUpdateScreen() {
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
             <AppScreenHeader
                 title="Pembaruan aplikasi"
-                subtitle="Cek versi terbaru, catatan rilis, dan tautan unduhan resmi."
+                subtitle="Pantau versi aktif, status rilis, dan tautan unduhan resmi tanpa keluar dari konteks."
                 showBack
                 onBackPress={() => navigation.goBack()}
                 variant="transparent"
+                eyebrow="System Health"
             />
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, metrics.widthClass !== 'compact' ? styles.contentWide : null]}>
-                <View style={styles.heroCard}>
-                    <Text style={styles.heroTitle}>Versi saat ini</Text>
-                    <Text style={styles.heroValue}>{currentVersion.version}</Text>
-                    <Text style={styles.heroSubtitle}>Build {currentVersion.buildNumber}</Text>
-                    <View style={styles.badgeRow}>
-                        <ContextBadge icon="cellphone" label="android" tone="info" />
-                        <ContextBadge icon="shield-check-outline" label={presentation.title} tone={presentation.tone} />
-                    </View>
-                </View>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[styles.content, metrics.widthClass !== 'compact' ? styles.contentWide : null]}
+            >
+                <HeroSummaryCard
+                    eyebrow="Release Status"
+                    title="Versi Tabungin"
+                    value={currentVersion.version}
+                    description={presentation.description}
+                    icon="cellphone-arrow-down"
+                    tone={presentation.tone}
+                    stats={[
+                        { label: 'Build aktif', value: String(currentVersion.buildNumber), icon: 'numeric' },
+                        { label: 'Channel', value: 'Android', icon: 'android' },
+                        { label: 'Status', value: presentation.title, icon: 'shield-check-outline' },
+                    ]}
+                />
 
-                <View style={styles.card}>
-                    <Text style={styles.cardTitle}>{presentation.title}</Text>
-                    <Text style={styles.cardText}>{presentation.description}</Text>
+                <InlineNotice
+                    icon={status.isForceUpdate ? 'alert-octagon-outline' : 'shield-check-outline'}
+                    title={presentation.title}
+                    description={
+                        status.isForceUpdate
+                            ? 'Update ini sebaiknya diprioritaskan agar aplikasi tetap aman dipakai dan sinkronisasi tidak terganggu.'
+                            : 'Pengecekan manual tetap tersedia saat kamu ingin memastikan rilis terbaru sudah benar-benar terbaca.'
+                    }
+                    tone={presentation.noticeTone}
+                />
+
+                <FormSection
+                    eyebrow="Current Build"
+                    title="Versi yang sedang dipakai"
+                    subtitle="Ringkasan ini membantu memastikan perangkat memakai build yang tepat sebelum melakukan restore, impor, atau sinkronisasi."
+                    variant="highlight"
+                >
+                    <View style={styles.metricGrid}>
+                        <MetricCard label="Versi aktif" value={currentVersion.version} icon="cellphone" tone="primary" />
+                        <MetricCard
+                            label="Build number"
+                            value={String(currentVersion.buildNumber)}
+                            icon="counter"
+                            tone="neutral"
+                        />
+                    </View>
+                    <StatStrip
+                        items={[
+                            { label: 'Platform', value: 'Android' },
+                            { label: 'Rilis', value: status.latestRelease ? 'Tersambung' : 'Lokal' },
+                            { label: 'Pemeriksaan', value: isChecking ? 'Sedang jalan' : 'Siap' },
+                        ]}
+                    />
                     {isChecking ? (
                         <View style={styles.loadingRow}>
                             <ActivityIndicator color={colors.primary} />
                             <Text style={styles.loadingText}>Memeriksa metadata rilis terbaru...</Text>
                         </View>
                     ) : null}
-                    <Button label="Cek update sekarang" onPress={runCheck} variant="primary" disabled={isChecking} />
-                </View>
+                    <Button
+                        label="Cek update sekarang"
+                        onPress={runCheck}
+                        variant="primary"
+                        disabled={isChecking}
+                        loading={isChecking}
+                    />
+                </FormSection>
 
-                {status.latestRelease ? (
-                    <View style={styles.card}>
-                        <Text style={styles.cardTitle}>Rilis terbaru</Text>
-                        <Text style={styles.releaseVersion}>
-                            {status.latestRelease.version} {'\u2022'} build {status.latestRelease.build_number}
-                        </Text>
-                        <Text style={styles.cardText}>{status.latestRelease.release_notes || 'Release notes belum diisi untuk rilis ini.'}</Text>
-                        <Button
-                            label="Buka tautan unduh"
-                            onPress={() => openReleaseDownload(status.latestRelease!.download_url)}
-                            variant="primary"
-                            disabled={!status.latestRelease.download_url}
+                <FormSection
+                    eyebrow="Latest Release"
+                    title={status.latestRelease ? 'Rilis terbaru tersedia' : 'Belum ada metadata rilis'}
+                    subtitle={
+                        status.latestRelease
+                            ? 'Kalau ada update yang lebih baru, detail versinya akan muncul di sini beserta ringkasan release notes.'
+                            : 'Jalankan pengecekan manual untuk mengambil metadata terbaru dari layanan rilis.'
+                    }
+                    density="compact"
+                >
+                    {status.latestRelease ? (
+                        <>
+                            <View style={styles.releaseHeader}>
+                                <Text style={styles.releaseVersion}>{status.latestRelease.version}</Text>
+                                <Text style={styles.releaseBuild}>Build {status.latestRelease.build_number}</Text>
+                            </View>
+                            <Text style={styles.releaseNotes}>
+                                {status.latestRelease.release_notes || 'Release notes belum diisi untuk rilis ini.'}
+                            </Text>
+                            <Button
+                                label="Buka tautan unduh"
+                                onPress={() => openReleaseDownload(status.latestRelease!.download_url)}
+                                variant="secondary"
+                                disabled={!status.latestRelease.download_url}
+                            />
+                        </>
+                    ) : (
+                        <InlineNotice
+                            icon="cloud-search-outline"
+                            description="Belum ada metadata rilis yang berhasil dibaca. Ini tidak selalu berarti ada masalah, tetapi sebaiknya cek ulang saat koneksi stabil."
+                            tone="info"
                         />
-                    </View>
-                ) : null}
+                    )}
+                </FormSection>
             </ScrollView>
         </ScreenShell>
     );
@@ -111,29 +198,39 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     StyleSheet.create({
         content: { paddingHorizontal: 20, paddingBottom: 108, gap: 18 },
         contentWide: { maxWidth: 920, width: '100%', alignSelf: 'center' },
-        heroCard: {
-            backgroundColor: colors.panelSurface,
-            borderWidth: 1,
-            borderColor: colors.border,
-            borderRadius: BorderRadius['4xl'],
-            padding: 18,
-            gap: 8,
-        },
-        heroTitle: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.caption, color: colors.textSecondary },
-        heroValue: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h2, color: colors.textPrimary },
-        heroSubtitle: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary },
-        badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
-        card: {
-            backgroundColor: colors.panelSurface,
-            borderWidth: 1,
-            borderColor: colors.border,
-            borderRadius: BorderRadius['4xl'],
-            padding: 18,
+        metricGrid: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
             gap: 12,
         },
-        cardTitle: { ...Typography.h4, color: colors.textPrimary },
-        cardText: { fontFamily: FontFamily.body, fontSize: FontSize.body, lineHeight: 21, color: colors.textSecondary },
         loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
         loadingText: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary },
-        releaseVersion: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.body, color: colors.primary },
+        releaseHeader: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'baseline',
+            gap: 12,
+            paddingBottom: 4,
+        },
+        releaseVersion: {
+            fontFamily: FontFamily.headingMedium,
+            fontSize: FontSize.h3,
+            color: colors.textPrimary,
+        },
+        releaseBuild: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.caption,
+            color: colors.primary,
+        },
+        releaseNotes: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.body,
+            lineHeight: 22,
+            color: colors.textSecondary,
+            backgroundColor: colors.surfaceAlt,
+            borderRadius: BorderRadius['2xl'],
+            borderWidth: 1,
+            borderColor: colors.cardBorder,
+            padding: 16,
+        },
     });

@@ -20,9 +20,10 @@ import { useTheme } from '../../store/useThemeStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import { AppScreenHeader } from '../../components/common/AppScreenHeader';
 import { ContextBadge } from '../../components/common/ContextBadge';
-import { EmptyState } from '../../components/common/EmptyState';
+import { EmptyIllustrationState } from '../../components/common/EmptyIllustrationState';
 import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
 import { ScreenShell } from '../../components/common/ScreenShell';
+import { StatStrip } from '../../components/common/StatStrip';
 import { getReadableTextColor } from '../../utils/colorContrast';
 import { useResponsiveMetrics } from '../../utils/responsive';
 
@@ -144,6 +145,7 @@ export function WalletListScreen() {
     return (
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
             <AppScreenHeader
+                eyebrow="Wallet Hub"
                 title="Daftar dompet"
                 subtitle="Kelola saldo pribadi dan ruang kolaborasi dari satu pusat akun keuangan."
                 showBack
@@ -175,7 +177,14 @@ export function WalletListScreen() {
                 data={wallets}
                 keyExtractor={(item) => item.id}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={[styles.listContent, metrics.widthClass !== 'compact' ? styles.listContentWide : null]}
+                contentContainerStyle={[
+                    styles.listContent,
+                    {
+                        paddingHorizontal: metrics.horizontalPadding,
+                        paddingBottom: metrics.contentBottomInset,
+                    },
+                    metrics.widthClass !== 'compact' ? styles.listContentWide : null,
+                ]}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
                 ListHeaderComponent={
                     <View style={styles.headerBlock}>
@@ -195,8 +204,17 @@ export function WalletListScreen() {
                             }
                         />
 
+                        <StatStrip
+                            items={[
+                                { label: 'Total dompet', value: `${wallets.length}` },
+                                { label: 'Shared', value: `${sharedWalletCount}`, valueColor: sharedWalletCount > 0 ? colors.info : colors.textSecondary },
+                                { label: 'Total saldo', value: formatCurrency(totalBalance), valueColor: colors.primary },
+                            ]}
+                            vertical={metrics.widthClass !== 'compact'}
+                        />
+
                         {error ? (
-                            <EmptyState
+                            <EmptyIllustrationState
                                 icon="alert-circle-outline"
                                 title="Daftar dompet belum sinkron"
                                 description={error}
@@ -209,7 +227,7 @@ export function WalletListScreen() {
                     </View>
                 }
                 ListEmptyComponent={
-                    <EmptyState
+                    <EmptyIllustrationState
                         icon="wallet-outline"
                         title="Belum ada dompet"
                         description="Tambahkan dompet pertama agar saldo, transaksi, dan target punya konteks yang lebih jelas."
@@ -245,14 +263,13 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             justifyContent: 'center',
             backgroundColor: colors.panelSurface,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.cardBorder,
         },
         headerPrimaryButton: {
             backgroundColor: colors.primary,
             borderColor: `${colors.primaryDark}44`,
         },
         listContent: {
-            paddingHorizontal: 20,
             paddingBottom: 100,
         },
         listContentWide: {
@@ -268,7 +285,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             flexDirection: 'row',
             backgroundColor: colors.panelSurface,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.cardBorder,
             borderRadius: BorderRadius['4xl'],
             overflow: 'hidden',
         },

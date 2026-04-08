@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,11 +9,12 @@ import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { Button } from '../../components/common/Button';
+import { InlineNotice } from '../../components/common/InlineNotice';
+import { MetricCard } from '../../components/common/MetricCard';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useTheme } from '../../store/useThemeStore';
+import { useResponsiveMetrics } from '../../utils/responsive';
 import type { RootStackParamList } from '../../types/navigation';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface Slide {
     id: string;
@@ -65,7 +66,9 @@ export function OnboardingScreen() {
     const [currentIndex, setCurrentIndex] = useState(0);
     const continueAsGuest = useAuthStore((state) => state.continueAsGuest);
     const { colors, gradients } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const metrics = useResponsiveMetrics();
+    const { width } = useWindowDimensions();
+    const styles = React.useMemo(() => getStyles(colors, metrics.isCompact), [colors, metrics.isCompact]);
 
     const handleNext = () => {
         if (currentIndex < SLIDES.length - 1) {
@@ -77,7 +80,7 @@ export function OnboardingScreen() {
 
     return (
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
-            <View style={styles.topBar}>
+            <View style={[styles.topBar, { paddingHorizontal: metrics.horizontalPadding, paddingTop: metrics.headerTopOffset + 4 }]}>
                 <View style={styles.brandWrap}>
                     <LinearGradient colors={gradients.hero as unknown as [string, string, ...string[]]} style={styles.brandIcon}>
                         <MaterialCommunityIcons name="piggy-bank-outline" size={28} color={colors.textInverse} />
@@ -98,9 +101,18 @@ export function OnboardingScreen() {
                 </TouchableOpacity>
             </View>
 
-            <View style={styles.heroIntro}>
+            <View style={[styles.heroIntro, { paddingHorizontal: metrics.horizontalPadding, gap: metrics.heroSpacing }]}>
                 <Text style={styles.eyebrow}>Mission Control Keuangan Harian</Text>
                 <Text style={styles.heroTitle}>Biar setiap rupiah terasa jelas, bukan sekadar tercatat.</Text>
+                <InlineNotice
+                    icon="shield-check-outline"
+                    description="Rancang pengalaman harian yang cepat dibaca: cashflow, target, dan insight disatukan tanpa membuat layar terasa padat."
+                    tone="primary"
+                />
+                <View style={styles.metricRow}>
+                    <MetricCard label="Cashflow" value="Rapi" icon="swap-horizontal" tone="success" />
+                    <MetricCard label="Goals" value="Terarah" icon="bullseye-arrow" tone="warning" />
+                </View>
             </View>
 
             <FlatList
@@ -112,13 +124,13 @@ export function OnboardingScreen() {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.slider}
                 onMomentumScrollEnd={(event) => {
-                    const index = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+                    const index = Math.round(event.nativeEvent.contentOffset.x / width);
                     setCurrentIndex(index);
                 }}
                 renderItem={({ item, index }) => {
                     const palette = resolveSlidePalette(colors, item.accent);
                     return (
-                        <Animated.View entering={FadeInDown.delay(index * 80).springify()} style={[styles.slide, { width: SCREEN_WIDTH }]}>
+                        <Animated.View entering={FadeInDown.delay(index * 80).springify()} style={[styles.slide, { width }]}>
                             <View style={[styles.slideCard, { backgroundColor: colors.panelSurface }]}>
                                 <View style={[styles.iconStage, { backgroundColor: palette.bg }]}>
                                     <View style={[styles.iconRing, { backgroundColor: palette.ring }]} />
@@ -135,7 +147,7 @@ export function OnboardingScreen() {
                 }}
             />
 
-            <View style={styles.footer}>
+            <View style={[styles.footer, { paddingHorizontal: metrics.horizontalPadding, paddingBottom: metrics.safeBottomSpacing + 8 }]}>
                 <View style={styles.progressRow} accessibilityLabel={`Slide ${currentIndex + 1} dari ${SLIDES.length}`}>
                     {SLIDES.map((slide, index) => (
                         <View
@@ -175,14 +187,12 @@ export function OnboardingScreen() {
     );
 }
 
-const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+const getStyles = (colors: ReturnType<typeof useTheme>['colors'], isCompact: boolean) =>
     StyleSheet.create({
         topBar: {
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
-            paddingHorizontal: 20,
-            paddingTop: 56,
             paddingBottom: 12,
             gap: 12,
         },
@@ -225,9 +235,14 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             color: colors.textSecondary,
         },
         heroIntro: {
-            paddingHorizontal: 20,
             paddingTop: 8,
             gap: 8,
+        },
+        metricRow: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 12,
+            marginTop: 4,
         },
         eyebrow: {
             fontFamily: FontFamily.bodyBold,
@@ -241,14 +256,14 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             color: colors.textPrimary,
         },
         slider: {
-            paddingTop: 22,
+            paddingTop: isCompact ? 16 : 22,
         },
         slide: {
-            paddingHorizontal: 20,
+            paddingHorizontal: isCompact ? 16 : 20,
         },
         slideCard: {
             borderRadius: BorderRadius['5xl'],
-            padding: 24,
+            padding: isCompact ? 20 : 24,
             borderWidth: 1,
             borderColor: colors.border,
             shadowColor: colors.shadowColor,
@@ -256,19 +271,19 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             shadowOpacity: 0.08,
             shadowRadius: 22,
             elevation: 5,
-            gap: 22,
+            gap: isCompact ? 18 : 22,
         },
         iconStage: {
             alignItems: 'center',
             justifyContent: 'center',
-            minHeight: 260,
+            minHeight: isCompact ? 200 : 260,
             borderRadius: BorderRadius['4xl'],
             overflow: 'hidden',
         },
         iconRing: {
             position: 'absolute',
-            width: 188,
-            height: 188,
+            width: isCompact ? 156 : 188,
+            height: isCompact ? 156 : 188,
             borderRadius: BorderRadius.full,
         },
         slideCopy: {
@@ -281,14 +296,12 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         slideDescription: {
             fontFamily: FontFamily.body,
             fontSize: FontSize.body,
-            lineHeight: 22,
+            lineHeight: 21,
             color: colors.textSecondary,
         },
         footer: {
-            paddingHorizontal: 20,
-            paddingTop: 20,
-            paddingBottom: 28,
-            gap: 16,
+            paddingTop: isCompact ? 16 : 20,
+            gap: isCompact ? 12 : 16,
         },
         progressRow: {
             flexDirection: 'row',

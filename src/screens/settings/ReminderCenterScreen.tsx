@@ -1,16 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { SettingsChildNavigationProp } from '../../types/navigation';
 import { BorderRadius } from '../../constants/theme';
-import { FontFamily, FontSize, Typography } from '../../constants/typography';
+import { FontFamily, FontSize } from '../../constants/typography';
 import { useTheme } from '../../store/useThemeStore';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { AppScreenHeader } from '../../components/common/AppScreenHeader';
-import { ContextBadge } from '../../components/common/ContextBadge';
 import { EmptyState } from '../../components/common/EmptyState';
 import { Button } from '../../components/common/Button';
+import { FormSection } from '../../components/common/FormSection';
+import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
+import { InlineNotice } from '../../components/common/InlineNotice';
+import { Input } from '../../components/common/Input';
+import { MetricCard } from '../../components/common/MetricCard';
+import { SelectionChip } from '../../components/common/SelectionChip';
 import { useSavingStore } from '../../store/useSavingStore';
 import { useBudgetStore } from '../../store/useBudgetStore';
 import { useRecurringStore } from '../../store/useRecurringStore';
@@ -33,19 +38,6 @@ function toReadableFrequency(value: AppReminderFrequency) {
     }
 }
 
-function SectionCard({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
-    const { colors } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
-
-    return (
-        <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>{title}</Text>
-            <Text style={styles.sectionSubtitle}>{subtitle}</Text>
-            <View style={styles.sectionBody}>{children}</View>
-        </View>
-    );
-}
-
 function ToggleRow({
     icon,
     title,
@@ -59,7 +51,7 @@ function ToggleRow({
     subtitle: string;
     value: boolean;
     onValueChange: (next: boolean) => void;
-    trailing?: React.ReactNode;
+    trailing?: string;
 }) {
     const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
@@ -73,7 +65,7 @@ function ToggleRow({
                 <Text style={styles.toggleTitle}>{title}</Text>
                 <Text style={styles.toggleSubtitle}>{subtitle}</Text>
             </View>
-            {trailing}
+            {trailing ? <Text style={styles.trailingText}>{trailing}</Text> : null}
             <Switch
                 value={value}
                 onValueChange={onValueChange}
@@ -83,6 +75,9 @@ function ToggleRow({
         </View>
     );
 }
+
+const FREQUENCY_OPTIONS: AppReminderFrequency[] = ['once', 'daily', 'weekly', 'monthly'];
+const TARGET_OPTIONS = ['Dashboard', 'Budget', 'SavingList', 'RecurringTransaction', 'ReminderCenter'] as const;
 
 export function ReminderCenterScreen() {
     const navigation = useNavigation<SettingsChildNavigationProp<'ReminderCenter'>>();
@@ -101,7 +96,7 @@ export function ReminderCenterScreen() {
     const [note, setNote] = useState('');
     const [frequency, setFrequency] = useState<AppReminderFrequency>('daily');
     const [timeOfDay, setTimeOfDay] = useState('08:00');
-    const [targetScreen, setTargetScreen] = useState<'Dashboard' | 'Budget' | 'SavingList' | 'RecurringTransaction' | 'ReminderCenter'>('Dashboard');
+    const [targetScreen, setTargetScreen] = useState<(typeof TARGET_OPTIONS)[number]>('Dashboard');
 
     useEffect(() => {
         loadGoals();
@@ -113,6 +108,10 @@ export function ReminderCenterScreen() {
     }, [loadBudgets, loadGoals, loadRecurringTransactions, loadReminders, userId]);
 
     const manualReminders = useMemo(() => reminders.slice().sort((a, b) => a.trigger_at - b.trigger_at), [reminders]);
+    const activeGoalCount = activeGoals.filter((goal) => goal.reminder_enabled).length;
+    const activeBudgetCount = budgets.filter((budget) => budget.reminder_enabled).length;
+    const activeRecurringCount = recurringTransactions.filter((item) => item.reminder_enabled).length;
+    const activeManualCount = manualReminders.filter((item) => item.is_enabled).length;
 
     const resetForm = () => {
         setEditingReminder(null);
@@ -134,7 +133,7 @@ export function ReminderCenterScreen() {
         setNote(reminder.note || '');
         setFrequency(reminder.frequency);
         setTimeOfDay(reminder.time_of_day || '08:00');
-        setTargetScreen((reminder.target_screen as any) || 'Dashboard');
+        setTargetScreen(((reminder.target_screen as (typeof TARGET_OPTIONS)[number]) || 'Dashboard'));
         setShowModal(true);
     };
 
@@ -191,21 +190,61 @@ export function ReminderCenterScreen() {
                 onBackPress={() => navigation.goBack()}
                 rightAction={{ icon: 'plus', label: 'Tambah reminder', onPress: openCreateModal }}
                 variant="transparent"
+                eyebrow="Unified Alerts"
             />
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, metrics.widthClass !== 'compact' ? styles.contentWide : null]}>
-                <SectionCard title="Ringkasan reminder" subtitle="Pastikan reminder yang benar-benar kamu butuhkan tetap aktif dan relevan.">
-                    <View style={styles.summaryRow}>
-                        <ContextBadge icon="piggy-bank-outline" label={`${activeGoals.filter((goal) => goal.reminder_enabled).length} goal aktif`} tone="success" />
-                        <ContextBadge icon="chart-pie" label={`${budgets.filter((budget) => budget.reminder_enabled).length} budget aktif`} tone="info" />
-                        <ContextBadge icon="autorenew" label={`${recurringTransactions.filter((item) => item.reminder_enabled).length} recurring aktif`} tone="warning" />
-                        <ContextBadge icon="bell-cog-outline" label={`${manualReminders.filter((item) => item.is_enabled).length} manual aktif`} tone="primary" />
-                    </View>
-                </SectionCard>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[styles.content, metrics.widthClass !== 'compact' ? styles.contentWide : null]}
+            >
+                <HeroSummaryCard
+                    eyebrow="Reminder Health"
+                    title="Pusat reminder"
+                    value={`${activeGoalCount + activeBudgetCount + activeRecurringCount + activeManualCount} aktif`}
+                    description="Aktifkan hanya reminder yang benar-benar membantu keputusan harian, lalu rapikan sisanya dari satu tempat."
+                    icon="bell-badge-outline"
+                    stats={[
+                        { label: 'Goal', value: String(activeGoalCount), icon: 'bullseye-arrow' },
+                        { label: 'Budget', value: String(activeBudgetCount), icon: 'chart-pie' },
+                        { label: 'Manual', value: String(activeManualCount), icon: 'bell-cog-outline' },
+                    ]}
+                    onPressCta={openCreateModal}
+                    ctaLabel="Tambah reminder manual"
+                />
 
-                <SectionCard title="Reminder target tabungan" subtitle="Atur goal mana yang perlu dorongan rutin. Goal shared tetap mengikuti permission yang sudah berlaku.">
+                <InlineNotice
+                    icon="tune-variant"
+                    title="Reminder yang relevan lebih berguna"
+                    description="Wave terakhir ini menyatukan reminder berdasarkan mental model pengguna: tujuan, batas anggaran, transaksi rutin, lalu follow-up manual."
+                    tone="info"
+                />
+
+                <FormSection
+                    eyebrow="Overview"
+                    title="Ringkasan reminder"
+                    subtitle="Empat area ini memberi gambaran cepat mana yang sudah aktif dan mana yang masih perlu perhatian."
+                    variant="highlight"
+                >
+                    <View style={styles.metricGrid}>
+                        <MetricCard label="Goal aktif" value={String(activeGoalCount)} icon="piggy-bank-outline" tone="success" />
+                        <MetricCard label="Budget aktif" value={String(activeBudgetCount)} icon="chart-pie" tone="primary" />
+                        <MetricCard label="Recurring aktif" value={String(activeRecurringCount)} icon="autorenew" tone="warning" />
+                        <MetricCard label="Manual aktif" value={String(activeManualCount)} icon="bell-cog-outline" tone="neutral" />
+                    </View>
+                </FormSection>
+
+                <FormSection
+                    eyebrow="Savings"
+                    title="Reminder target tabungan"
+                    subtitle="Atur goal mana yang perlu dorongan rutin. Goal shared tetap mengikuti permission yang sudah berlaku."
+                >
                     {activeGoals.length === 0 ? (
-                        <EmptyState icon="piggy-bank-outline" title="Belum ada target aktif" description="Begitu ada goal aktif, reminder hariannya bisa diatur langsung dari sini." compact />
+                        <EmptyState
+                            icon="piggy-bank-outline"
+                            title="Belum ada target aktif"
+                            description="Begitu ada goal aktif, reminder hariannya bisa diatur langsung dari sini."
+                            compact
+                        />
                     ) : (
                         activeGoals.map((goal) => (
                             <ToggleRow
@@ -222,11 +261,22 @@ export function ReminderCenterScreen() {
                             />
                         ))
                     )}
-                </SectionCard>
+                </FormSection>
 
-                <SectionCard title="Reminder budget" subtitle="Pakai pengingat ringan di awal bulan agar batas kategori tidak terlewat.">
+                <FormSection
+                    eyebrow="Budget"
+                    title="Reminder budget"
+                    subtitle="Pakai pengingat ringan di awal bulan agar batas kategori tidak terlewat."
+                >
                     {budgets.length === 0 ? (
-                        <EmptyState icon="chart-pie" title="Belum ada budget aktif" description="Atur budget dulu supaya reminder kategori bisa dihidupkan." actionLabel="Buka budget" onAction={() => navigation.navigate('Budget')} compact />
+                        <EmptyState
+                            icon="chart-pie"
+                            title="Belum ada budget aktif"
+                            description="Atur budget dulu supaya reminder kategori bisa dihidupkan."
+                            actionLabel="Buka budget"
+                            onAction={() => navigation.navigate('Budget')}
+                            compact
+                        />
                     ) : (
                         budgets.map((budget) => (
                             <ToggleRow
@@ -235,61 +285,108 @@ export function ReminderCenterScreen() {
                                 title={budget.category}
                                 subtitle={budget.reminder_enabled ? `Aktif pukul ${budget.reminder_time || '09:00'}` : 'Reminder budget belum aktif'}
                                 value={budget.reminder_enabled}
+                                trailing={`${budget.month}/${budget.year}`}
                                 onValueChange={(next) =>
                                     saveBudget(budget.category, budget.amount, budget.month, budget.year, {
                                         reminder_enabled: next,
                                         reminder_time: budget.reminder_time || '09:00',
                                     }).catch((error) => Alert.alert('Gagal', error?.message || 'Reminder budget belum berhasil diubah.'))
                                 }
-                                trailing={<ContextBadge icon="calendar-month-outline" label={`${budget.month}/${budget.year}`} tone="neutral" />}
                             />
                         ))
                     )}
-                </SectionCard>
+                </FormSection>
 
-                <SectionCard title="Reminder transaksi berulang" subtitle="Aktifkan pengingat sebelum transaksi rutin dijalankan supaya perubahan masih sempat dikoreksi.">
+                <FormSection
+                    eyebrow="Recurring"
+                    title="Reminder transaksi berulang"
+                    subtitle="Aktifkan pengingat sebelum transaksi rutin dijalankan supaya perubahan masih sempat dikoreksi."
+                >
                     {recurringTransactions.length === 0 ? (
-                        <EmptyState icon="autorenew" title="Belum ada transaksi berulang" description="Begitu ada recurring transaction, reminder pra-eksekusi bisa diatur dari sini." actionLabel="Buka recurring" onAction={() => navigation.navigate('Transactions', { screen: 'RecurringTransaction' })} compact />
+                        <EmptyState
+                            icon="autorenew"
+                            title="Belum ada transaksi berulang"
+                            description="Begitu ada recurring transaction, reminder pra-eksekusi bisa diatur dari sini."
+                            actionLabel="Buka recurring"
+                            onAction={() => navigation.navigate('Transactions', { screen: 'RecurringTransaction' })}
+                            compact
+                        />
                     ) : (
                         recurringTransactions.map((item) => (
                             <ToggleRow
                                 key={item.id}
                                 icon="autorenew"
                                 title={item.category}
-                                subtitle={item.reminder_enabled ? `Aktif ${item.reminder_offset_minutes || 60} menit sebelum jadwal` : 'Reminder recurring belum aktif'}
+                                subtitle={
+                                    item.reminder_enabled
+                                        ? `Aktif ${item.reminder_offset_minutes || 60} menit sebelum jadwal`
+                                        : 'Reminder recurring belum aktif'
+                                }
                                 value={item.reminder_enabled}
+                                trailing={item.frequency}
                                 onValueChange={(next) =>
                                     updateRecurringTransaction(item.id, {
                                         reminder_enabled: next,
                                         reminder_offset_minutes: item.reminder_offset_minutes || 60,
                                     }).catch((error) => Alert.alert('Gagal', error?.message || 'Reminder recurring belum berhasil diubah.'))
                                 }
-                                trailing={<ContextBadge icon="calendar-refresh" label={item.frequency} tone="neutral" />}
                             />
                         ))
                     )}
-                </SectionCard>
+                </FormSection>
 
-                <SectionCard title="Reminder manual" subtitle="Buat reminder bebas untuk follow-up penting yang tidak selalu melekat ke satu fitur.">
+                <FormSection
+                    eyebrow="Manual"
+                    title="Reminder manual"
+                    subtitle="Buat reminder bebas untuk follow-up penting yang tidak selalu melekat ke satu fitur."
+                >
                     {manualReminders.length === 0 ? (
-                        <EmptyState icon="bell-cog-outline" title="Belum ada reminder manual" description="Tambahkan reminder sendiri untuk hal-hal seperti review mingguan atau cek arus kas." actionLabel="Tambah reminder" onAction={openCreateModal} compact />
+                        <EmptyState
+                            icon="bell-cog-outline"
+                            title="Belum ada reminder manual"
+                            description="Tambahkan reminder sendiri untuk hal-hal seperti review mingguan atau cek arus kas."
+                            actionLabel="Tambah reminder"
+                            onAction={openCreateModal}
+                            compact
+                        />
                     ) : (
                         <View style={styles.manualList}>
                             {manualReminders.map((reminder) => (
-                                <TouchableOpacity key={reminder.id} style={styles.manualCard} onPress={() => openEditModal(reminder)}>
+                                <TouchableOpacity
+                                    key={reminder.id}
+                                    style={styles.manualCard}
+                                    onPress={() => openEditModal(reminder)}
+                                    activeOpacity={0.92}
+                                >
                                     <View style={styles.manualTop}>
                                         <View style={styles.manualIcon}>
                                             <MaterialCommunityIcons name="bell-outline" size={18} color={colors.primary} />
                                         </View>
                                         <View style={styles.manualCopy}>
                                             <Text style={styles.manualTitle}>{reminder.title}</Text>
-                                            <Text style={styles.manualSubtitle}>{toReadableFrequency(reminder.frequency)} • {reminder.time_of_day || '08:00'}</Text>
+                                            <Text style={styles.manualSubtitle}>
+                                                {toReadableFrequency(reminder.frequency)} • {reminder.time_of_day || '08:00'}
+                                            </Text>
                                         </View>
-                                        <ContextBadge icon={reminder.is_enabled ? 'check-circle-outline' : 'pause-circle-outline'} label={reminder.is_enabled ? 'Aktif' : 'Nonaktif'} tone={reminder.is_enabled ? 'success' : 'neutral'} />
+                                        <View
+                                            style={[
+                                                styles.manualState,
+                                                reminder.is_enabled ? styles.manualStateActive : styles.manualStateInactive,
+                                            ]}
+                                        >
+                                            <Text
+                                                style={[
+                                                    styles.manualStateText,
+                                                    reminder.is_enabled ? styles.manualStateTextActive : styles.manualStateTextInactive,
+                                                ]}
+                                            >
+                                                {reminder.is_enabled ? 'Aktif' : 'Nonaktif'}
+                                            </Text>
+                                        </View>
                                     </View>
                                     {reminder.note ? <Text style={styles.manualNote}>{reminder.note}</Text> : null}
                                     <View style={styles.manualActions}>
-                                        <Button label="Edit" onPress={() => openEditModal(reminder)} variant="outline" size="sm" />
+                                        <Button label="Edit" onPress={() => openEditModal(reminder)} variant="outline" size="sm" style={styles.inlineAction} />
                                         <Button
                                             label="Hapus"
                                             onPress={() =>
@@ -300,39 +397,89 @@ export function ReminderCenterScreen() {
                                             }
                                             variant="ghost"
                                             size="sm"
+                                            style={styles.inlineAction}
                                         />
                                     </View>
                                 </TouchableOpacity>
                             ))}
                         </View>
                     )}
-                </SectionCard>
+                </FormSection>
             </ScrollView>
 
             <Modal visible={showModal} transparent animationType="fade" onRequestClose={() => setShowModal(false)}>
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalCard}>
-                        <Text style={styles.modalTitle}>{editingReminder ? 'Edit reminder manual' : 'Tambah reminder manual'}</Text>
-                        <TextInput style={styles.input} placeholder="Judul reminder" placeholderTextColor={colors.textDisabled} value={title} onChangeText={setTitle} />
-                        <TextInput style={[styles.input, styles.noteInput]} placeholder="Catatan singkat (opsional)" placeholderTextColor={colors.textDisabled} multiline value={note} onChangeText={setNote} />
-                        <TextInput style={styles.input} placeholder="08:00" placeholderTextColor={colors.textDisabled} value={timeOfDay} onChangeText={setTimeOfDay} />
-                        <View style={styles.choiceRow}>
-                            {(['once', 'daily', 'weekly', 'monthly'] as AppReminderFrequency[]).map((option) => (
-                                <TouchableOpacity key={option} style={[styles.choiceChip, frequency === option ? styles.choiceChipActive : null]} onPress={() => setFrequency(option)}>
-                                    <Text style={[styles.choiceChipText, frequency === option ? styles.choiceChipTextActive : null]}>{toReadableFrequency(option)}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                        <View style={styles.choiceRow}>
-                            {(['Dashboard', 'Budget', 'SavingList', 'RecurringTransaction', 'ReminderCenter'] as const).map((option) => (
-                                <TouchableOpacity key={option} style={[styles.choiceChip, targetScreen === option ? styles.choiceChipActive : null]} onPress={() => setTargetScreen(option)}>
-                                    <Text style={[styles.choiceChipText, targetScreen === option ? styles.choiceChipTextActive : null]}>{option}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
+                        <FormSection
+                            eyebrow={editingReminder ? 'Edit Manual Reminder' : 'New Manual Reminder'}
+                            title={editingReminder ? 'Edit reminder manual' : 'Tambah reminder manual'}
+                            subtitle="Tentukan judul, waktu, frekuensi, dan layar tujuan agar reminder terasa lebih kontekstual."
+                            density="compact"
+                            variant="subtle"
+                        >
+                            <Input
+                                label="Judul reminder"
+                                value={title}
+                                onChangeText={setTitle}
+                                leftIcon="format-title"
+                                placeholder="Contoh: Review cashflow mingguan"
+                            />
+                            <Input
+                                label="Catatan singkat"
+                                value={note}
+                                onChangeText={setNote}
+                                leftIcon="text-box-outline"
+                                placeholder="Opsional"
+                                multiline
+                                numberOfLines={3}
+                                containerStyle={styles.noteInputWrap}
+                            />
+                            <Input
+                                label="Jam pengingat"
+                                value={timeOfDay}
+                                onChangeText={setTimeOfDay}
+                                leftIcon="clock-outline"
+                                placeholder="08:00"
+                            />
+
+                            <View style={styles.fieldGroup}>
+                                <Text style={styles.fieldLabel}>Frekuensi</Text>
+                                <View style={styles.selectionWrap}>
+                                    {FREQUENCY_OPTIONS.map((option) => (
+                                        <SelectionChip
+                                            key={option}
+                                            label={toReadableFrequency(option)}
+                                            selected={frequency === option}
+                                            onPress={() => setFrequency(option)}
+                                        />
+                                    ))}
+                                </View>
+                            </View>
+
+                            <View style={styles.fieldGroup}>
+                                <Text style={styles.fieldLabel}>Buka ke layar</Text>
+                                <View style={styles.selectionWrap}>
+                                    {TARGET_OPTIONS.map((option) => (
+                                        <SelectionChip
+                                            key={option}
+                                            label={option}
+                                            selected={targetScreen === option}
+                                            onPress={() => setTargetScreen(option)}
+                                        />
+                                    ))}
+                                </View>
+                            </View>
+
+                            <InlineNotice
+                                icon="information-outline"
+                                description="Reminder manual tetap mengikuti jalur sync yang sama, jadi aman dipakai untuk follow-up personal maupun lintas perangkat."
+                                tone="primary"
+                            />
+                        </FormSection>
+
                         <View style={styles.modalActions}>
-                            <Button label="Batal" onPress={() => setShowModal(false)} variant="outline" style={{ flex: 1 }} />
-                            <Button label="Simpan" onPress={handleSubmitManualReminder} variant="primary" style={{ flex: 1 }} />
+                            <Button label="Batal" onPress={() => setShowModal(false)} variant="outline" style={styles.actionButton} />
+                            <Button label="Simpan" onPress={handleSubmitManualReminder} variant="primary" style={styles.actionButton} />
                         </View>
                     </View>
                 </View>
@@ -345,17 +492,11 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     StyleSheet.create({
         content: { paddingHorizontal: 20, paddingBottom: 108, gap: 18 },
         contentWide: { maxWidth: 920, width: '100%', alignSelf: 'center' },
-        sectionCard: {
-            backgroundColor: colors.panelSurface,
-            borderWidth: 1,
-            borderColor: colors.border,
-            borderRadius: BorderRadius['4xl'],
-            padding: 18,
+        metricGrid: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 12,
         },
-        sectionTitle: { ...Typography.h4, color: colors.textPrimary },
-        sectionSubtitle: { marginTop: 4, fontFamily: FontFamily.body, fontSize: FontSize.caption, lineHeight: 18, color: colors.textSecondary },
-        sectionBody: { marginTop: 16, gap: 12 },
-        summaryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
         toggleRow: {
             flexDirection: 'row',
             alignItems: 'center',
@@ -363,58 +504,104 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             backgroundColor: colors.surfaceElevated,
             borderRadius: BorderRadius['2xl'],
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.cardBorder,
             padding: 14,
         },
-        toggleIcon: { width: 40, height: 40, borderRadius: BorderRadius.xl, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryBg },
+        toggleIcon: {
+            width: 40,
+            height: 40,
+            borderRadius: BorderRadius.xl,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.primaryBg,
+        },
         toggleCopy: { flex: 1, gap: 2 },
         toggleTitle: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.body, color: colors.textPrimary },
         toggleSubtitle: { fontFamily: FontFamily.body, fontSize: FontSize.caption, lineHeight: 18, color: colors.textSecondary },
+        trailingText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.caption, color: colors.textSecondary },
         manualList: { gap: 12 },
         manualCard: {
             backgroundColor: colors.surfaceElevated,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.cardBorder,
             borderRadius: BorderRadius['3xl'],
             padding: 16,
             gap: 12,
         },
         manualTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-        manualIcon: { width: 40, height: 40, borderRadius: BorderRadius.xl, backgroundColor: colors.primaryBg, alignItems: 'center', justifyContent: 'center' },
+        manualIcon: {
+            width: 40,
+            height: 40,
+            borderRadius: BorderRadius.xl,
+            backgroundColor: colors.primaryBg,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
         manualCopy: { flex: 1 },
         manualTitle: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.body, color: colors.textPrimary },
         manualSubtitle: { marginTop: 2, fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary },
+        manualState: {
+            paddingHorizontal: 10,
+            paddingVertical: 7,
+            borderRadius: BorderRadius.full,
+            borderWidth: 1,
+        },
+        manualStateActive: {
+            backgroundColor: colors.successBg,
+            borderColor: `${colors.success}22`,
+        },
+        manualStateInactive: {
+            backgroundColor: colors.surfaceAlt,
+            borderColor: colors.cardBorder,
+        },
+        manualStateText: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.caption,
+        },
+        manualStateTextActive: {
+            color: colors.success,
+        },
+        manualStateTextInactive: {
+            color: colors.textSecondary,
+        },
         manualNote: { fontFamily: FontFamily.body, fontSize: FontSize.caption, lineHeight: 19, color: colors.textSecondary },
         manualActions: { flexDirection: 'row', gap: 10 },
-        modalOverlay: { flex: 1, backgroundColor: 'rgba(10, 14, 26, 0.35)', alignItems: 'center', justifyContent: 'center', padding: 20 },
+        inlineAction: { flex: 1 },
+        modalOverlay: {
+            flex: 1,
+            backgroundColor: 'rgba(10, 14, 26, 0.42)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+        },
         modalCard: {
             width: '100%',
-            maxWidth: 520,
-            backgroundColor: colors.surfaceElevated,
+            maxWidth: 560,
+            backgroundColor: colors.panelSurface,
             borderRadius: BorderRadius['4xl'],
             borderWidth: 1,
-            borderColor: colors.border,
-            padding: 20,
-            gap: 12,
+            borderColor: colors.cardBorder,
+            padding: 16,
+            gap: 14,
         },
-        modalTitle: { ...Typography.h4, color: colors.textPrimary },
-        input: {
-            minHeight: 48,
-            borderRadius: BorderRadius.xl,
-            borderWidth: 1,
-            borderColor: colors.border,
-            backgroundColor: colors.surface,
-            paddingHorizontal: 14,
-            paddingVertical: 12,
-            fontFamily: FontFamily.body,
-            fontSize: FontSize.body,
-            color: colors.textPrimary,
+        noteInputWrap: {
+            minHeight: 110,
         },
-        noteInput: { minHeight: 92, textAlignVertical: 'top' },
-        choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-        choiceChip: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: BorderRadius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
-        choiceChipActive: { backgroundColor: colors.primaryBg, borderColor: colors.primary },
-        choiceChipText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.caption, color: colors.textSecondary },
-        choiceChipTextActive: { color: colors.primary, fontFamily: FontFamily.bodyBold },
-        modalActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
+        fieldGroup: {
+            gap: 10,
+        },
+        fieldLabel: {
+            fontFamily: FontFamily.bodyMedium,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+            textTransform: 'uppercase',
+            letterSpacing: 0.3,
+        },
+        selectionWrap: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 8,
+        },
+        modalActions: { flexDirection: 'row', gap: 10 },
+        actionButton: { flex: 1 },
     });

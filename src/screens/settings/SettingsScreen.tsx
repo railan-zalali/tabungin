@@ -12,7 +12,10 @@ import { useTheme, useThemeStore } from '../../store/useThemeStore';
 import { AppScreenHeader } from '../../components/common/AppScreenHeader';
 import { ContextBadge } from '../../components/common/ContextBadge';
 import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
+import { InlineNotice } from '../../components/common/InlineNotice';
 import { ScreenShell } from '../../components/common/ScreenShell';
+import { SettingsGroup } from '../../components/common/SettingsGroup';
+import { StatStrip } from '../../components/common/StatStrip';
 import { useResponsiveMetrics } from '../../utils/responsive';
 import { getSemanticColors } from '../../utils/semanticColors';
 import { getReadableTextColor } from '../../utils/colorContrast';
@@ -49,17 +52,6 @@ function SettingRow({ icon, tone, title, subtitle, onPress, rightElement }: Sett
             </View>
             {rightElement ?? <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textDisabled} />}
         </TouchableOpacity>
-    );
-}
-
-function SettingSection({ title, children }: { title: string; children: React.ReactNode }) {
-    const { colors } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
-    return (
-        <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{title}</Text>
-            <View style={styles.sectionCard}>{children}</View>
-        </View>
     );
 }
 
@@ -115,11 +107,24 @@ export function SettingsScreen() {
 
     return (
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
-            <AppScreenHeader title="Pengaturan" subtitle="Akun, tampilan, data, dan ruang kolaborasi ada di satu tempat." variant="transparent" />
+            <AppScreenHeader
+                eyebrow="Workspace Control"
+                title="Pengaturan"
+                subtitle="Akun, tampilan, data, dan ruang kolaborasi ada di satu tempat."
+                variant="transparent"
+            />
 
             <ScrollView
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={[styles.content, metrics.widthClass !== 'compact' ? styles.contentWide : null]}
+                contentContainerStyle={[
+                    styles.content,
+                    {
+                        paddingHorizontal: metrics.horizontalPadding,
+                        paddingBottom: metrics.contentBottomInset,
+                        gap: metrics.verticalGap,
+                    },
+                    metrics.widthClass !== 'compact' ? styles.contentWide : null,
+                ]}
             >
                 <HeroSummaryCard
                     eyebrow={sessionStatus === 'guest' ? 'Mode Guest Lokal' : 'Akun Utama'}
@@ -141,12 +146,12 @@ export function SettingsScreen() {
                 />
 
                 {!canUseCloudCollaboration ? (
-                    <View style={styles.guestNotice}>
-                        <MaterialCommunityIcons name="information-outline" size={18} color={colors.primary} />
-                        <Text style={styles.guestNoticeText}>
-                            Shared wallet, sinkronisasi cloud, dan reset password membutuhkan akun. Fitur lokal seperti pencatatan, export, dan import tetap tersedia.
-                        </Text>
-                    </View>
+                    <InlineNotice
+                        icon="cloud-off-outline"
+                        title="Beberapa capability masih terkunci"
+                        description="Shared wallet, sinkronisasi cloud, dan reset password membutuhkan akun. Fitur lokal seperti pencatatan, export, dan import tetap tersedia."
+                        tone="warning"
+                    />
                 ) : null}
 
                 {!canUseCloudCollaboration ? (
@@ -176,21 +181,14 @@ export function SettingsScreen() {
                     </View>
                 ) : null}
 
-                <View style={styles.capabilityCard}>
-                    <Text style={styles.capabilityTitle}>Capability Matrix</Text>
-                    <View style={styles.capabilityRow}>
-                        <Text style={styles.capabilityLabel}>Pencatatan lokal</Text>
-                        <ContextBadge icon="check-circle-outline" label="Aktif" tone="success" />
-                    </View>
-                    <View style={styles.capabilityRow}>
-                        <Text style={styles.capabilityLabel}>Sinkronisasi cloud</Text>
-                        <ContextBadge icon={canUseCloudCollaboration ? 'cloud-check-outline' : 'cloud-off-outline'} label={canUseCloudCollaboration ? 'Aktif' : 'Nonaktif'} tone={canUseCloudCollaboration ? 'success' : 'warning'} />
-                    </View>
-                    <View style={styles.capabilityRow}>
-                        <Text style={styles.capabilityLabel}>Shared wallet</Text>
-                        <ContextBadge icon={canUseCloudCollaboration ? 'account-group-outline' : 'account-off-outline'} label={canUseCloudCollaboration ? 'Aktif' : 'Butuh akun'} tone={canUseCloudCollaboration ? 'info' : 'warning'} />
-                    </View>
-                </View>
+                <StatStrip
+                    items={[
+                        { label: 'Pencatatan lokal', value: 'Aktif', valueColor: colors.success },
+                        { label: 'Sinkronisasi', value: canUseCloudCollaboration ? 'Aktif' : 'Nonaktif', valueColor: canUseCloudCollaboration ? colors.success : colors.warning },
+                        { label: 'Shared wallet', value: canUseCloudCollaboration ? 'Aktif' : 'Butuh akun', valueColor: canUseCloudCollaboration ? colors.info : colors.warning },
+                    ]}
+                    vertical={metrics.isWide}
+                />
 
                 <TouchableOpacity
                     style={styles.profileCard}
@@ -208,7 +206,7 @@ export function SettingsScreen() {
                     <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textDisabled} />
                 </TouchableOpacity>
 
-                <SettingSection title="Prioritas harian">
+                <SettingsGroup title="Prioritas harian" description="Area yang paling sering disentuh saat mengelola ritme keuangan.">
                     <SettingRow
                         icon="bell-outline"
                         tone="warning"
@@ -224,9 +222,9 @@ export function SettingsScreen() {
                         subtitle="Kelola dompet pribadi, shared wallet, dan saldo aktif."
                         onPress={() => navigation.navigate('WalletList')}
                     />
-                </SettingSection>
+                </SettingsGroup>
 
-                <SettingSection title="Tampilan dan aksesibilitas">
+                <SettingsGroup title="Tampilan dan aksesibilitas" description="Kontrol supaya aplikasi terasa nyaman dibaca dan digunakan setiap hari.">
                     <SettingRow
                         icon="theme-light-dark"
                         tone="info"
@@ -290,9 +288,9 @@ export function SettingsScreen() {
                             />
                         }
                     />
-                </SettingSection>
+                </SettingsGroup>
 
-                <SettingSection title="Data dan otomasi">
+                <SettingsGroup title="Data dan otomasi" description="Semua pengaturan yang mengubah struktur, jadwal, atau cadangan data.">
                     <SettingRow
                         icon="chart-pie"
                         tone="success"
@@ -348,9 +346,9 @@ export function SettingsScreen() {
                         subtitle="Cek versi terbaru, release notes, dan link unduh resmi."
                         onPress={() => navigation.navigate('AppUpdate')}
                     />
-                </SettingSection>
+                </SettingsGroup>
 
-                <SettingSection title="Keamanan akun">
+                <SettingsGroup title="Keamanan akun" description="Aksi sensitif yang berdampak ke sesi dan identitas akun.">
                     <SettingRow
                         icon="logout"
                         tone="danger"
@@ -370,7 +368,7 @@ export function SettingsScreen() {
                         }
                         onPress={handleDeleteAccount}
                     />
-                </SettingSection>
+                </SettingsGroup>
             </ScrollView>
         </ScreenShell>
     );
@@ -379,31 +377,12 @@ export function SettingsScreen() {
 const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     StyleSheet.create({
         content: {
-            paddingHorizontal: 20,
-            paddingBottom: 108,
             gap: 18,
         },
         contentWide: {
             width: '100%',
             maxWidth: 920,
             alignSelf: 'center',
-        },
-        guestNotice: {
-            flexDirection: 'row',
-            alignItems: 'flex-start',
-            gap: 12,
-            backgroundColor: colors.primaryBg,
-            borderWidth: 1,
-            borderColor: `${colors.primary}22`,
-            borderRadius: BorderRadius['3xl'],
-            padding: 16,
-        },
-        guestNoticeText: {
-            flex: 1,
-            fontFamily: FontFamily.body,
-            fontSize: FontSize.caption,
-            lineHeight: 20,
-            color: colors.textSecondary,
         },
         accountUpgradeRow: {
             flexDirection: 'row',
@@ -435,37 +414,13 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             fontSize: FontSize.body,
             color: colors.textPrimary,
         },
-        capabilityCard: {
-            gap: 12,
-            backgroundColor: colors.panelSurface,
-            borderWidth: 1,
-            borderColor: colors.border,
-            borderRadius: BorderRadius['3xl'],
-            padding: 16,
-        },
-        capabilityTitle: {
-            fontFamily: FontFamily.bodyBold,
-            fontSize: FontSize.body,
-            color: colors.textPrimary,
-        },
-        capabilityRow: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12,
-        },
-        capabilityLabel: {
-            fontFamily: FontFamily.body,
-            fontSize: FontSize.body,
-            color: colors.textSecondary,
-        },
         profileCard: {
             flexDirection: 'row',
             alignItems: 'center',
             gap: 14,
             backgroundColor: colors.panelSurface,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.cardBorder,
             borderRadius: BorderRadius['4xl'],
             padding: 18,
         },
@@ -493,24 +448,6 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             color: colors.textSecondary,
             marginTop: 4,
             lineHeight: 18,
-        },
-        section: {
-            gap: 10,
-        },
-        sectionTitle: {
-            fontFamily: FontFamily.bodyBold,
-            fontSize: FontSize.caption,
-            color: colors.textSecondary,
-            textTransform: 'uppercase',
-            letterSpacing: 0.4,
-            paddingLeft: 4,
-        },
-        sectionCard: {
-            backgroundColor: colors.panelSurface,
-            borderWidth: 1,
-            borderColor: colors.border,
-            borderRadius: BorderRadius['4xl'],
-            overflow: 'hidden',
         },
         settingRow: {
             flexDirection: 'row',
@@ -565,7 +502,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             justifyContent: 'center',
             borderRadius: BorderRadius.lg,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.cardBorder,
             backgroundColor: colors.interactiveIdle,
         },
         textSizeButtonActive: {

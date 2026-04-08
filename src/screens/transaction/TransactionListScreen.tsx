@@ -12,10 +12,11 @@ import { useCategoryStore } from '../../store/useCategoryStore';
 import { useTheme } from '../../store/useThemeStore';
 import { useTransactionStore } from '../../store/useTransactionStore';
 import { AppScreenHeader } from '../../components/common/AppScreenHeader';
-import { EmptyState } from '../../components/common/EmptyState';
+import { EmptyIllustrationState } from '../../components/common/EmptyIllustrationState';
 import { FilterBar } from '../../components/common/FilterBar';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { TransactionItemSkeleton } from '../../components/common/SkeletonLoader';
+import { StatStrip } from '../../components/common/StatStrip';
 import { TransactionItem } from '../../components/transaction/TransactionItem';
 import { useResponsiveMetrics } from '../../utils/responsive';
 
@@ -123,6 +124,7 @@ export function TransactionListScreen() {
     return (
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
             <AppScreenHeader
+                eyebrow="Cashflow Feed"
                 title="Transaksi"
                 subtitle="Cari, saring, dan baca perubahan arus uang dengan lebih cepat."
                 showBack
@@ -135,7 +137,16 @@ export function TransactionListScreen() {
                 variant="transparent"
             />
 
-            <View style={[styles.content, metrics.isWide ? styles.contentWide : null]}>
+            <View
+                style={[
+                    styles.content,
+                    {
+                        paddingHorizontal: metrics.horizontalPadding,
+                        gap: metrics.verticalGap,
+                    },
+                    metrics.isWide ? styles.contentWide : null,
+                ]}
+            >
                 <View style={[styles.topGrid, metrics.isWide ? styles.topGridWide : null]}>
                     <View style={styles.topMain}>
                         <FilterBar
@@ -163,24 +174,14 @@ export function TransactionListScreen() {
                         />
                     </View>
 
-                    <View style={[styles.summaryStrip, metrics.isWide ? styles.summaryStripWide : null]}>
-                        <View style={styles.summaryItem}>
-                            <Text style={styles.summaryLabel}>Transaksi</Text>
-                            <Text style={styles.summaryValue}>{transactions.length}</Text>
-                        </View>
-                        <View style={[styles.summaryDivider, metrics.isWide ? styles.summaryDividerWide : null]} />
-                        <View style={styles.summaryItem}>
-                            <Text style={styles.summaryLabel}>Net</Text>
-                            <Text style={[styles.summaryValue, { color: netAmount >= 0 ? colors.success : colors.danger }]}>
-                                {formatCurrency(Math.abs(netAmount))}
-                            </Text>
-                        </View>
-                        <View style={[styles.summaryDivider, metrics.isWide ? styles.summaryDividerWide : null]} />
-                        <View style={styles.summaryItem}>
-                            <Text style={styles.summaryLabel}>Mode</Text>
-                            <Text style={styles.summaryValue}>{filterPeriod === 'all' ? 'Semua' : filterPeriod}</Text>
-                        </View>
-                    </View>
+                    <StatStrip
+                        items={[
+                            { label: 'Transaksi', value: `${transactions.length}` },
+                            { label: 'Net', value: formatCurrency(Math.abs(netAmount)), valueColor: netAmount >= 0 ? colors.success : colors.danger },
+                            { label: 'Mode', value: filterPeriod === 'all' ? 'Semua' : filterPeriod },
+                        ]}
+                        vertical={metrics.isWide}
+                    />
                 </View>
 
                 {isLoading && !refreshing ? (
@@ -191,7 +192,7 @@ export function TransactionListScreen() {
                     </View>
                 ) : grouped.length === 0 ? (
                     <View style={styles.emptyWrap}>
-                        <EmptyState
+                        <EmptyIllustrationState
                             icon="receipt-text-outline"
                             title="Belum ada transaksi yang cocok"
                             description="Coba longgarkan filter atau tambahkan transaksi baru supaya ritme keuanganmu mulai terbaca."
@@ -204,7 +205,7 @@ export function TransactionListScreen() {
                         data={rows}
                         keyExtractor={(item) => item.id}
                         showsVerticalScrollIndicator={false}
-                        contentContainerStyle={styles.listContent}
+                        contentContainerStyle={[styles.listContent, { paddingBottom: metrics.contentBottomInset }]}
                         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
                         renderItem={({ item }) => {
                             if (item.kind === 'section') {
@@ -246,7 +247,6 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     StyleSheet.create({
         content: {
             flex: 1,
-            paddingHorizontal: 20,
             gap: 14,
         },
         contentWide: {
@@ -264,47 +264,6 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         },
         topMain: {
             flex: 1,
-        },
-        summaryStrip: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: colors.panelSurface,
-            borderWidth: 1,
-            borderColor: colors.border,
-            borderRadius: BorderRadius['4xl'],
-            paddingHorizontal: 14,
-            paddingVertical: 14,
-        },
-        summaryStripWide: {
-            width: 320,
-            minHeight: 136,
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            paddingVertical: 18,
-        },
-        summaryItem: {
-            flex: 1,
-            alignItems: 'center',
-            gap: 4,
-        },
-        summaryDivider: {
-            width: 1,
-            height: 28,
-            backgroundColor: colors.divider,
-        },
-        summaryDividerWide: {
-            width: '100%',
-            height: 1,
-        },
-        summaryLabel: {
-            fontFamily: FontFamily.body,
-            fontSize: FontSize.caption,
-            color: colors.textSecondary,
-        },
-        summaryValue: {
-            fontFamily: FontFamily.bodyBold,
-            fontSize: FontSize.body,
-            color: colors.textPrimary,
         },
         loadingList: {
             gap: 12,
@@ -326,7 +285,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             borderRadius: BorderRadius['2xl'],
             backgroundColor: colors.panelSurface,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.cardBorder,
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -355,7 +314,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         itemBlock: {
             backgroundColor: colors.panelSurface,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.cardBorder,
             borderRadius: BorderRadius['4xl'],
             overflow: 'hidden',
         },

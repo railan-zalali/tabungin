@@ -10,6 +10,7 @@ import {
     ViewStyle,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { useTheme } from '../../store/useThemeStore';
 
@@ -165,10 +166,10 @@ const getStyles = (colors: any) =>
         inputContainer: {
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: colors.surfaceElevated,
-            borderRadius: 16,
+            backgroundColor: colors.formFieldBg,
+            borderRadius: BorderRadius.lg,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.cardBorder,
             minHeight: 54,
             shadowColor: colors.shadowColor,
             shadowOffset: { width: 0, height: 4 },
@@ -177,7 +178,7 @@ const getStyles = (colors: any) =>
             elevation: 1,
         },
         inputContainerFocused: {
-            borderColor: colors.primary,
+            borderColor: colors.chipSelectedBorder,
             backgroundColor: colors.surface,
             shadowOpacity: 0.08,
             elevation: 2,

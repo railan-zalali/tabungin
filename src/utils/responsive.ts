@@ -2,8 +2,8 @@ import { useMemo } from 'react';
 import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../store/useThemeStore';
-
-export type WidthClass = 'compact' | 'regular' | 'wide';
+import { getResponsiveGridColumns, resolveWidthClass, type WidthClass } from './responsiveHelpers';
+export type { WidthClass } from './responsiveHelpers';
 
 export interface ResponsiveMetrics {
     width: number;
@@ -14,16 +14,15 @@ export interface ResponsiveMetrics {
     isWide: boolean;
     horizontalPadding: number;
     verticalGap: number;
+    heroSpacing: number;
+    headerTopOffset: number;
     maxContentWidth: number;
+    contentBottomInset: number;
+    floatingActionClearance: number;
+    tabBarClearance: number;
     bottomActionInset: number;
     safeBottomSpacing: number;
     cardColumns: 1 | 2;
-}
-
-function resolveWidthClass(width: number): WidthClass {
-    if (width >= 720) return 'wide';
-    if (width >= 420) return 'regular';
-    return 'compact';
 }
 
 export function useResponsiveMetrics(): ResponsiveMetrics {
@@ -38,7 +37,12 @@ export function useResponsiveMetrics(): ResponsiveMetrics {
         const isWide = widthClass === 'wide';
         const horizontalPadding = isCompact ? 16 : isWide ? 24 : 20;
         const verticalGap = isCompact ? 14 : 18;
+        const heroSpacing = isCompact ? 10 : isWide ? 18 : 14;
+        const headerTopOffset = insets.top + (isCompact ? 8 : 12);
         const safeBottomSpacing = Math.max(insets.bottom, 16);
+        const tabBarClearance = safeBottomSpacing + (isCompact ? 78 : 90);
+        const contentBottomInset = tabBarClearance + (isCompact ? 14 : 18);
+        const floatingActionClearance = safeBottomSpacing + (isCompact ? 104 : 116);
 
         return {
             width,
@@ -49,14 +53,15 @@ export function useResponsiveMetrics(): ResponsiveMetrics {
             isWide,
             horizontalPadding,
             verticalGap,
+            heroSpacing,
+            headerTopOffset,
             maxContentWidth: isWide ? 760 : 640,
-            bottomActionInset: safeBottomSpacing + (isCompact ? 80 : 92),
+            contentBottomInset,
+            floatingActionClearance,
+            tabBarClearance,
+            bottomActionInset: floatingActionClearance,
             safeBottomSpacing,
             cardColumns: width >= 560 ? 2 : 1,
         };
     }, [height, insets.bottom, textScale, width]);
-}
-
-export function getResponsiveGridColumns(width: number, minColumnWidth = 160): 1 | 2 {
-    return width >= minColumnWidth * 2 + 24 ? 2 : 1;
 }

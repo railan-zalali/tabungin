@@ -69,11 +69,11 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
     StyleSheet.create({
         container: {
             flexDirection: 'row',
-            backgroundColor: colors.surfaceAlt,
+            backgroundColor: colors.statSurface,
             borderRadius: BorderRadius.xl,
             padding: 4,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.cardBorder,
             gap: 4,
         },
         containerScrollable: {
@@ -96,7 +96,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
         segmentActive: {
             backgroundColor: colors.background,
             borderWidth: 1,
-            borderColor: colors.focusRing,
+            borderColor: colors.cardBorderStrong,
         },
         segmentInner: {
             flexDirection: 'row',
@@ -121,10 +121,10 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             paddingHorizontal: 6,
             paddingVertical: 2,
             borderRadius: BorderRadius.full,
-            backgroundColor: colors.surface,
+            backgroundColor: colors.chipSurface,
         },
         countBadgeActive: {
-            backgroundColor: colors.primaryBg,
+            backgroundColor: colors.chipSelectedSurface,
         },
         countText: {
             fontFamily: FontFamily.bodyBold,

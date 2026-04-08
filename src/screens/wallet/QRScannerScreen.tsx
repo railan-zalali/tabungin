@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Image, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Image, ScrollView, StatusBar } from 'react-native';
 import { CameraView, Camera } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
@@ -10,13 +10,20 @@ import { useTheme } from '../../store/useThemeStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize } from '../../constants/typography';
+import { AppScreenHeader } from '../../components/common/AppScreenHeader';
 import { Button } from '../../components/common/Button';
+import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
+import { InlineNotice } from '../../components/common/InlineNotice';
+import { ScreenShell } from '../../components/common/ScreenShell';
+import { StatStrip } from '../../components/common/StatStrip';
 import { parseWalletInvite } from '../../utils/walletInvite';
+import { useResponsiveMetrics } from '../../utils/responsive';
 
 export function QRScannerScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
+  const metrics = useResponsiveMetrics();
   const styles = React.useMemo(() => getStyles(colors), [colors]);
   const canUseCloudCollaboration = useAuthStore((state) => state.canUseCloudCollaboration);
   const setPostAuthRedirect = useAuthStore((state) => state.setPostAuthRedirect);
@@ -41,34 +48,74 @@ export function QRScannerScreen() {
 
   if (!canUseCloudCollaboration) {
     return (
-      <View style={[styles.container, styles.center]}>
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
-        <LinearGradient colors={[colors.primary, colors.primaryDark, colors.primary]} style={styles.permissionCard}>
-          <MaterialCommunityIcons name="account-lock-outline" size={64} color={colors.textInverse} />
-          <Text style={styles.permissionTitle}>Mode guest belum bisa scan undangan</Text>
-          <Text style={styles.permissionText}>
-            Scan QR undangan dompet membutuhkan akun yang terhubung ke cloud. Setelah masuk, kamu akan kembali ke layar ini.
-          </Text>
-          <Button
-            label="Masuk dengan akun"
-            onPress={() => {
-              setPostAuthRedirect({ screen: 'Wallet', params: { screen: 'QRScanner' } });
-              navigation.navigate('Login');
-            }}
-            fullWidth
+      <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
+        <AppScreenHeader
+          title="Scan QR undangan"
+          subtitle="Mode scan penuh tersedia setelah akun terhubung ke cloud."
+          eyebrow="Wallet Scan"
+          showBack
+          onBackPress={() => navigation.goBack()}
+          variant="transparent"
+        />
+        <ScrollView
+          contentContainerStyle={[
+            styles.fallbackContent,
+            {
+              paddingHorizontal: metrics.horizontalPadding,
+              paddingBottom: metrics.contentBottomInset,
+              gap: metrics.verticalGap,
+            },
+            metrics.widthClass !== 'compact' ? styles.fallbackContentWide : null,
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          <HeroSummaryCard
+            eyebrow="Cloud Access"
+            title="Mode guest belum bisa scan"
+            value="Akun diperlukan"
+            description="Scan QR undangan dompet membutuhkan akun yang terhubung ke cloud. Setelah masuk, kamu akan kembali ke layar ini."
+            icon="account-lock-outline"
+            stats={[
+              { label: 'Fitur', value: 'QR Wallet', icon: 'qrcode-scan' },
+              { label: 'Status', value: 'Terkunci', icon: 'lock-outline' },
+              { label: 'Aksi', value: 'Login', icon: 'login' },
+            ]}
           />
-          <Button
-            label="Buat akun"
-            onPress={() => {
-              setPostAuthRedirect({ screen: 'Wallet', params: { screen: 'QRScanner' } });
-              navigation.navigate('Register');
-            }}
-            variant="secondary"
-            fullWidth
+          <InlineNotice
+            icon="shield-account-outline"
+            description="Pembatasan ini sengaja dipakai agar undangan shared wallet hanya diproses di akun yang benar-benar punya identitas cloud."
+            tone="info"
           />
-          <Button label="Kembali" onPress={() => navigation.goBack()} variant="ghost" fullWidth />
-        </LinearGradient>
-      </View>
+          <StatStrip
+            items={[
+              { label: 'Mode', value: 'Guest' },
+              { label: 'Akses', value: 'Terbatas' },
+              { label: 'Tindak lanjut', value: 'Masuk akun' },
+            ]}
+            vertical={metrics.widthClass === 'compact'}
+          />
+          <View style={styles.fallbackActions}>
+            <Button
+              label="Masuk dengan akun"
+              onPress={() => {
+                setPostAuthRedirect({ screen: 'Wallet', params: { screen: 'QRScanner' } });
+                navigation.navigate('Login');
+              }}
+              fullWidth
+            />
+            <Button
+              label="Buat akun"
+              onPress={() => {
+                setPostAuthRedirect({ screen: 'Wallet', params: { screen: 'QRScanner' } });
+                navigation.navigate('Register');
+              }}
+              variant="secondary"
+              fullWidth
+            />
+            <Button label="Kembali" onPress={() => navigation.goBack()} variant="outline" fullWidth />
+          </View>
+        </ScrollView>
+      </ScreenShell>
     );
   }
 
@@ -159,20 +206,43 @@ export function QRScannerScreen() {
 
   if (hasPermission === false) {
     return (
-      <View style={[styles.container, styles.center]}>
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
-        <LinearGradient
-          colors={[colors.primary, colors.primaryDark, colors.primary]}
-          style={styles.permissionCard}
+      <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
+        <AppScreenHeader
+          title="Scan QR undangan"
+          subtitle="Akses kamera membantu proses scan real-time, tapi galeri tetap tersedia sebagai fallback."
+          eyebrow="Wallet Scan"
+          showBack
+          onBackPress={() => navigation.goBack()}
+          variant="transparent"
+        />
+        <ScrollView
+          contentContainerStyle={[
+            styles.fallbackContent,
+            {
+              paddingHorizontal: metrics.horizontalPadding,
+              paddingBottom: metrics.contentBottomInset,
+              gap: metrics.verticalGap,
+            },
+            metrics.widthClass !== 'compact' ? styles.fallbackContentWide : null,
+          ]}
+          showsVerticalScrollIndicator={false}
         >
-          <MaterialCommunityIcons name="qrcode-scan" size={64} color={colors.textInverse} />
-          <Text style={styles.permissionTitle}>Akses kamera diperlukan</Text>
-          <Text style={styles.permissionText}>Izinkan kamera agar kamu bisa memindai QR undangan dompet.</Text>
-          <Button
-            label="Pilih QR dari Galeri"
-            onPress={handlePickFromGallery}
-            variant="secondary"
-            fullWidth
+          <HeroSummaryCard
+            eyebrow="Camera Access"
+            title="Akses kamera diperlukan"
+            value="Belum diizinkan"
+            description="Izinkan kamera agar kamu bisa memindai QR undangan secara langsung. Kalau belum siap, pilih gambar QR dari galeri."
+            icon="camera-outline"
+            stats={[
+              { label: 'Scan live', value: 'Nonaktif', icon: 'camera-off-outline' },
+              { label: 'Fallback', value: 'Galeri', icon: 'image-outline' },
+              { label: 'Format', value: 'QR invite', icon: 'qrcode-scan' },
+            ]}
+          />
+          <InlineNotice
+            icon="image-outline"
+            description="Memilih QR dari galeri cocok untuk screenshot atau foto undangan yang sudah pernah dibagikan sebelumnya."
+            tone="primary"
           />
           {selectedImage ? (
             <View style={styles.selectedImageCardFallback}>
@@ -185,9 +255,17 @@ export function QRScannerScreen() {
               </View>
             </View>
           ) : null}
-          <Button label="Kembali" onPress={() => navigation.goBack()} variant="ghost" fullWidth />
-        </LinearGradient>
-      </View>
+          <View style={styles.fallbackActions}>
+            <Button
+              label="Pilih QR dari galeri"
+              onPress={handlePickFromGallery}
+              variant="secondary"
+              fullWidth
+            />
+            <Button label="Kembali" onPress={() => navigation.goBack()} variant="outline" fullWidth />
+          </View>
+        </ScrollView>
+      </ScreenShell>
     );
   }
 
@@ -257,6 +335,17 @@ export function QRScannerScreen() {
 const getStyles = (colors: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   center: { justifyContent: 'center', alignItems: 'center', padding: 20 },
+  fallbackContent: {
+    gap: 18,
+  },
+  fallbackContentWide: {
+    width: '100%',
+    maxWidth: 920,
+    alignSelf: 'center',
+  },
+  fallbackActions: {
+    gap: 12,
+  },
   overlay: {
     flex: 1,
     justifyContent: 'space-between',
@@ -336,33 +425,6 @@ const getStyles = (colors: any) => StyleSheet.create({
     fontFamily: FontFamily.body,
     fontSize: FontSize.caption,
     lineHeight: 18,
-  },
-  permissionCard: {
-    width: '100%',
-    borderRadius: 32,
-    padding: 22,
-    alignItems: 'center',
-    gap: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.18,
-    shadowRadius: 24,
-    elevation: 6,
-  },
-  permissionTitle: {
-    fontFamily: FontFamily.heading,
-    fontSize: FontSize.h3,
-    color: colors.textInverse,
-    textAlign: 'center',
-  },
-  permissionText: {
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.body,
-    color: 'rgba(255,255,255,0.86)',
-    textAlign: 'center',
-    lineHeight: 22,
   },
   selectedImageCard: {
     width: '100%',

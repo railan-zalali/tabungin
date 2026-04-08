@@ -37,6 +37,7 @@ import { AppScreenHeader } from '../../components/common/AppScreenHeader';
 import { ContextBadge } from '../../components/common/ContextBadge';
 import { FormSection } from '../../components/common/FormSection';
 import { Input } from '../../components/common/Input';
+import { InlineNotice } from '../../components/common/InlineNotice';
 import { PrimaryActionBar } from '../../components/common/PrimaryActionBar';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { SegmentedControl } from '../../components/common/SegmentedControl';
@@ -275,6 +276,7 @@ export function AddSavingGoalScreen() {
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
                 <AppScreenHeader
+                    eyebrow={isEditMode ? 'Edit Goal' : 'New Goal'}
                     title={isEditMode ? 'Edit Target' : 'Buat Target'}
                     subtitle={isEditMode ? 'Perbarui target tanpa mengubah struktur inti form.' : 'Buat target yang langsung selaras dengan dompet, ritme, dan reminder.'}
                     showClose
@@ -297,7 +299,7 @@ export function AddSavingGoalScreen() {
                             styles.content,
                             {
                                 paddingHorizontal: metrics.horizontalPadding,
-                                paddingBottom: metrics.bottomActionInset + 24,
+                                paddingBottom: metrics.floatingActionClearance + 24,
                             },
                         ]}
                     >
@@ -355,9 +357,16 @@ export function AddSavingGoalScreen() {
                         </LinearGradient>
 
                         <FormSection
+                            eyebrow="Wallet Context"
                             title="Konteks dompet"
                             subtitle="Target akan melekat ke dompet ini agar ownership dan konteks shared wallet tetap jelas."
+                            density="compact"
                         >
+                            <InlineNotice
+                                icon="wallet-outline"
+                                description="Target akan mewarisi konteks ownership dari dompet yang dipilih, sehingga personal dan shared goal tetap terbaca jelas."
+                                tone={isSharedWallet ? 'info' : 'primary'}
+                            />
                             <View style={styles.walletWrap}>
                                 {wallets.map((wallet) => {
                                     const active = selectedWalletId === wallet.id;
@@ -406,8 +415,10 @@ export function AddSavingGoalScreen() {
                         </FormSection>
 
                         <FormSection
+                            eyebrow="Identity"
                             title="Identitas target"
                             subtitle="Nama dan ikon dipakai di daftar target, dashboard, dan ruang kolaborasi."
+                            variant="highlight"
                         >
                             <Input
                                 label="Nama Target"
@@ -436,6 +447,7 @@ export function AddSavingGoalScreen() {
                         </FormSection>
 
                         <FormSection
+                            eyebrow="Amount + Rhythm"
                             title="Nominal dan ritme"
                             subtitle="Tentukan target akhir, kontribusi awal saat membuat goal, dan pola menabung yang paling masuk akal."
                         >
@@ -571,8 +583,10 @@ export function AddSavingGoalScreen() {
                         </FormSection>
 
                         <FormSection
+                            eyebrow="Visual System"
                             title="Visual dan reminder"
                             subtitle="Atur warna utama target dan nyalakan reminder bila ingin ritme menabung lebih konsisten."
+                            density="compact"
                         >
                             <View style={styles.colorWrap}>
                                 {GOAL_COLORS.map((item) => (
@@ -618,7 +632,7 @@ export function AddSavingGoalScreen() {
                         primaryLabel={isEditMode ? 'Simpan Perubahan' : 'Buat Target'}
                         onPrimaryPress={handleSave}
                         primaryLoading={isLoading}
-                        offset={metrics.bottomActionInset - metrics.safeBottomSpacing}
+                        bottomInset={metrics.tabBarClearance}
                     />
                 ) : null}
             </KeyboardAvoidingView>

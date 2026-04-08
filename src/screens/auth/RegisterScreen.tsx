@@ -12,16 +12,19 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Colors } from '../../constants/colors';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { FormSection } from '../../components/common/FormSection';
+import { InlineNotice } from '../../components/common/InlineNotice';
 import { StatePanel } from '../../components/common/StatePanel';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useTheme } from '../../store/useThemeStore';
 import { triggerHapticNotification } from '../../utils/haptics';
+import { useResponsiveMetrics } from '../../utils/responsive';
 import {
     validateConfirmPassword,
     validateEmail,
@@ -38,16 +41,17 @@ function getStrength(password: string) {
     if (/\d/.test(password)) score += 1;
     if (/[^a-zA-Z0-9]/.test(password)) score += 1;
 
-    if (score <= 2) return { label: 'Perlu diperkuat', color: '#C95A63', width: '36%' as const };
-    if (score <= 3) return { label: 'Sudah cukup', color: '#C58A1E', width: '68%' as const };
-    return { label: 'Kuat', color: '#1D8A5B', width: '100%' as const };
+    if (score <= 2) return { label: 'Perlu diperkuat', color: Colors.danger, width: '36%' as const };
+    if (score <= 3) return { label: 'Sudah cukup', color: Colors.warning, width: '68%' as const };
+    return { label: 'Kuat', color: Colors.success, width: '100%' as const };
 }
 
 export function RegisterScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const { register, authError, sessionStatus, pendingGuestMergeResolution, postAuthRedirect, clearPostAuthRedirect } = useAuthStore();
     const { colors, gradients } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const metrics = useResponsiveMetrics();
+    const styles = React.useMemo(() => getStyles(colors, metrics.isCompact), [colors, metrics.isCompact]);
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -107,20 +111,42 @@ export function RegisterScreen() {
     return (
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                <ScrollView
+                    contentContainerStyle={[
+                        styles.content,
+                        {
+                            paddingHorizontal: metrics.horizontalPadding,
+                            paddingTop: metrics.headerTopOffset + 20,
+                            paddingBottom: metrics.safeBottomSpacing + 12,
+                            gap: metrics.verticalGap + 2,
+                        },
+                    ]}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                >
                     <View style={styles.hero}>
                         <LinearGradient colors={gradients.hero as unknown as [string, string, ...string[]]} style={styles.heroIcon}>
                             <MaterialCommunityIcons name="account-plus-outline" size={32} color={colors.textInverse} />
                         </LinearGradient>
-                        <Text style={styles.eyebrow}>Buat ruang keuangan yang rapi</Text>
+                        <Text style={styles.eyebrow}>Create Your Main Workspace</Text>
                         <Text style={styles.title}>Mulai dengan akun utama yang nanti jadi pusat profil, dompet, dan kolaborasi.</Text>
                         <Text style={styles.subtitle}>Kami jaga flow pendaftaran tetap singkat, tetapi cukup jelas untuk dipakai jangka panjang.</Text>
                         {sessionStatus === 'guest' ? (
-                            <Text style={styles.guestUpgradeNote}>Data lokal guest tidak dihapus. Setelah akun dibuat, data lokal yang belum sinkron tetap bisa dibawa ke akun.</Text>
+                            <InlineNotice
+                                icon="account-switch-outline"
+                                title="Data guest tetap aman"
+                                description="Setelah akun dibuat, data lokal yang belum sinkron tetap bisa dibawa ke akun tanpa memutus ritme pencatatanmu."
+                                tone="primary"
+                            />
                         ) : null}
                     </View>
 
-                    <FormSection title="Buat akun baru" subtitle="Lengkapi identitas utama dulu, nanti detail lain bisa disesuaikan di pengaturan.">
+                    <FormSection
+                        eyebrow="Primary Identity"
+                        title="Buat akun baru"
+                        subtitle="Lengkapi identitas utama dulu, nanti detail lain bisa disesuaikan di pengaturan."
+                        variant="highlight"
+                    >
                         <Input
                             label="Nama Lengkap"
                             value={name}
@@ -206,21 +232,18 @@ export function RegisterScreen() {
     );
 }
 
-const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+const getStyles = (colors: ReturnType<typeof useTheme>['colors'], isCompact: boolean) =>
     StyleSheet.create({
         flex: { flex: 1 },
         content: {
-            paddingHorizontal: 20,
-            paddingTop: 72,
-            paddingBottom: 28,
-            gap: 20,
+            gap: 18,
         },
         hero: {
-            gap: 10,
+            gap: 8,
         },
         heroIcon: {
-            width: 58,
-            height: 58,
+            width: isCompact ? 52 : 58,
+            height: isCompact ? 52 : 58,
             borderRadius: BorderRadius['2xl'],
             alignItems: 'center',
             justifyContent: 'center',
@@ -239,14 +262,8 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         subtitle: {
             fontFamily: FontFamily.body,
             fontSize: FontSize.body,
-            lineHeight: 22,
+            lineHeight: 21,
             color: colors.textSecondary,
-        },
-        guestUpgradeNote: {
-            fontFamily: FontFamily.bodyMedium,
-            fontSize: FontSize.caption,
-            lineHeight: 20,
-            color: colors.primary,
         },
         passwordBlock: {
             gap: 10,

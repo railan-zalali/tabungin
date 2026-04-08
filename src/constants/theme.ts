@@ -15,46 +15,39 @@ export const Spacing = {
 } as const;
 
 export const BorderRadius = {
-    xs: 4,
-    sm: 6,
-    md: 8,
-    lg: 12,
-    xl: 16,
-    '2xl': 20,
-    '3xl': 24,
+    xs: 6,
+    sm: 10,
+    md: 12,
+    lg: 16,
+    xl: 20,
+    '2xl': 24,
+    '3xl': 28,
     '4xl': 32,
-    '5xl': 48,
+    '5xl': 40,
     full: 9999,
 } as const;
 
 export const Shadow = {
     sm: {
         shadowColor: '#0F1714',
-        shadowOffset: { width: 0, height: 4 },
+        shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.06,
-        shadowRadius: 10,
+        shadowRadius: 12,
         elevation: 2,
     },
     md: {
         shadowColor: '#0F1714',
-        shadowOffset: { width: 0, height: 10 },
+        shadowOffset: { width: 0, height: 12 },
         shadowOpacity: 0.1,
-        shadowRadius: 18,
+        shadowRadius: 20,
         elevation: 4,
     },
     lg: {
         shadowColor: '#0F1714',
-        shadowOffset: { width: 0, height: 16 },
+        shadowOffset: { width: 0, height: 18 },
         shadowOpacity: 0.14,
-        shadowRadius: 26,
+        shadowRadius: 28,
         elevation: 8,
-    },
-    xl: {
-        shadowColor: '#0F1714',
-        shadowOffset: { width: 0, height: 22 },
-        shadowOpacity: 0.16,
-        shadowRadius: 36,
-        elevation: 12,
     },
 } as const;
 

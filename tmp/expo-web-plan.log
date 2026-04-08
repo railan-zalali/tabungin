@@ -1,0 +1,44 @@
+
+> web
+> expo start --web
+
+env: load .env
+env: export EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_SUPABASE_URL
+Starting project at C:\Railan\New folder\tabungin
+Starting Metro Bundler
+
+The following packages should be updated for best compatibility with the installed expo version:
+  @shopify/flash-list@2.3.1 - expected version: 2.0.2
+  expo@55.0.11 - expected version: ~55.0.12
+  expo-build-properties@55.0.11 - expected version: ~55.0.12
+  expo-camera@55.0.13 - expected version: ~55.0.14
+  expo-crypto@55.0.12 - expected version: ~55.0.13
+  expo-device@55.0.12 - expected version: ~55.0.13
+  expo-document-picker@55.0.11 - expected version: ~55.0.12
+  expo-file-system@55.0.14 - expected version: ~55.0.15
+  expo-haptics@55.0.11 - expected version: ~55.0.13
+  expo-image-picker@55.0.16 - expected version: ~55.0.17
+  expo-linear-gradient@55.0.11 - expected version: ~55.0.12
+  expo-local-authentication@55.0.11 - expected version: ~55.0.12
+  expo-notifications@55.0.16 - expected version: ~55.0.17
+  expo-print@55.0.11 - expected version: ~55.0.12
+  expo-secure-store@55.0.11 - expected version: ~55.0.12
+  expo-sharing@55.0.16 - expected version: ~55.0.17
+  expo-sqlite@55.0.13 - expected version: ~55.0.14
+  jest-expo@55.0.13 - expected version: ~55.0.14
+Your project may not work correctly until you install the expected versions of the packages.
+Waiting on http://localhost:8081
+Logs for your project will appear below.
+Web node_modules\expo\AppEntry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web node_modules\expo\AppEntry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 84.0% (45/52)
+Web node_modules\expo\AppEntry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 85.5% (139/303)
+Web node_modules\expo\AppEntry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 85.5% (415/626)
+Web node_modules\expo\AppEntry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 85.5% (686/979)
+Web node_modules\expo\AppEntry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 85.5% ( 912/1144)
+Web node_modules\expo\AppEntry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 85.5% (1145/1241)
+Web node_modules\expo\AppEntry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 86.4% (1222/1335)
+Web node_modules\expo\AppEntry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░ 91.2% (1360/1424)
+Web node_modules\expo\AppEntry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 95.2% (1450/1505)
+Web Bundled 34400ms node_modules\expo\AppEntry.js (1568 modules)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 1396ms node_modules\expo-sqlite\web\worker.ts (16 modules)

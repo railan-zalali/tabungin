@@ -13,11 +13,12 @@ import { useTheme } from '../../store/useThemeStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import { AppScreenHeader } from '../../components/common/AppScreenHeader';
 import { ContextBadge } from '../../components/common/ContextBadge';
-import { EmptyState } from '../../components/common/EmptyState';
+import { EmptyIllustrationState } from '../../components/common/EmptyIllustrationState';
 import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { SectionHeader } from '../../components/common/SectionHeader';
 import { SegmentedControl } from '../../components/common/SegmentedControl';
+import { StatStrip } from '../../components/common/StatStrip';
 import { SavingGoalCard } from '../../components/saving/SavingGoalCard';
 import { SavingGoalCardSkeleton } from '../../components/common/SkeletonLoader';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -89,6 +90,7 @@ export function SavingListScreen() {
     return (
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
             <AppScreenHeader
+                eyebrow="Goal Portfolio"
                 title="Target tabungan"
                 subtitle="Pisahkan konteks personal, shared wallet, dan target yang sudah selesai."
                 showBack
@@ -105,7 +107,15 @@ export function SavingListScreen() {
                 data={isLoading && !refreshing ? [null, null] : filteredGoals}
                 keyExtractor={(item, index) => item?.goal?.id || `skeleton-${index}`}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={[styles.content, metrics.isWide ? styles.contentWide : null]}
+                contentContainerStyle={[
+                    styles.content,
+                    {
+                        paddingHorizontal: metrics.horizontalPadding,
+                        paddingBottom: metrics.contentBottomInset,
+                        gap: metrics.verticalGap,
+                    },
+                    metrics.isWide ? styles.contentWide : null,
+                ]}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
                 ListHeaderComponent={
                     <View style={[styles.heroGrid, metrics.isWide ? styles.heroGridWide : null]}>
@@ -128,6 +138,7 @@ export function SavingListScreen() {
 
                         <Animated.View entering={FadeInDown.delay(120).springify()} style={styles.filterBlock}>
                             <SectionHeader
+                                eyebrow="Scope Filter"
                                 title="Fokus tampilan"
                                 subtitle="Pilih dulu konteks yang ingin kamu evaluasi sekarang."
                             />
@@ -148,12 +159,21 @@ export function SavingListScreen() {
                                 <ContextBadge icon="check-circle-outline" label="Selesai" tone="success" />
                             </View>
                         </Animated.View>
+
+                        <StatStrip
+                            items={[
+                                { label: 'Aktif', value: `${activeGoalsCount}` },
+                                { label: 'Shared', value: `${sharedGoalsCount}`, valueColor: sharedGoalsCount > 0 ? colors.info : colors.textSecondary },
+                                { label: 'Selesai', value: `${completedGoalsCount}`, valueColor: completedGoalsCount > 0 ? colors.success : colors.textSecondary },
+                            ]}
+                            vertical={metrics.isWide}
+                        />
                     </View>
                 }
                 ListEmptyComponent={
                     !isLoading ? (
                         <Animated.View entering={FadeInUp.delay(180).springify()} style={styles.emptyWrap}>
-                            <EmptyState
+                            <EmptyIllustrationState
                                 icon={filterTab === 'completed' ? 'check-circle-outline' : 'piggy-bank-outline'}
                                 title={
                                     filterTab === 'completed'
@@ -196,8 +216,6 @@ export function SavingListScreen() {
 const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     StyleSheet.create({
         content: {
-            paddingHorizontal: 20,
-            paddingBottom: 108,
             gap: 18,
             maxWidth: 920,
             width: '100%',
@@ -221,7 +239,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             gap: 14,
             backgroundColor: colors.panelSurface,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.cardBorder,
             borderRadius: BorderRadius['4xl'],
             padding: 18,
             flex: 0.82,

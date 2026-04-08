@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { FontFamily, FontSize } from '../constants/typography';
-import { BorderRadius, Spacing } from '../constants/theme';
+import { BorderRadius } from '../constants/theme';
 import type { TabParamList } from '../types/navigation';
 import { useTransactionStore } from '../store/useTransactionStore';
 import { useWalletStore } from '../store/useWalletStore';
@@ -22,6 +22,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { triggerHapticImpact } from '../utils/haptics';
 import { ContextBadge } from '../components/common/ContextBadge';
 import { syncDatabase } from '../database/sync';
+import { useResponsiveMetrics } from '../utils/responsive';
 
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
 import { TransactionStackNavigator } from './TransactionStackNavigator';
@@ -78,7 +79,8 @@ function TabBarButton({
     onPress: () => void;
 }) {
     const { colors, motion } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const metrics = useResponsiveMetrics();
+    const styles = React.useMemo(() => getStyles(colors, metrics.isCompact), [colors, metrics.isCompact]);
     const meta = TAB_META[routeName];
     const accentColor = resolveAccentColor(colors);
     const scale = useSharedValue(isFocused ? 1 : 0.96);
@@ -147,7 +149,8 @@ function TabBarButton({
 function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     const insets = useSafeAreaInsets();
     const { colors } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const metrics = useResponsiveMetrics();
+    const styles = React.useMemo(() => getStyles(colors, metrics.isCompact), [colors, metrics.isCompact]);
     const user = useAuthStore((state) => state.user);
     const sessionStatus = useAuthStore((state) => state.sessionStatus);
     const rootNavigation = navigation.getParent() as any;
@@ -259,7 +262,7 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
     return (
         <View pointerEvents="box-none" style={styles.tabBarOuter}>
-            <View style={[styles.tabBarShell, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+            <View style={[styles.tabBarShell, { paddingHorizontal: metrics.horizontalPadding, paddingBottom: Math.max(insets.bottom, 10) }]}>
                 <LinearGradient
                     colors={[colors.surfaceElevated, colors.surfaceGlass]}
                     start={{ x: 0, y: 0 }}
@@ -355,7 +358,7 @@ export function TabNavigator() {
     );
 }
 
-const getStyles = (colors: any) =>
+const getStyles = (colors: any, isCompact: boolean) =>
     StyleSheet.create({
         tabBarOuter: {
             position: 'absolute',
@@ -528,15 +531,13 @@ const getStyles = (colors: any) =>
             fontSize: FontSize.caption,
             color: colors.textPrimary,
         },
-        tabBarShell: {
-            paddingHorizontal: Spacing.base,
-        },
+        tabBarShell: {},
         tabBar: {
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
-            paddingHorizontal: 10,
-            paddingTop: 12,
+            paddingHorizontal: isCompact ? 8 : 10,
+            paddingTop: isCompact ? 10 : 12,
             paddingBottom: 4,
             borderRadius: BorderRadius['5xl'],
             borderWidth: 1,
@@ -552,14 +553,14 @@ const getStyles = (colors: any) =>
             flex: 1,
         },
         tabButton: {
-            minHeight: 64,
+            minHeight: isCompact ? 60 : 64,
             alignItems: 'center',
             justifyContent: 'center',
             gap: 6,
             borderRadius: BorderRadius['4xl'],
             overflow: 'hidden',
             paddingHorizontal: 4,
-            paddingVertical: 10,
+            paddingVertical: isCompact ? 8 : 10,
             position: 'relative',
         },
         activeGlow: {
@@ -576,15 +577,15 @@ const getStyles = (colors: any) =>
             borderBottomRightRadius: BorderRadius.sm,
         },
         iconWrap: {
-            width: 40,
-            height: 40,
+            width: isCompact ? 38 : 40,
+            height: isCompact ? 38 : 40,
             borderRadius: BorderRadius['2xl'],
             alignItems: 'center',
             justifyContent: 'center',
         },
         tabLabel: {
             fontFamily: FontFamily.bodyMedium,
-            fontSize: 11,
+            fontSize: isCompact ? 10 : 11,
             textAlign: 'center',
             letterSpacing: 0.15,
         },

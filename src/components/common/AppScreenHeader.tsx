@@ -1,12 +1,13 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography, scaleFontSize } from '../../constants/typography';
 import { useTheme } from '../../store/useThemeStore';
+import { useResponsiveMetrics } from '../../utils/responsive';
 
 type HeaderVariant = 'solid' | 'glass' | 'transparent';
+type HeaderDensity = 'default' | 'compact';
 
 export interface HeaderAction {
     icon: string;
@@ -27,6 +28,8 @@ interface AppScreenHeaderProps {
     contextBadges?: React.ReactNode;
     sticky?: boolean;
     variant?: HeaderVariant;
+    eyebrow?: string;
+    density?: HeaderDensity;
 }
 
 export function AppScreenHeader({
@@ -41,19 +44,25 @@ export function AppScreenHeader({
     contextBadges,
     sticky = false,
     variant = 'glass',
+    eyebrow,
+    density = 'default',
 }: AppScreenHeaderProps) {
-    const insets = useSafeAreaInsets();
     const { colors, textSize } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors, textSize), [colors, textSize]);
+    const metrics = useResponsiveMetrics();
+    const styles = React.useMemo(() => getStyles(colors, textSize, metrics.isCompact), [colors, metrics.isCompact, textSize]);
 
     return (
         <View
             style={[
                 styles.container,
-                { paddingTop: insets.top + 4 },
+                {
+                    paddingTop: metrics.headerTopOffset,
+                    paddingHorizontal: metrics.horizontalPadding,
+                },
                 sticky && styles.sticky,
                 variant === 'solid' && styles.solid,
                 variant === 'transparent' && styles.transparent,
+                density === 'compact' && styles.compact,
             ]}
         >
             <View style={styles.row}>
@@ -79,6 +88,7 @@ export function AppScreenHeader({
                         </TouchableOpacity>
                     ) : null}
                     <View style={styles.copy}>
+                        {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
                         <Text style={styles.title} numberOfLines={1}>
                             {title}
                         </Text>
@@ -114,14 +124,20 @@ export function AppScreenHeader({
     );
 }
 
-const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: ReturnType<typeof useTheme>['textSize']) =>
+const getStyles = (
+    colors: ReturnType<typeof useTheme>['colors'],
+    textSize: ReturnType<typeof useTheme>['textSize'],
+    isCompact: boolean,
+) =>
     StyleSheet.create({
         container: {
-            paddingHorizontal: 20,
-            paddingBottom: 14,
+            paddingBottom: isCompact ? 12 : 16,
             backgroundColor: colors.pageHeader,
             borderBottomWidth: 1,
-            borderBottomColor: colors.glassStroke,
+            borderBottomColor: colors.headerDivider,
+        },
+        compact: {
+            paddingBottom: 10,
         },
         sticky: {
             backgroundColor: colors.stickyHeader,
@@ -135,15 +151,15 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
         },
         row: {
             flexDirection: 'row',
-            alignItems: 'flex-start',
+            alignItems: 'center',
             justifyContent: 'space-between',
-            gap: 12,
+            gap: isCompact ? 10 : 12,
         },
         leading: {
             flexDirection: 'row',
             alignItems: 'flex-start',
             flex: 1,
-            gap: 12,
+            gap: isCompact ? 10 : 12,
         },
         iconButton: {
             width: 44,
@@ -157,19 +173,26 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
         },
         copy: {
             flex: 1,
-            paddingTop: 3,
+            paddingTop: 2,
+            gap: 2,
+        },
+        eyebrow: {
+            fontFamily: FontFamily.bodyMedium,
+            fontSize: scaleFontSize(FontSize.label, textSize),
+            letterSpacing: 0.6,
+            textTransform: 'uppercase',
+            color: colors.primary,
         },
         title: {
             ...Typography.h2,
-            fontSize: scaleFontSize(FontSize.h2, textSize),
+            fontSize: scaleFontSize(isCompact ? FontSize.h3 : FontSize.h2, textSize),
             color: colors.textPrimary,
         },
         subtitle: {
             fontFamily: FontFamily.body,
             fontSize: scaleFontSize(FontSize.caption, textSize),
-            lineHeight: 18,
+            lineHeight: isCompact ? 18 : 19,
             color: colors.textSecondary,
-            marginTop: 3,
         },
         actionButton: {
             width: 44,
@@ -177,9 +200,9 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             borderRadius: BorderRadius.xl,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: colors.primaryBg,
+            backgroundColor: colors.statSurface,
             borderWidth: 1,
-            borderColor: colors.focusRing,
+            borderColor: colors.cardBorder,
         },
         actionButtonPrimary: {
             backgroundColor: colors.primary,
@@ -193,6 +216,6 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             flexDirection: 'row',
             flexWrap: 'wrap',
             gap: 8,
-            marginTop: 12,
+            marginTop: isCompact ? 10 : 12,
         },
     });

@@ -1,0 +1,182 @@
+- generic [ref=e152]:
+  - generic [ref=e157]:
+    - generic [ref=e158]:
+      - generic [ref=e159]:
+        - generic [ref=e161]:
+          - generic [ref=e162]: Dashboard Harian
+          - generic [ref=e163]: Halo, Guest
+          - generic [ref=e164]: Rabu, 8 April 2026
+        - button "Buka notifikasi" [ref=e165] [cursor=pointer]:
+          - generic [ref=e166]: 󰂜
+      - generic [ref=e167]:
+        - generic [ref=e168]:
+          - generic [ref=e169]: 󰭕
+          - generic [ref=e170]: Pribadi
+        - generic [ref=e171]:
+          - generic [ref=e172]: 󰯝
+          - generic [ref=e173]: 1 dompet
+    - generic [ref=e176]:
+      - generic [ref=e177]:
+        - generic [ref=e179] [cursor=pointer]:
+          - generic [ref=e181]: 󰀄
+          - generic [ref=e182]: Pribadi
+          - generic [ref=e183]: 󰅀
+        - generic [ref=e184]:
+          - generic [ref=e185]:
+            - generic [ref=e186]:
+              - generic [ref=e189]:
+                - generic [ref=e190]:
+                  - generic [ref=e191]: Financial Overview
+                  - generic [ref=e192]: Saldo total lintas dompet
+                  - generic [ref=e193]: Rp 0
+                  - generic [ref=e194]: Arus kas bulan ini masih positif. Saat yang bagus untuk lanjut menjaga target utama tetap bergerak.
+                - generic [ref=e196]: 󰯝
+              - generic [ref=e197]:
+                - generic [ref=e198]:
+                  - generic [ref=e199]: 󱙹
+                  - generic [ref=e200]: 0 target
+                - generic [ref=e201]:
+                  - generic [ref=e202]: 󰆜
+                  - generic [ref=e203]: 1 dompet
+              - generic [ref=e204]:
+                - generic [ref=e205]:
+                  - generic [ref=e206]: 󰁝
+                  - generic [ref=e207]: Rp 0
+                  - generic [ref=e208]: Pemasukan
+                - generic [ref=e209]:
+                  - generic [ref=e210]: 󰁅
+                  - generic [ref=e211]: Rp 0
+                  - generic [ref=e212]: Pengeluaran
+              - generic [ref=e213] [cursor=pointer]:
+                - generic [ref=e214]: Buka insight keuangan
+                - generic [ref=e215]: 󰅂
+            - generic [ref=e216]:
+              - generic [ref=e217]:
+                - generic [ref=e218]:
+                  - generic [ref=e219]: Saldo bersih
+                  - generic [ref=e221]: 󰔵
+                - generic [ref=e222]: Rp 0
+                - generic [ref=e223]: Masih surplus di bulan berjalan
+              - generic [ref=e224]:
+                - generic [ref=e225]:
+                  - generic [ref=e226]: Notifikasi
+                  - generic [ref=e228]: 󰂜
+                - generic [ref=e229]: Inbox bersih
+                - generic [ref=e230]: Pantau update penting tanpa membuka banyak layar.
+          - generic [ref=e231]:
+            - generic [ref=e233]:
+              - generic [ref=e234]: Next Best Actions
+              - generic [ref=e235]: Aksi cepat
+              - generic [ref=e236]: Tiga aksi paling sering dipakai, dibuat jelas dan mudah dijangkau.
+            - generic [ref=e237]:
+              - button "Catat pemasukan" [ref=e238] [cursor=pointer]:
+                - generic [ref=e240]: 󰳢
+                - generic [ref=e241]:
+                  - generic [ref=e242]: Catat pemasukan
+                  - generic [ref=e243]: Masukkan pemasukan baru dan kaitkan ke dompet yang tepat.
+                - generic [ref=e244]: 󰁜
+              - button "Catat pengeluaran" [ref=e245] [cursor=pointer]:
+                - generic [ref=e247]: 󰳜
+                - generic [ref=e248]:
+                  - generic [ref=e249]: Catat pengeluaran
+                  - generic [ref=e250]: Tambahkan pengeluaran cepat tanpa kehilangan konteks kategori.
+                - generic [ref=e251]: 󰁜
+              - button "Buat target" [ref=e252] [cursor=pointer]:
+                - generic [ref=e254]: 󰣉
+                - generic [ref=e255]:
+                  - generic [ref=e256]: Buat target
+                  - generic [ref=e257]: Mulai satu goal baru agar ritme menabung lebih terarah.
+                - generic [ref=e258]: 󰁜
+            - generic [ref=e259]:
+              - generic [ref=e260]:
+                - generic [ref=e262]: 󰛩
+                - generic [ref=e263]:
+                  - generic [ref=e264]: Fokus yang layak dipantau
+                  - generic [ref=e265]: Belum ada target aktif. Membuat satu target utama akan membantu dashboard terasa lebih actionable.
+              - generic [ref=e266]:
+                - generic [ref=e267]:
+                  - generic [ref=e268]: 󰔵
+                  - generic [ref=e269]: Arus kas positif
+                - generic [ref=e270]:
+                  - generic [ref=e271]: 󰸘
+                  - generic [ref=e272]: Bulan berjalan
+              - generic [ref=e273] [cursor=pointer]:
+                - generic [ref=e274]: Buat target pertama
+                - generic [ref=e275]: 󰅂
+      - generic [ref=e276]:
+        - generic [ref=e277]:
+          - generic [ref=e278]:
+            - generic [ref=e279]:
+              - generic [ref=e280]: Saving Goals
+              - generic [ref=e281]: Target tabungan
+              - generic [ref=e282]: Target yang sedang bergerak sekarang, lengkap dengan konteks personal atau shared.
+            - generic [ref=e284] [cursor=pointer]: Lihat semua
+          - generic "Belum ada target aktif. Mulai dari satu target utama dulu supaya dashboard punya alasan yang jelas untuk dipantau setiap hari." [ref=e285]:
+            - generic [ref=e289]: 󱙹
+            - generic [ref=e290]: Belum ada target aktif
+            - generic [ref=e291]: Mulai dari satu target utama dulu supaya dashboard punya alasan yang jelas untuk dipantau setiap hari.
+            - button "Buat target" [ref=e292] [cursor=pointer]:
+              - generic [ref=e293]: Buat target
+        - generic [ref=e294]:
+          - generic [ref=e295]:
+            - generic [ref=e296]:
+              - generic [ref=e297]: Recent Flow
+              - generic [ref=e298]: Transaksi terbaru
+              - generic [ref=e299]: Pantau apa yang baru berubah sebelum kamu pindah ke layar transaksi penuh.
+            - generic [ref=e301] [cursor=pointer]: Lihat semua
+          - generic "Belum ada transaksi. Catatan pertama akan langsung membuat dashboard lebih hidup dan laporan lebih berguna." [ref=e303]:
+            - generic [ref=e307]: 󱧜
+            - generic [ref=e308]: Belum ada transaksi
+            - generic [ref=e309]: Catatan pertama akan langsung membuat dashboard lebih hidup dan laporan lebih berguna.
+            - button "Tambah transaksi" [ref=e310] [cursor=pointer]:
+              - generic [ref=e311]: Tambah transaksi
+  - generic [ref=e312]:
+    - generic [ref=e313]:
+      - generic [ref=e314]:
+        - generic [ref=e316]: T
+        - generic [ref=e317]:
+          - generic [ref=e318]: Tabungin
+          - generic [ref=e319]: Desktop workspace
+      - generic [ref=e320]:
+        - generic [ref=e322]: G
+        - generic [ref=e323]:
+          - generic [ref=e324]: Guest Lokal
+          - generic [ref=e325]: Mode guest lokal aktif
+      - generic [ref=e326]:
+        - button "Beranda" [ref=e327] [cursor=pointer]:
+          - generic [ref=e329]: 󰋜
+          - generic [ref=e330]:
+            - generic [ref=e331]: Beranda
+            - generic [ref=e332]: Ringkasan utama
+        - button "Transaksi" [ref=e333] [cursor=pointer]:
+          - generic [ref=e335]: 󰓡
+          - generic [ref=e336]:
+            - generic [ref=e337]: Transaksi
+            - generic [ref=e338]: Arus kas & filter
+        - button "Dompet" [ref=e339] [cursor=pointer]:
+          - generic [ref=e341]: 󰯝
+          - generic [ref=e342]:
+            - generic [ref=e343]: Dompet
+            - generic [ref=e344]: Saldo & anggota
+        - button "Laporan" [ref=e345] [cursor=pointer]:
+          - generic [ref=e347]: 󱕎
+          - generic [ref=e348]:
+            - generic [ref=e349]: Laporan
+            - generic [ref=e350]: Insight & tren
+        - button "Setelan" [ref=e351] [cursor=pointer]:
+          - generic [ref=e353]: 󰢻
+          - generic [ref=e354]:
+            - generic [ref=e355]: Setelan
+            - generic [ref=e356]: Preferensi & data
+    - generic [ref=e358]:
+      - generic [ref=e359]: Capability
+      - generic [ref=e360]:
+        - generic [ref=e361]: Mode
+        - generic [ref=e362]:
+          - generic [ref=e363]: 󰅤
+          - generic [ref=e364]: Local only
+      - generic [ref=e365]:
+        - generic [ref=e366]: Akses cepat
+        - button "Buka target tabungan" [ref=e367] [cursor=pointer]:
+          - generic [ref=e368]: 󱙹
+          - generic [ref=e369]: Target tabungan

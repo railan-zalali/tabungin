@@ -1,0 +1,10 @@
+- generic [ref=e2]:
+  - generic "Memuat aplikasi Tabungin" [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e7]: T
+      - generic [ref=e8]: Tabungin
+      - generic [ref=e9]: Catat, Kelola, Wujudkan
+    - progressbar "Sedang memuat" [ref=e10]:
+      - img [ref=e12]
+  - generic:
+    - img

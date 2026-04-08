@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from './Button';
 import { BorderRadius } from '../../constants/theme';
 import { useTheme } from '../../store/useThemeStore';
+import { useResponsiveMetrics } from '../../utils/responsive';
 
 interface PrimaryActionBarProps {
     primaryLabel: string;
@@ -11,6 +12,7 @@ interface PrimaryActionBarProps {
     primaryLoading?: boolean;
     secondaryLabel?: string;
     onSecondaryPress?: () => void;
+    bottomInset?: number;
     offset?: number;
     absolute?: boolean;
     containerStyle?: ViewStyle;
@@ -23,6 +25,7 @@ export function PrimaryActionBar({
     primaryLoading = false,
     secondaryLabel,
     onSecondaryPress,
+    bottomInset,
     offset = 0,
     absolute = true,
     containerStyle,
@@ -30,14 +33,29 @@ export function PrimaryActionBar({
 }: PrimaryActionBarProps) {
     const insets = useSafeAreaInsets();
     const { colors } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const metrics = useResponsiveMetrics();
+    const styles = React.useMemo(() => getStyles(colors, metrics.isCompact), [colors, metrics.isCompact]);
+    const resolvedBottomInset = React.useMemo(() => {
+        if (typeof bottomInset === 'number') {
+            return bottomInset;
+        }
+
+        if (offset) {
+            return insets.bottom + 12 + offset;
+        }
+
+        return metrics.tabBarClearance;
+    }, [bottomInset, insets.bottom, metrics.tabBarClearance, offset]);
 
     return (
         <View
             style={[
                 styles.wrap,
                 absolute ? styles.absoluteWrap : styles.inlineWrap,
-                { paddingBottom: insets.bottom + 12 + offset },
+                {
+                    paddingBottom: resolvedBottomInset,
+                    paddingHorizontal: metrics.horizontalPadding,
+                },
                 containerStyle,
             ]}
         >
@@ -58,14 +76,13 @@ export function PrimaryActionBar({
     );
 }
 
-const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+const getStyles = (colors: ReturnType<typeof useTheme>['colors'], isCompact: boolean) =>
     StyleSheet.create({
         wrap: {
-            paddingHorizontal: 20,
-            paddingTop: 14,
+            paddingTop: isCompact ? 12 : 16,
             backgroundColor: colors.stickyHeader,
             borderTopWidth: 1,
-            borderTopColor: colors.glassStroke,
+            borderTopColor: colors.headerDivider,
         },
         absoluteWrap: {
             position: 'absolute',
@@ -79,10 +96,15 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         bar: {
             flexDirection: 'row',
             gap: 12,
-            padding: 10,
+            padding: isCompact ? 10 : 12,
             borderRadius: BorderRadius['4xl'],
             backgroundColor: colors.tabBarGlass,
             borderWidth: 1,
-            borderColor: colors.glassStroke,
+            borderColor: colors.cardBorder,
+            shadowColor: colors.shadowColor,
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.08,
+            shadowRadius: 20,
+            elevation: 4,
         },
     });

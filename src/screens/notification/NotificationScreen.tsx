@@ -13,7 +13,10 @@ import { AppScreenHeader } from '../../components/common/AppScreenHeader';
 import { ContextBadge } from '../../components/common/ContextBadge';
 import { EmptyState } from '../../components/common/EmptyState';
 import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
+import { InlineNotice } from '../../components/common/InlineNotice';
 import { ScreenShell } from '../../components/common/ScreenShell';
+import { StatStrip } from '../../components/common/StatStrip';
+import { useResponsiveMetrics } from '../../utils/responsive';
 
 function getTimeAgo(timestamp: number) {
     const now = Date.now();
@@ -108,6 +111,7 @@ export function NotificationScreen() {
     const navigation = useNavigation<SettingsChildNavigationProp<'Notifications'>>();
     const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const metrics = useResponsiveMetrics();
     const {
         notifications,
         unreadCount,
@@ -175,7 +179,13 @@ export function NotificationScreen() {
                 data={notifications}
                 keyExtractor={(item) => item.id}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.content}
+                contentContainerStyle={[
+                    styles.content,
+                    {
+                        paddingHorizontal: metrics.horizontalPadding,
+                        paddingBottom: metrics.contentBottomInset,
+                    },
+                ]}
                 refreshControl={<RefreshControl refreshing={isLoading} onRefresh={handleRefresh} tintColor={colors.primary} />}
                 ListHeaderComponent={
                     <View style={styles.headerBlock}>
@@ -191,6 +201,19 @@ export function NotificationScreen() {
                                     <ContextBadge icon="gesture-tap-button" label="Tepat sasaran" inverse />
                                 </>
                             }
+                        />
+                        <InlineNotice
+                            icon="gesture-tap-button"
+                            description="Notifikasi yang belum perlu aksi tidak harus menumpuk. Baca cepat, tandai selesai, lalu biarkan inbox tetap ringan."
+                            tone="info"
+                        />
+                        <StatStrip
+                            items={[
+                                { label: 'Belum dibaca', value: String(unreadCount) },
+                                { label: 'Total item', value: String(notifications.length) },
+                                { label: 'Status', value: unreadCount > 0 ? 'Perlu tinjau' : 'Terkendali' },
+                            ]}
+                            vertical={metrics.widthClass === 'compact'}
                         />
                     </View>
                 }
@@ -220,11 +243,11 @@ export function NotificationScreen() {
 const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     StyleSheet.create({
         content: {
-            paddingHorizontal: 20,
-            paddingBottom: 108,
+            gap: 0,
         },
         headerBlock: {
             marginBottom: 16,
+            gap: 14,
         },
         notificationCard: {
             flexDirection: 'row',

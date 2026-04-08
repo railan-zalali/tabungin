@@ -6,13 +6,17 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import type { SettingsChildNavigationProp } from '../../types/navigation';
 import { BorderRadius } from '../../constants/theme';
-import { FontFamily, FontSize, Typography } from '../../constants/typography';
+import { FontFamily, FontSize } from '../../constants/typography';
 import { useTheme } from '../../store/useThemeStore';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { AppScreenHeader } from '../../components/common/AppScreenHeader';
-import { ContextBadge } from '../../components/common/ContextBadge';
 import { EmptyState } from '../../components/common/EmptyState';
 import { Button } from '../../components/common/Button';
+import { FormSection } from '../../components/common/FormSection';
+import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
+import { InlineNotice } from '../../components/common/InlineNotice';
+import { MetricCard } from '../../components/common/MetricCard';
+import { StatStrip } from '../../components/common/StatStrip';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useSavingStore } from '../../store/useSavingStore';
 import { useTransactionStore } from '../../store/useTransactionStore';
@@ -86,24 +90,43 @@ export function ImportDataScreen() {
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
             <AppScreenHeader
                 title="Import data"
-                subtitle="Masukkan backup JSON Tabungin untuk restore aman, atau CSV transaksi untuk impor analisis."
+                subtitle="Masukkan backup JSON Tabungin atau CSV transaksi dengan preview yang jelas sebelum commit."
                 showBack
                 onBackPress={() => navigation.goBack()}
                 variant="transparent"
+                eyebrow="Data Recovery"
             />
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, metrics.widthClass !== 'compact' ? styles.contentWide : null]}>
-                <View style={styles.card}>
-                    <Text style={styles.title}>Format yang didukung</Text>
-                    <Text style={styles.body}>JSON Tabungin dipakai untuk restore backup lengkap. CSV tetap didukung untuk impor transaksi massal, tetapi bukan restore penuh.</Text>
-                    <View style={styles.badges}>
-                        <ContextBadge icon="code-json" label="JSON backup" tone="success" />
-                        <ContextBadge icon="file-delimited-outline" label="CSV transaksi" tone="info" />
-                        <ContextBadge icon="shield-check-outline" label="Non-destruktif" tone="primary" />
-                    </View>
-                </View>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[styles.content, metrics.widthClass !== 'compact' ? styles.contentWide : null]}
+            >
+                <HeroSummaryCard
+                    eyebrow="Import Preview"
+                    title="Restore atau merge data"
+                    value={selectedFileName || 'Belum ada file'}
+                    description="Tabungin menampilkan preview item valid, duplikat, dan baris gagal sebelum data benar-benar ditulis."
+                    icon="database-import-outline"
+                    stats={[
+                        { label: 'Format utama', value: 'JSON', icon: 'code-json' },
+                        { label: 'Format tambahan', value: 'CSV', icon: 'file-delimited-outline' },
+                        { label: 'Mode', value: preview?.fullBackup ? 'Restore' : 'Merge aman', icon: 'shield-check-outline' },
+                    ]}
+                />
 
-                <View style={styles.card}>
+                <InlineNotice
+                    icon="shield-check-outline"
+                    title="Import non-destruktif"
+                    description="Data existing tidak langsung ditimpa. Item baru akan lewat jalur preview lalu masuk ke antrean sinkronisasi normal setelah commit."
+                    tone="primary"
+                />
+
+                <FormSection
+                    eyebrow="File Input"
+                    title="Pilih file sumber"
+                    subtitle="JSON Tabungin dipakai untuk restore lengkap, sedangkan CSV dipakai untuk impor transaksi massal."
+                    variant="highlight"
+                >
                     <TouchableOpacity
                         style={styles.filePicker}
                         onPress={handlePickFile}
@@ -115,11 +138,14 @@ export function ImportDataScreen() {
                         </View>
                         <View style={styles.filePickerCopy}>
                             <Text style={styles.filePickerTitle}>{selectedFileName || 'Pilih file import'}</Text>
-                            <Text style={styles.filePickerSubtitle}>Tabungin akan menampilkan preview item valid, duplikat, dan baris gagal sebelum commit.</Text>
+                            <Text style={styles.filePickerSubtitle}>
+                                Tabungin akan membaca isi file lalu menampilkan preview sebelum commit.
+                            </Text>
                         </View>
+                        <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textTertiary} />
                     </TouchableOpacity>
                     <Button label="Pilih file" onPress={handlePickFile} variant="primary" />
-                </View>
+                </FormSection>
 
                 {!preview ? (
                     <EmptyState
@@ -131,41 +157,75 @@ export function ImportDataScreen() {
                     />
                 ) : (
                     <>
-                        <View style={styles.card}>
-                            <Text style={styles.title}>Preview import</Text>
-                            <View style={styles.previewGrid}>
-                                <View style={styles.statCard}>
-                                    <Text style={styles.statValue}>{preview.importedTransactions}</Text>
-                                    <Text style={styles.statLabel}>Transaksi valid</Text>
-                                </View>
-                                <View style={styles.statCard}>
-                                    <Text style={styles.statValue}>{preview.importedGoals}</Text>
-                                    <Text style={styles.statLabel}>Target valid</Text>
-                                </View>
-                                <View style={styles.statCard}>
-                                    <Text style={styles.statValue}>{preview.skippedTransactions + preview.skippedGoals}</Text>
-                                    <Text style={styles.statLabel}>Duplikat di-skip</Text>
-                                </View>
-                                <View style={styles.statCard}>
-                                    <Text style={styles.statValue}>{preview.failedRows}</Text>
-                                    <Text style={styles.statLabel}>Baris gagal</Text>
-                                </View>
+                        <FormSection
+                            eyebrow="Validation"
+                            title="Preview import"
+                            subtitle="Angka di bawah ini membantu menilai seberapa bersih file yang akan dimasukkan."
+                        >
+                            <View style={styles.metricGrid}>
+                                <MetricCard
+                                    label="Transaksi valid"
+                                    value={String(preview.importedTransactions)}
+                                    icon="swap-horizontal"
+                                    tone="primary"
+                                />
+                                <MetricCard
+                                    label="Target valid"
+                                    value={String(preview.importedGoals)}
+                                    icon="target"
+                                    tone="success"
+                                />
+                                <MetricCard
+                                    label="Duplikat di-skip"
+                                    value={String(preview.skippedTransactions + preview.skippedGoals)}
+                                    icon="content-copy"
+                                    tone="warning"
+                                />
+                                <MetricCard
+                                    label="Baris gagal"
+                                    value={String(preview.failedRows)}
+                                    icon="alert-circle-outline"
+                                    tone="danger"
+                                />
                             </View>
+                            <StatStrip
+                                items={[
+                                    { label: 'Mode', value: preview.fullBackup ? 'Restore penuh' : 'Merge aman' },
+                                    { label: 'Profil', value: String(preview.importedProfiles) },
+                                    { label: 'Dompet', value: String(preview.importedWallets) },
+                                ]}
+                                vertical={metrics.widthClass === 'compact'}
+                            />
                             <Text style={styles.body}>
                                 {preview.fullBackup
-                                    ? `Backup JSON ini juga memuat ${preview.importedProfiles} profil, ${preview.importedWallets} dompet, ${preview.importedBudgets} budget, dan ${preview.importedSavingLogs} log tabungan.`
-                                    : 'Import berjalan dalam mode merge aman. Data existing tidak akan ditimpa.'}
+                                    ? `Backup JSON ini juga memuat ${preview.importedBudgets} budget dan ${preview.importedSavingLogs} log tabungan, sehingga cocok untuk pemulihan perangkat atau migrasi penuh.`
+                                    : 'Import berjalan dalam mode merge aman. Data yang sudah ada tetap dipertahankan dan item baru ditambahkan lewat alur sinkronisasi normal.'}
                             </Text>
-                        </View>
+                        </FormSection>
 
-                        <View style={styles.card}>
-                            <Text style={styles.title}>Siap commit ke antrean sync</Text>
-                            <Text style={styles.body}>Semua item baru akan ditulis sebagai `pending_create` lalu ikut sinkronisasi normal.</Text>
+                        <FormSection
+                            eyebrow="Commit"
+                            title="Siap dimasukkan ke antrean sync"
+                            subtitle="Setelah commit, item baru akan ditulis lalu diproses pada siklus sinkronisasi berikutnya."
+                            density="compact"
+                        >
+                            <InlineNotice
+                                icon="cloud-sync-outline"
+                                description="Kalau file berisi backup penuh, proses commit tetap menjaga ritme sync yang sama supaya perubahan lebih aman dan mudah dilacak."
+                                tone="info"
+                            />
                             <View style={styles.actions}>
-                                <Button label="Pilih file lain" onPress={handlePickFile} variant="outline" style={{ flex: 1 }} />
-                                <Button label="Commit import" onPress={handleCommit} variant="primary" style={{ flex: 1 }} disabled={isBusy} loading={isBusy} />
+                                <Button label="Pilih file lain" onPress={handlePickFile} variant="outline" style={styles.actionButton} />
+                                <Button
+                                    label="Commit import"
+                                    onPress={handleCommit}
+                                    variant="primary"
+                                    style={styles.actionButton}
+                                    disabled={isBusy}
+                                    loading={isBusy}
+                                />
                             </View>
-                        </View>
+                        </FormSection>
                     </>
                 )}
             </ScrollView>
@@ -177,17 +237,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     StyleSheet.create({
         content: { paddingHorizontal: 20, paddingBottom: 108, gap: 18 },
         contentWide: { maxWidth: 920, width: '100%', alignSelf: 'center' },
-        card: {
-            backgroundColor: colors.panelSurface,
-            borderWidth: 1,
-            borderColor: colors.border,
-            borderRadius: BorderRadius['4xl'],
-            padding: 18,
-            gap: 12,
-        },
-        title: { ...Typography.h4, color: colors.textPrimary },
-        body: { fontFamily: FontFamily.body, fontSize: FontSize.body, lineHeight: 21, color: colors.textSecondary },
-        badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+        body: { fontFamily: FontFamily.body, fontSize: FontSize.body, lineHeight: 22, color: colors.textSecondary },
         filePicker: {
             flexDirection: 'row',
             alignItems: 'center',
@@ -195,7 +245,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             backgroundColor: colors.surfaceElevated,
             borderRadius: BorderRadius['2xl'],
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.cardBorder,
             padding: 14,
         },
         filePickerIcon: {
@@ -209,18 +259,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         filePickerCopy: { flex: 1, gap: 3 },
         filePickerTitle: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.body, color: colors.textPrimary },
         filePickerSubtitle: { fontFamily: FontFamily.body, fontSize: FontSize.caption, lineHeight: 18, color: colors.textSecondary },
-        previewGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-        statCard: {
-            minWidth: 140,
-            flexGrow: 1,
-            backgroundColor: colors.surfaceElevated,
-            borderRadius: BorderRadius['2xl'],
-            borderWidth: 1,
-            borderColor: colors.border,
-            padding: 14,
-            gap: 4,
-        },
-        statValue: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h3, color: colors.textPrimary },
-        statLabel: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary },
+        metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
         actions: { flexDirection: 'row', gap: 10 },
+        actionButton: { flex: 1 },
     });

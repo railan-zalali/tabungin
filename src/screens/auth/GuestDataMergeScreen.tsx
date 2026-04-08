@@ -1,13 +1,16 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { Button } from '../../components/common/Button';
+import { InlineNotice } from '../../components/common/InlineNotice';
+import { StatStrip } from '../../components/common/StatStrip';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useTheme } from '../../store/useThemeStore';
 import { StatePanel } from '../../components/common/StatePanel';
+import { useResponsiveMetrics } from '../../utils/responsive';
 
 function formatSummary(summary: { wallets: number; transactions: number; savingGoals: number; budgets: number }) {
     return `${summary.wallets} dompet, ${summary.transactions} transaksi, ${summary.savingGoals} target, ${summary.budgets} budget`;
@@ -15,7 +18,8 @@ function formatSummary(summary: { wallets: number; transactions: number; savingG
 
 export function GuestDataMergeScreen() {
     const { colors } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const metrics = useResponsiveMetrics();
+    const styles = React.useMemo(() => getStyles(colors, metrics.isCompact), [colors, metrics.isCompact]);
     const resolution = useAuthStore((state) => state.pendingGuestMergeResolution);
     const resolveGuestMergeResolution = useAuthStore((state) => state.resolveGuestMergeResolution);
     const [isResolving, setIsResolving] = React.useState<'merge_local' | 'cloud_only' | null>(null);
@@ -45,7 +49,18 @@ export function GuestDataMergeScreen() {
 
     return (
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
-            <View style={styles.container}>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[
+                    styles.container,
+                    {
+                        paddingHorizontal: metrics.horizontalPadding,
+                        paddingTop: metrics.headerTopOffset + 16,
+                        paddingBottom: metrics.safeBottomSpacing + 16,
+                        gap: metrics.verticalGap + 2,
+                    },
+                ]}
+            >
                 <View style={styles.heroIcon}>
                     <MaterialCommunityIcons name="source-merge" size={32} color={colors.primary} />
                 </View>
@@ -56,12 +71,28 @@ export function GuestDataMergeScreen() {
                     didorong ke akun, atau data cloud menjadi sumber utama.
                 </Text>
 
+                <InlineNotice
+                    icon="compare-horizontal"
+                    title="Keputusan ini berdampak langsung"
+                    description="Flow ini sengaja dibuat eksplisit supaya kamu tahu sumber data mana yang akan menjadi basis setelah login."
+                    tone="warning"
+                />
+
                 <View style={styles.summaryCard}>
                     <Text style={styles.summaryLabel}>Data lokal guest</Text>
                     <Text style={styles.summaryValue}>{formatSummary(resolution.local)}</Text>
                     <Text style={styles.summaryLabel}>Data cloud saat ini</Text>
                     <Text style={styles.summaryValue}>{formatSummary(resolution.remote)}</Text>
                 </View>
+
+                <StatStrip
+                    items={[
+                        { label: 'Guest wallets', value: `${resolution.local.wallets}` },
+                        { label: 'Cloud wallets', value: `${resolution.remote.wallets}` },
+                        { label: 'Target aktif', value: `${resolution.local.savingGoals + resolution.remote.savingGoals}` },
+                    ]}
+                    vertical={metrics.widthClass === 'compact'}
+                />
 
                 <View style={styles.actionStack}>
                     <Button
@@ -88,18 +119,14 @@ export function GuestDataMergeScreen() {
                         `Pakai cloud` menghapus data lokal guest lalu menarik ulang data dari cloud.
                     </Text>
                 </View>
-            </View>
+            </ScrollView>
         </ScreenShell>
     );
 }
 
-const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+const getStyles = (colors: ReturnType<typeof useTheme>['colors'], isCompact: boolean) =>
     StyleSheet.create({
         container: {
-            flex: 1,
-            paddingHorizontal: 24,
-            paddingVertical: 36,
-            justifyContent: 'center',
             gap: 18,
         },
         centerWrap: {
@@ -135,13 +162,13 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         description: {
             fontFamily: FontFamily.body,
             fontSize: FontSize.body,
-            lineHeight: 22,
+            lineHeight: isCompact ? 21 : 22,
             color: colors.textSecondary,
         },
         summaryCard: {
             backgroundColor: colors.panelSurface,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.cardBorder,
             borderRadius: BorderRadius['3xl'],
             padding: 18,
             gap: 8,
@@ -163,7 +190,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         noteCard: {
             backgroundColor: colors.surfaceAlt,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.cardBorder,
             borderRadius: BorderRadius['3xl'],
             padding: 16,
             gap: 8,
