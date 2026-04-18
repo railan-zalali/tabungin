@@ -194,6 +194,7 @@ describe('domain contracts', () => {
 
     expect(insertCall).toBeDefined();
     expect(insertCall?.[1]).toHaveLength(19);
+    expect(db.withTransactionAsync).not.toHaveBeenCalled();
   });
 
   it('uses the authenticated user id when calling sharing RPCs', async () => {

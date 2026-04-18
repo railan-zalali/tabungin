@@ -10,6 +10,8 @@ interface SelectionChipProps {
     label: string;
     selected?: boolean;
     accentColor?: string;
+    selectedIconColor?: string;
+    selectedLabelColor?: string;
     onPress: () => void;
 }
 
@@ -18,6 +20,8 @@ export function SelectionChip({
     label,
     selected = false,
     accentColor,
+    selectedIconColor,
+    selectedLabelColor,
     onPress,
 }: SelectionChipProps) {
     const { colors, textSize } = useTheme();
@@ -46,11 +50,13 @@ export function SelectionChip({
                     <MaterialCommunityIcons
                         name={icon as any}
                         size={15}
-                        color={selected ? colors.textInverse : colors.textSecondary}
+                        color={selected ? selectedIconColor || colors.textInverse : colors.textSecondary}
                     />
                 </View>
             ) : null}
-            <Text style={[styles.label, selected ? styles.labelSelected : null]}>{label}</Text>
+            <Text style={[styles.label, selected ? styles.labelSelected : null, selected && selectedLabelColor ? { color: selectedLabelColor } : null]}>
+                {label}
+            </Text>
         </TouchableOpacity>
     );
 }

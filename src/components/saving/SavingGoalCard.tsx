@@ -16,6 +16,7 @@ import { useProfileStore } from '../../store/useProfileStore';
 import { getGoalComputedMeta } from '../../utils/goalSharing';
 import { ContextBadge } from '../common/ContextBadge';
 import { getSavingPlanInsight, getSavingPlanLabel } from '../../utils/savingPlan';
+import { useResponsiveMetrics } from '../../utils/responsive';
 
 interface SavingGoalCardProps {
     goal: SavingGoal;
@@ -26,7 +27,8 @@ interface SavingGoalCardProps {
 
 function SavingGoalCardComponent({ goal, onPress, onAddSaving, animationDelay = 0 }: SavingGoalCardProps) {
     const { colors, textSize } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors, textSize), [colors, textSize]);
+    const metrics = useResponsiveMetrics();
+    const styles = React.useMemo(() => getStyles(colors, textSize, metrics.isCompact), [colors, metrics.isCompact, textSize]);
     const wallets = useWalletStore((state) => state.wallets);
     const activeProfileId = useProfileStore((state) => state.activeProfileId);
 
@@ -60,7 +62,7 @@ function SavingGoalCardComponent({ goal, onPress, onAddSaving, animationDelay = 
                     end={{ x: 1, y: 1 }}
                     style={styles.glassOverlay}
                 />
-                <View style={[styles.glowOrb, { backgroundColor: `${goal.color}12` }]} />
+                {!metrics.isShortViewport ? <View style={[styles.glowOrb, { backgroundColor: `${goal.color}12` }]} /> : null}
 
                 {(wallet || meta.isSharedGoal) && (
                     <View style={styles.contextRow}>
@@ -84,7 +86,7 @@ function SavingGoalCardComponent({ goal, onPress, onAddSaving, animationDelay = 
                         <Text style={styles.emoji} accessibilityElementsHidden={true}>{goal.emoji}</Text>
                     </View>
                     <View style={styles.headerInfo}>
-                        <Text style={styles.goalName} allowFontScaling={true} numberOfLines={1}>
+                        <Text style={styles.goalName} allowFontScaling={true} numberOfLines={metrics.isCompact ? 2 : 1}>
                             {goal.name}
                         </Text>
                         {isCompleted ? (
@@ -173,11 +175,15 @@ function SavingGoalCardComponent({ goal, onPress, onAddSaving, animationDelay = 
 
 export const SavingGoalCard = React.memo(SavingGoalCardComponent);
 
-const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize']) => StyleSheet.create({
+const getStyles = (
+    colors: any,
+    textSize: ReturnType<typeof useTheme>['textSize'],
+    isCompact: boolean,
+) => StyleSheet.create({
     card: {
         backgroundColor: colors.surfaceElevated,
         borderRadius: BorderRadius['4xl'],
-        padding: 18,
+        padding: isCompact ? 16 : 18,
         gap: 14,
         overflow: 'hidden',
         borderWidth: 1,
@@ -206,7 +212,7 @@ const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize'
         flexWrap: 'wrap',
         gap: 8,
     },
-    header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    header: { flexDirection: 'row', alignItems: isCompact ? 'flex-start' : 'center', gap: 12 },
     emojiContainer: {
         width: 52,
         height: 52,
@@ -245,6 +251,7 @@ const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize'
     },
     daysContainer: {
         alignItems: 'center',
+        alignSelf: isCompact ? 'flex-start' : 'auto',
         minWidth: 54,
         paddingVertical: 8,
         borderRadius: BorderRadius.xl,
@@ -263,8 +270,18 @@ const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize'
         color: colors.textSecondary,
     },
     progressSection: { gap: 8 },
-    amountRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-    deadlineRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+    amountRow: {
+        flexDirection: isCompact ? 'column' : 'row',
+        justifyContent: 'space-between',
+        alignItems: isCompact ? 'flex-start' : 'center',
+        gap: isCompact ? 4 : 8,
+    },
+    deadlineRow: {
+        flexDirection: isCompact ? 'column' : 'row',
+        justifyContent: 'space-between',
+        alignItems: isCompact ? 'flex-start' : 'center',
+        gap: isCompact ? 2 : 8,
+    },
     planText: {
         fontFamily: FontFamily.bodyBold,
         fontSize: scaleFontSize(FontSize.label, textSize),

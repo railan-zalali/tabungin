@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, scaleFontSize } from '../../constants/typography';
 import { useTheme } from '../../store/useThemeStore';
+import { useResponsiveMetrics } from '../../utils/responsive';
 
 interface StatStripItem {
     label: string;
@@ -17,16 +18,21 @@ interface StatStripProps {
 
 export function StatStrip({ items, vertical = false }: StatStripProps) {
     const { colors, textSize } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors, textSize), [colors, textSize]);
+    const metrics = useResponsiveMetrics();
+    const compactLayout = metrics.density === 'compact';
+    const shouldStack = vertical || (metrics.isShortViewport && items.length > 3);
+    const styles = React.useMemo(() => getStyles(colors, textSize, compactLayout), [colors, compactLayout, textSize]);
 
     return (
-        <View style={[styles.strip, vertical ? styles.stripVertical : null]}>
+        <View style={[styles.strip, shouldStack ? styles.stripVertical : null]}>
             {items.map((item, index) => (
                 <React.Fragment key={`${item.label}-${item.value}`}>
-                    {index > 0 ? <View style={[styles.divider, vertical ? styles.dividerVertical : null]} /> : null}
-                    <View style={styles.item}>
+                    {index > 0 ? <View style={[styles.divider, shouldStack ? styles.dividerVertical : null]} /> : null}
+                    <View style={[styles.item, shouldStack ? styles.itemVertical : null]}>
                         <Text style={styles.label}>{item.label}</Text>
-                        <Text style={[styles.value, item.valueColor ? { color: item.valueColor } : null]}>{item.value}</Text>
+                        <Text style={[styles.value, shouldStack ? styles.valueVertical : null, item.valueColor ? { color: item.valueColor } : null]}>
+                            {item.value}
+                        </Text>
                     </View>
                 </React.Fragment>
             ))}
@@ -34,7 +40,11 @@ export function StatStrip({ items, vertical = false }: StatStripProps) {
     );
 }
 
-const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: ReturnType<typeof useTheme>['textSize']) =>
+const getStyles = (
+    colors: ReturnType<typeof useTheme>['colors'],
+    textSize: ReturnType<typeof useTheme>['textSize'],
+    isCompact: boolean,
+) =>
     StyleSheet.create({
         strip: {
             flexDirection: 'row',
@@ -43,8 +53,8 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             backgroundColor: colors.panelSurface,
             borderWidth: 1,
             borderColor: colors.cardBorder,
-            paddingHorizontal: 14,
-            paddingVertical: 14,
+            paddingHorizontal: isCompact ? 10 : 14,
+            paddingVertical: isCompact ? 10 : 14,
         },
         stripVertical: {
             flexDirection: 'column',
@@ -53,11 +63,16 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
         item: {
             flex: 1,
             alignItems: 'center',
-            gap: 4,
+            gap: isCompact ? 2 : 4,
+            paddingHorizontal: isCompact ? 4 : 8,
+        },
+        itemVertical: {
+            alignItems: 'flex-start',
+            paddingHorizontal: 0,
         },
         divider: {
             width: 1,
-            height: 28,
+            height: isCompact ? 22 : 28,
             backgroundColor: colors.divider,
         },
         dividerVertical: {
@@ -72,8 +87,11 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
         },
         value: {
             fontFamily: FontFamily.bodyBold,
-            fontSize: scaleFontSize(FontSize.body, textSize),
+            fontSize: scaleFontSize(isCompact ? FontSize.caption : FontSize.body, textSize),
             color: colors.textPrimary,
             textAlign: 'center',
+        },
+        valueVertical: {
+            textAlign: 'left',
         },
     });

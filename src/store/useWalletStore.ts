@@ -1,11 +1,13 @@
 import { create } from 'zustand';
 import {
     fetchWallets,
+    fetchWalletRolesForEmail,
     insertWallet,
     updateWallet,
     deleteWallet,
     fetchTotalBalance,
-    type Wallet
+    type Wallet,
+    type WalletMember,
 } from '../database/walletQueries';
 import { useProfileStore } from './useProfileStore';
 import { useAuthStore } from './useAuthStore';
@@ -21,6 +23,7 @@ function triggerBackgroundSyncIfAllowed() {
 
 interface WalletState {
     wallets: Wallet[];
+    walletRoles: Record<string, WalletMember['role']>;
     totalBalance: number;
     isLoading: boolean;
     error: string | null;
@@ -39,6 +42,7 @@ interface WalletState {
 
 export const useWalletStore = create<WalletState>((set, get) => ({
     wallets: [],
+    walletRoles: {},
     totalBalance: 0,
     isLoading: true,
     error: null,
@@ -58,8 +62,9 @@ export const useWalletStore = create<WalletState>((set, get) => ({
             }
             
             const wallets = await fetchWallets(profileId || undefined, userEmail);
+            const walletRoles = await fetchWalletRolesForEmail(wallets.map((wallet) => wallet.id), userEmail || undefined);
             const totalBalance = await fetchTotalBalance(profileId || undefined, userEmail);
-            set({ wallets, totalBalance });
+            set({ wallets, walletRoles, totalBalance });
         } catch (error) {
             console.error('Failed to load wallets:', error);
             set({ error: 'Gagal memuat data dompet. Silakan coba lagi.' });

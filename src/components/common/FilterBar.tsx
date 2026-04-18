@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography, scaleFontSize } from '../../constants/typography';
 import { useTheme } from '../../store/useThemeStore';
+import { useResponsiveMetrics } from '../../utils/responsive';
 import { SegmentedControl } from './SegmentedControl';
 
 export interface FilterChipOption<T extends string> {
@@ -15,6 +16,7 @@ export interface FilterChipOption<T extends string> {
 interface FilterBarProps<T extends string, U extends string> {
     title: string;
     subtitle?: string;
+    mode?: 'default' | 'compact';
     searchValue: string;
     onSearchChange: (value: string) => void;
     searchPlaceholder?: string;
@@ -30,6 +32,7 @@ interface FilterBarProps<T extends string, U extends string> {
 export function FilterBar<T extends string, U extends string>({
     title,
     subtitle,
+    mode = 'default',
     searchValue,
     onSearchChange,
     searchPlaceholder = 'Cari...',
@@ -42,16 +45,18 @@ export function FilterBar<T extends string, U extends string>({
     onChipChange,
 }: FilterBarProps<T, U>) {
     const { colors, textSize } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors, textSize), [colors, textSize]);
+    const metrics = useResponsiveMetrics();
+    const compactMode = mode === 'compact' || metrics.density === 'compact';
+    const styles = React.useMemo(() => getStyles(colors, textSize, compactMode), [colors, compactMode, textSize]);
 
     return (
         <View style={styles.container}>
             <View style={styles.header}>
                 <View style={styles.copy}>
                     <Text style={styles.title}>{title}</Text>
-                    {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+                    {!compactMode && subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
                 </View>
-                {resultLabel ? (
+                {!compactMode && resultLabel ? (
                     <View style={styles.resultBadge}>
                         <MaterialCommunityIcons name="filter-variant" size={14} color={colors.primary} />
                         <Text style={styles.resultBadgeText}>{resultLabel}</Text>
@@ -111,13 +116,17 @@ export function FilterBar<T extends string, U extends string>({
     );
 }
 
-const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: ReturnType<typeof useTheme>['textSize']) =>
+const getStyles = (
+    colors: ReturnType<typeof useTheme>['colors'],
+    textSize: ReturnType<typeof useTheme>['textSize'],
+    isCompact: boolean,
+) =>
     StyleSheet.create({
         container: {
             backgroundColor: colors.panelSurface,
             borderRadius: BorderRadius['4xl'],
-            padding: 16,
-            gap: 14,
+            padding: isCompact ? 12 : 16,
+            gap: isCompact ? 10 : 14,
             borderWidth: 1,
             borderColor: colors.border,
             shadowColor: colors.shadowColor,
@@ -127,7 +136,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             elevation: 4,
         },
         header: {
-            flexDirection: 'row',
+            flexDirection: isCompact ? 'column' : 'row',
             justifyContent: 'space-between',
             alignItems: 'flex-start',
             gap: 12,
@@ -137,7 +146,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
         },
         title: {
             ...Typography.h4,
-            fontSize: scaleFontSize(FontSize.h4, textSize),
+            fontSize: scaleFontSize(isCompact ? FontSize.body : FontSize.h4, textSize),
             color: colors.textPrimary,
         },
         subtitle: {
@@ -149,6 +158,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
         resultBadge: {
             flexDirection: 'row',
             alignItems: 'center',
+            alignSelf: 'flex-start',
             gap: 6,
             paddingHorizontal: 10,
             paddingVertical: 6,
@@ -166,7 +176,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             flexDirection: 'row',
             alignItems: 'center',
             gap: 8,
-            minHeight: 52,
+            minHeight: isCompact ? 50 : 52,
             borderRadius: BorderRadius['2xl'],
             paddingHorizontal: 14,
             backgroundColor: colors.formFieldBg,
@@ -181,13 +191,14 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
         },
         chipRow: {
             gap: 8,
+            paddingRight: 4,
         },
         chip: {
             flexDirection: 'row',
             alignItems: 'center',
             gap: 6,
-            paddingHorizontal: 14,
-            paddingVertical: 9,
+            paddingHorizontal: isCompact ? 12 : 14,
+            paddingVertical: isCompact ? 8 : 9,
             borderRadius: BorderRadius.full,
             backgroundColor: colors.interactiveIdle,
             borderWidth: 1,

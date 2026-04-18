@@ -31,7 +31,10 @@ export function ScreenShell({
     const insets = useSafeAreaInsets();
     const { colors, isDark } = useTheme();
     const metrics = useResponsiveMetrics();
-    const styles = React.useMemo(() => getStyles(colors, metrics.isCompact), [colors, metrics.isCompact]);
+    const styles = React.useMemo(
+        () => getStyles(colors, metrics.density === 'compact', metrics.isShortViewport),
+        [colors, metrics.density, metrics.isShortViewport]
+    );
 
     return (
         <View
@@ -50,14 +53,18 @@ export function ScreenShell({
             {...rest}
         >
             <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
-            <View style={styles.bgAuraTop} pointerEvents="none" />
-            <View style={styles.bgAuraBottom} pointerEvents="none" />
+            {!metrics.isShortViewport ? <View style={styles.bgAuraTop} pointerEvents="none" /> : null}
+            {!metrics.isShortViewport ? <View style={styles.bgAuraBottom} pointerEvents="none" /> : null}
             {children}
         </View>
     );
 }
 
-const getStyles = (colors: ReturnType<typeof useTheme>['colors'], isCompact: boolean) =>
+const getStyles = (
+    colors: ReturnType<typeof useTheme>['colors'],
+    isCompactDensity: boolean,
+    isShortViewport: boolean,
+) =>
     StyleSheet.create({
         container: {
             flex: 1,
@@ -74,22 +81,22 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], isCompact: boo
         },
         bgAuraTop: {
             position: 'absolute',
-            top: isCompact ? -112 : -136,
+            top: isCompactDensity ? -92 : -136,
             right: -42,
-            width: isCompact ? 220 : 280,
-            height: isCompact ? 220 : 280,
+            width: isCompactDensity ? 180 : 280,
+            height: isCompactDensity ? 180 : 280,
             borderRadius: BorderRadius.full,
             backgroundColor: colors.emptyStateHalo,
-            opacity: 0.7,
+            opacity: isShortViewport ? 0.45 : 0.7,
         },
         bgAuraBottom: {
             position: 'absolute',
-            bottom: isCompact ? 56 : 84,
+            bottom: isCompactDensity ? 42 : 84,
             left: -72,
-            width: isCompact ? 210 : 250,
-            height: isCompact ? 210 : 250,
+            width: isCompactDensity ? 170 : 250,
+            height: isCompactDensity ? 170 : 250,
             borderRadius: BorderRadius.full,
             backgroundColor: colors.illustrationSecondary,
-            opacity: 0.34,
+            opacity: isShortViewport ? 0.22 : 0.34,
         },
     });

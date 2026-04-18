@@ -24,6 +24,7 @@ import { InlineNotice } from '../../components/common/InlineNotice';
 import { MetricCard } from '../../components/common/MetricCard';
 import { PrimaryActionBar } from '../../components/common/PrimaryActionBar';
 import { ScreenShell } from '../../components/common/ScreenShell';
+import { getWalletCapabilities } from '../../utils/walletPermissions';
 
 export function TransactionDetailScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<any>>();
@@ -33,6 +34,7 @@ export function TransactionDetailScreen() {
     const styles = React.useMemo(() => getStyles(colors), [colors]);
     const { transactions, recentTransactions, removeTransaction } = useTransactionStore();
     const wallets = useWalletStore((state) => state.wallets);
+    const walletRoles = useWalletStore((state) => state.walletRoles);
     const loadWallets = useWalletStore((state) => state.loadWallets);
     const activeProfileId = useProfileStore((state) => state.activeProfileId);
     const categories = useCategoryStore((state) => state.categories);
@@ -42,7 +44,13 @@ export function TransactionDetailScreen() {
     const transaction = transactions.find((item) => item.id === transactionId) ?? recentTransactions.find((item) => item.id === transactionId);
     const category = transaction ? resolveCategoryByKey(transaction.category, categories) : null;
     const wallet = transaction?.wallet_id ? wallets.find((item) => item.id === transaction.wallet_id) : null;
-    const isSharedWallet = Boolean(wallet?.profile_id && wallet.profile_id !== activeProfileId);
+    const walletCapabilities = getWalletCapabilities({
+        wallet,
+        activeProfileId,
+        membershipRole: wallet ? walletRoles[wallet.id] ?? null : null,
+    });
+    const isSharedWallet = walletCapabilities.isSharedWallet;
+    const canManageTransaction = !wallet || walletCapabilities.canManageTransactions;
 
     useEffect(() => {
         if (categories.length === 0) {
@@ -100,9 +108,19 @@ export function TransactionDetailScreen() {
         },
     ];
 
-    const handleEdit = () => navigation.navigate('AddTransaction', { editId: transaction.id });
+    const handleEdit = () => {
+        if (!canManageTransaction) {
+            Alert.alert('Akses terbatas', 'Transaksi pada dompet ini hanya bisa dilihat.');
+            return;
+        }
+        navigation.navigate('AddTransaction', { editId: transaction.id });
+    };
 
     const handleDelete = () => {
+        if (!canManageTransaction) {
+            Alert.alert('Akses terbatas', 'Transaksi pada dompet ini hanya bisa dilihat.');
+            return;
+        }
         Alert.alert('Hapus Transaksi', 'Yakin ingin menghapus transaksi ini?', [
             { text: 'Batal', style: 'cancel' },
             {
@@ -221,13 +239,22 @@ export function TransactionDetailScreen() {
                         : 'Transaksi ini terhubung ke dompet personal, jadi perubahan akan langsung memengaruhi ringkasan saldo dan laporan periodik.'}
                     tone={isIncome ? 'success' : 'warning'}
                 />
+
+                {!canManageTransaction ? (
+                    <InlineNotice
+                        icon="shield-lock-outline"
+                        title="Mode read only"
+                        description="Role viewer tetap bisa membaca detail transaksi, tetapi perubahan dan penghapusan dibatasi."
+                        tone="info"
+                    />
+                ) : null}
             </ScrollView>
 
             <PrimaryActionBar
-                primaryLabel="Edit Transaksi"
+                primaryLabel={canManageTransaction ? 'Edit Transaksi' : 'Akses read only'}
                 onPrimaryPress={handleEdit}
-                secondaryLabel="Hapus"
-                onSecondaryPress={handleDelete}
+                secondaryLabel={canManageTransaction ? 'Hapus' : 'Kembali'}
+                onSecondaryPress={canManageTransaction ? handleDelete : () => navigation.goBack()}
                 bottomInset={metrics.tabBarClearance}
             />
         </ScreenShell>

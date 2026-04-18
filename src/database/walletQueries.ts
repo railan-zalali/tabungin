@@ -291,6 +291,40 @@ export async function fetchWalletMemberRole(
   }
 }
 
+export async function fetchWalletRolesForEmail(
+  walletIds: string[],
+  userEmail?: string,
+): Promise<Record<string, WalletMember['role']>> {
+  if (!userEmail || walletIds.length === 0) {
+    return {};
+  }
+
+  try {
+    const db = await getInitializedDatabase();
+    const placeholders = walletIds.map(() => '?').join(',');
+    const rows = await db.getAllAsync<{ wallet_id: string; role: WalletMember['role'] }>(
+      `SELECT wallet_id, role
+       FROM wallet_members
+       WHERE wallet_id IN (${placeholders})
+         AND lower(user_email) = lower(?)
+         AND sync_status != 'pending_delete'
+         AND COALESCE(status, 'active') = 'active'
+       ORDER BY created_at DESC`,
+      [...walletIds, userEmail],
+    );
+
+    return rows.reduce<Record<string, WalletMember['role']>>((acc, row) => {
+      if (!acc[row.wallet_id]) {
+        acc[row.wallet_id] = row.role;
+      }
+      return acc;
+    }, {});
+  } catch (error) {
+    console.error('Error fetching wallet roles:', error);
+    return {};
+  }
+}
+
 /**
  * Ambil daftar anggota dompet
  */

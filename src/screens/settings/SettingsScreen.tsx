@@ -11,7 +11,6 @@ import { useNotificationStore } from '../../store/useNotificationStore';
 import { useTheme, useThemeStore } from '../../store/useThemeStore';
 import { AppScreenHeader } from '../../components/common/AppScreenHeader';
 import { ContextBadge } from '../../components/common/ContextBadge';
-import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
 import { InlineNotice } from '../../components/common/InlineNotice';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { SettingsGroup } from '../../components/common/SettingsGroup';
@@ -31,7 +30,8 @@ interface SettingRowProps {
 
 function SettingRow({ icon, tone, title, subtitle, onPress, rightElement }: SettingRowProps) {
     const { colors } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const metrics = useResponsiveMetrics();
+    const styles = React.useMemo(() => getStyles(colors, metrics.density === 'compact'), [colors, metrics.density]);
     const palette = getSemanticColors(colors, tone);
 
     return (
@@ -50,7 +50,9 @@ function SettingRow({ icon, tone, title, subtitle, onPress, rightElement }: Sett
                 <Text style={styles.settingTitle}>{title}</Text>
                 <Text style={styles.settingSubtitle}>{subtitle}</Text>
             </View>
-            {rightElement ?? <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textDisabled} />}
+            <View style={styles.settingTrailing}>
+                {rightElement ?? <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textDisabled} />}
+            </View>
         </TouchableOpacity>
     );
 }
@@ -58,8 +60,9 @@ function SettingRow({ icon, tone, title, subtitle, onPress, rightElement }: Sett
 export function SettingsScreen() {
     const navigation = useNavigation<SettingsNavigationProp>();
     const { colors } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
     const metrics = useResponsiveMetrics();
+    const compactLayout = metrics.density === 'compact';
+    const styles = React.useMemo(() => getStyles(colors, compactLayout), [colors, compactLayout]);
     const { user, hapticEnabled, setHapticEnabled, logout, sessionStatus, canUseCloudCollaboration, setPostAuthRedirect } = useAuthStore();
     const { unreadCount } = useNotificationStore();
     const { mode, setMode, textSize, setTextSize } = useThemeStore();
@@ -111,6 +114,7 @@ export function SettingsScreen() {
                 eyebrow="Workspace Control"
                 title="Pengaturan"
                 subtitle="Akun, tampilan, data, dan ruang kolaborasi ada di satu tempat."
+                density={metrics.headerDensity}
                 variant="transparent"
             />
 
@@ -126,24 +130,34 @@ export function SettingsScreen() {
                     metrics.widthClass !== 'compact' ? styles.contentWide : null,
                 ]}
             >
-                <HeroSummaryCard
-                    eyebrow={sessionStatus === 'guest' ? 'Mode Guest Lokal' : 'Akun Utama'}
-                    title={user?.name ?? 'Pengguna Tabungin'}
-                    value={user?.email || 'Belum terhubung ke akun'}
-                    description={
-                        sessionStatus === 'guest'
-                            ? 'Kamu sedang memakai mode lokal. Data tetap bisa dipakai di perangkat ini, tetapi sinkronisasi dan shared wallet belum aktif.'
-                            : 'Profil ini dipakai untuk sinkronisasi, shared wallet, dan konteks identitas utama aplikasi.'
-                    }
-                    icon="account-circle-outline"
-                    badges={
-                        <>
-                            <ContextBadge icon="bell-outline" label={unreadCount > 0 ? `${unreadCount} notifikasi` : 'Inbox bersih'} inverse />
-                            <ContextBadge icon="theme-light-dark" label={mode === 'dark' ? 'Mode gelap aktif' : 'Mode terang aktif'} inverse />
-                            {!canUseCloudCollaboration ? <ContextBadge icon="cloud-off-outline" label="Cloud nonaktif" inverse /> : null}
-                        </>
-                    }
-                />
+                <View style={styles.accountSummaryCard}>
+                    <View style={styles.accountSummaryTop}>
+                        <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
+                            <Text style={[styles.avatarText, { color: avatarTextColor }]}>{userInitial}</Text>
+                        </View>
+                        <View style={styles.accountSummaryCopy}>
+                            <Text style={styles.accountSummaryEyebrow}>
+                                {sessionStatus === 'guest' ? 'Mode Guest Lokal' : 'Akun Utama'}
+                            </Text>
+                            <Text style={styles.accountSummaryTitle}>{user?.name ?? 'Pengguna Tabungin'}</Text>
+                            <Text style={styles.accountSummarySubtitle}>
+                                {user?.email || 'Belum terhubung ke akun'}
+                            </Text>
+                        </View>
+                    </View>
+
+                    <Text style={styles.accountSummaryDescription}>
+                        {sessionStatus === 'guest'
+                            ? 'Mode lokal aktif. Sinkronisasi dan shared wallet belum tersedia sampai akun tersambung.'
+                            : 'Profil ini dipakai untuk sinkronisasi, shared wallet, dan identitas utama aplikasi.'}
+                    </Text>
+
+                    <View style={styles.accountSummaryBadges}>
+                        <ContextBadge icon="bell-outline" label={unreadCount > 0 ? `${unreadCount} notifikasi` : 'Inbox bersih'} tone="warning" />
+                        <ContextBadge icon="theme-light-dark" label={mode === 'dark' ? 'Mode gelap aktif' : 'Mode terang aktif'} tone="neutral" />
+                        {!canUseCloudCollaboration ? <ContextBadge icon="cloud-off-outline" label="Cloud nonaktif" tone="warning" /> : null}
+                    </View>
+                </View>
 
                 {!canUseCloudCollaboration ? (
                     <InlineNotice
@@ -181,14 +195,16 @@ export function SettingsScreen() {
                     </View>
                 ) : null}
 
-                <StatStrip
-                    items={[
-                        { label: 'Pencatatan lokal', value: 'Aktif', valueColor: colors.success },
-                        { label: 'Sinkronisasi', value: canUseCloudCollaboration ? 'Aktif' : 'Nonaktif', valueColor: canUseCloudCollaboration ? colors.success : colors.warning },
-                        { label: 'Shared wallet', value: canUseCloudCollaboration ? 'Aktif' : 'Butuh akun', valueColor: canUseCloudCollaboration ? colors.info : colors.warning },
-                    ]}
-                    vertical={metrics.isWide}
-                />
+                {!compactLayout || metrics.isWide ? (
+                    <StatStrip
+                        items={[
+                            { label: 'Pencatatan lokal', value: 'Aktif', valueColor: colors.success },
+                            { label: 'Sinkronisasi', value: canUseCloudCollaboration ? 'Aktif' : 'Nonaktif', valueColor: canUseCloudCollaboration ? colors.success : colors.warning },
+                            { label: 'Shared wallet', value: canUseCloudCollaboration ? 'Aktif' : 'Butuh akun', valueColor: canUseCloudCollaboration ? colors.info : colors.warning },
+                        ]}
+                        vertical={metrics.isWide}
+                    />
+                ) : null}
 
                 <TouchableOpacity
                     style={styles.profileCard}
@@ -374,7 +390,7 @@ export function SettingsScreen() {
     );
 }
 
-const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+const getStyles = (colors: ReturnType<typeof useTheme>['colors'], isCompact: boolean) =>
     StyleSheet.create({
         content: {
             gap: 18,
@@ -385,7 +401,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             alignSelf: 'center',
         },
         accountUpgradeRow: {
-            flexDirection: 'row',
+            flexDirection: isCompact ? 'column' : 'row',
             gap: 12,
         },
         accountUpgradeButton: {
@@ -413,6 +429,52 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             fontFamily: FontFamily.bodyBold,
             fontSize: FontSize.body,
             color: colors.textPrimary,
+        },
+        accountSummaryCard: {
+            gap: 14,
+            backgroundColor: colors.panelSurface,
+            borderWidth: 1,
+            borderColor: colors.cardBorder,
+            borderRadius: BorderRadius['4xl'],
+            padding: isCompact ? 16 : 18,
+        },
+        accountSummaryTop: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 14,
+        },
+        accountSummaryCopy: {
+            flex: 1,
+            minWidth: 0,
+        },
+        accountSummaryEyebrow: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.caption,
+            color: colors.primary,
+            textTransform: 'uppercase',
+            letterSpacing: 0.4,
+        },
+        accountSummaryTitle: {
+            ...Typography.h3,
+            color: colors.textPrimary,
+            marginTop: 3,
+        },
+        accountSummarySubtitle: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+            marginTop: 2,
+        },
+        accountSummaryDescription: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+            lineHeight: 18,
+        },
+        accountSummaryBadges: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 8,
         },
         profileCard: {
             flexDirection: 'row',
@@ -451,7 +513,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         },
         settingRow: {
             flexDirection: 'row',
-            alignItems: 'center',
+            alignItems: isCompact ? 'flex-start' : 'center',
             gap: 14,
             paddingHorizontal: 16,
             paddingVertical: 16,
@@ -466,6 +528,9 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         },
         settingCopy: {
             flex: 1,
+        },
+        settingTrailing: {
+            marginTop: isCompact ? 2 : 0,
         },
         settingTitle: {
             fontFamily: FontFamily.bodyBold,
@@ -494,7 +559,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             gap: 8,
             paddingHorizontal: 16,
             paddingBottom: 12,
-            paddingLeft: 72,
+            paddingLeft: isCompact ? 16 : 72,
         },
         textSizeButton: {
             minHeight: 38,

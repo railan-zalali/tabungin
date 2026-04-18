@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 import { runSerializedSyncTask } from "./syncQueue";
 import { shouldApplyRemoteChange, shouldApplyRealtimePayload, type LocalSyncStatus } from "../utils/syncConflict";
 import { Colors } from "../constants/colors";
-import { fetchAccessibleRemoteWalletIds } from "./walletSharingService";
+import { fetchAccessibleRemoteWalletIds, syncAccessibleWalletsFromServer } from "./walletSharingService";
 
 const LAST_SYNC_KEY_PREFIX = "tabungin_last_sync_time";
 const LEGACY_LAST_SYNC_KEY = LAST_SYNC_KEY_PREFIX;
@@ -343,6 +343,66 @@ async function upsertRemoteRecords(table: SyncTable, records: Record<string, any
   return result;
 }
 
+async function updateRemoteRecordById(table: SyncTable, id: string, record: Record<string, any>) {
+  let columns = getSupportedRemoteColumns(table).filter((column) => column !== "id");
+  let payload = columns.reduce<Record<string, any>>((acc, column) => {
+    if (column in record) {
+      acc[column] = record[column];
+    }
+    return acc;
+  }, {});
+
+  let result = await supabase.from(table.tableName).update(payload).eq("id", id);
+  if (!result.error) {
+    return result;
+  }
+
+  const missingColumn = extractMissingRemoteColumnName(result.error);
+  if (missingColumn && missingColumn in payload) {
+    markRemoteColumnUnsupported(table.tableName, missingColumn);
+    columns = getSupportedRemoteColumns(table).filter((column) => column !== "id");
+    payload = columns.reduce<Record<string, any>>((acc, column) => {
+      if (column in record) {
+        acc[column] = record[column];
+      }
+      return acc;
+    }, {});
+    result = await supabase.from(table.tableName).update(payload).eq("id", id);
+  }
+
+  return result;
+}
+
+type WalletPushMode = "owned_upsert" | "shared_update" | "skip_stale";
+
+function classifyWalletPushMode(args: {
+  row: any;
+  payload: Record<string, any>;
+  validProfileId: string;
+  accessibleWalletIds: Set<string>;
+}) {
+  const { row, payload, validProfileId, accessibleWalletIds } = args;
+  const effectiveProfileId = payload.profile_id ?? row.profile_id ?? null;
+  const isOwnedWallet = effectiveProfileId === validProfileId;
+  const hasRemoteAccess = Boolean(row.id && accessibleWalletIds.has(row.id));
+  const isSharedWallet = Boolean(effectiveProfileId && effectiveProfileId !== validProfileId);
+
+  let pushMode: WalletPushMode = "skip_stale";
+  if (isOwnedWallet) {
+    pushMode = "owned_upsert";
+  } else if (hasRemoteAccess && isSharedWallet) {
+    pushMode = "shared_update";
+  }
+
+  return {
+    pushMode,
+    isOwnedWallet,
+    isSharedWallet,
+    hasRemoteAccess,
+    effectiveProfileId,
+  };
+}
+
 export async function getLastSyncTime(preferredUserId?: string | null): Promise<number> {
   const userId = await resolveSyncUserId(preferredUserId);
   if (!userId) {
@@ -627,6 +687,109 @@ async function pushChanges() {
 
         return payload;
       });
+
+      if (table.tableName === 'wallets') {
+        const syncedWalletIds: string[] = [];
+        const ownerWalletRows: any[] = [];
+        const ownerWalletRecords: Record<string, any>[] = [];
+        const staleWalletIds: string[] = [];
+        let shouldRefreshAccessibleWallets = false;
+
+        for (let index = 0; index < records.length; index++) {
+          const row = syncedRows[index];
+          const record = records[index];
+          const walletClassification = classifyWalletPushMode({
+            row,
+            payload: record,
+            validProfileId,
+            accessibleWalletIds,
+          });
+
+          console.log(
+            `[Sync][wallets] row=${row?.id ?? 'unknown'} mode=${walletClassification.pushMode} sync_status=${row?.sync_status ?? 'unknown'} profile_id=${walletClassification.effectiveProfileId ?? 'null'} active_profile=${activeProfileId || 'null'} owned=${walletClassification.isOwnedWallet} shared=${walletClassification.isSharedWallet} remote_access=${walletClassification.hasRemoteAccess}`,
+          );
+
+          if (walletClassification.pushMode === 'owned_upsert') {
+            ownerWalletRows.push(row);
+            ownerWalletRecords.push(record);
+            continue;
+          }
+
+          if (walletClassification.pushMode === 'shared_update' && row?.id) {
+            const singleResult = await updateRemoteRecordById(table, row.id, record);
+            if (!singleResult.error) {
+              syncedWalletIds.push(row.id);
+              continue;
+            }
+
+            if (shouldSkipRemoteTable(table, singleResult.error)) {
+              break;
+            }
+
+            console.error(`Failed to push wallets row ${row.id}:`, singleResult.error.message);
+            continue;
+          }
+
+          if (row?.id) {
+            staleWalletIds.push(row.id);
+          }
+          shouldRefreshAccessibleWallets = true;
+          console.log(`[Sync][wallets] Skipping stale/inaccessible wallet ${row?.id ?? 'unknown'} to avoid repeated RLS failures.`);
+        }
+
+        if (ownerWalletRecords.length > 0) {
+          const { error } = await upsertRemoteRecords(table, ownerWalletRecords);
+
+          if (!error) {
+            ownerWalletRows.forEach((row) => {
+              if (row.id) {
+                syncedWalletIds.push(row.id);
+                accessibleWalletIds.add(row.id);
+              }
+            });
+            await ensureWalletOwnerMembership(ownerWalletRows, user.email || '', validProfileId);
+          } else if (shouldSkipRemoteTable(table, error)) {
+            continue;
+          } else if (String(error.message || "").includes('row-level security policy') && ownerWalletRows.length > 1) {
+            for (let index = 0; index < ownerWalletRecords.length; index++) {
+              const record = ownerWalletRecords[index];
+              const sourceRow = ownerWalletRows[index];
+              const singleResult = await upsertRemoteRecords(table, [record]);
+
+              if (!singleResult.error) {
+                if (sourceRow?.id) {
+                  syncedWalletIds.push(sourceRow.id);
+                  accessibleWalletIds.add(sourceRow.id);
+                  await ensureWalletOwnerMembership([sourceRow], user.email || '', validProfileId);
+                }
+                continue;
+              }
+
+              console.error(`Failed to push wallets row ${sourceRow?.id ?? 'unknown'}:`, singleResult.error.message);
+            }
+          } else {
+            console.error(`Failed to push wallets:`, error.message);
+          }
+        }
+
+        const idsToMarkSynced = [...new Set([...syncedWalletIds, ...staleWalletIds])];
+        if (idsToMarkSynced.length > 0) {
+          await db.runAsync(
+            `UPDATE wallets SET sync_status = 'synced' WHERE id IN (${idsToMarkSynced.map(() => "?").join(",")})`,
+            idsToMarkSynced,
+          );
+        }
+
+        if (shouldRefreshAccessibleWallets && user.email) {
+          try {
+            await syncAccessibleWalletsFromServer();
+          } catch (refreshError) {
+            console.error('[Sync] Failed to refresh accessible wallets after skipping stale rows:', refreshError);
+          }
+        }
+
+        continue;
+      }
 
       if (table.tableName === 'wallet_members') {
         const walletIds = [...new Set(records.map((record) => record.wallet_id).filter(Boolean))];

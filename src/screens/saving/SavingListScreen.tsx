@@ -29,8 +29,9 @@ type FilterTab = 'all' | 'personal' | 'shared' | 'completed';
 export function SavingListScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<any>>();
     const { colors } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
     const metrics = useResponsiveMetrics();
+    const compactLayout = metrics.density === 'compact';
+    const styles = React.useMemo(() => getStyles(colors, compactLayout), [colors, compactLayout]);
     const { goals, isLoading, loadGoals } = useSavingStore();
     const { wallets, loadWallets } = useWalletStore();
     const activeProfileId = useProfileStore((state) => state.activeProfileId);
@@ -92,7 +93,8 @@ export function SavingListScreen() {
             <AppScreenHeader
                 eyebrow="Goal Portfolio"
                 title="Target tabungan"
-                subtitle="Pisahkan konteks personal, shared wallet, dan target yang sudah selesai."
+                subtitle="Pantau goal personal, shared, dan yang sudah selesai."
+                density={metrics.headerDensity}
                 showBack
                 onBackPress={() => navigation.goBack()}
                 rightAction={{
@@ -124,13 +126,14 @@ export function SavingListScreen() {
                                 eyebrow="Ringkasan Progres"
                                 title="Total dana yang sudah terkumpul"
                                 value={formatCurrency(totalSaved)}
+                                layout="compact"
                                 description={`Dari target ${formatCurrency(totalTarget)} di semua goal yang kamu pantau.`}
                                 icon="piggy-bank-outline"
                                 badges={
                                     <>
                                         <ContextBadge icon="bullseye-arrow" label={`${activeGoalsCount} aktif`} inverse />
                                         <ContextBadge icon="account-outline" label={`${personalGoalsCount} pribadi`} inverse />
-                                        <ContextBadge icon="account-group-outline" label={`${sharedGoalsCount} bersama`} inverse />
+                                        {!compactLayout ? <ContextBadge icon="account-group-outline" label={`${sharedGoalsCount} bersama`} inverse /> : null}
                                     </>
                                 }
                             />
@@ -141,6 +144,7 @@ export function SavingListScreen() {
                                 eyebrow="Scope Filter"
                                 title="Fokus tampilan"
                                 subtitle="Pilih dulu konteks yang ingin kamu evaluasi sekarang."
+                                hideSubtitleOnCompact
                             />
                             <SegmentedControl
                                 value={filterTab}
@@ -153,21 +157,25 @@ export function SavingListScreen() {
                                     { id: 'completed', label: 'Selesai', count: completedGoalsCount },
                                 ]}
                             />
-                            <View style={styles.legendRow}>
-                                <ContextBadge icon="account-outline" label="Pribadi" tone="primary" />
-                                <ContextBadge icon="account-group-outline" label="Dompet bersama" tone="info" />
-                                <ContextBadge icon="check-circle-outline" label="Selesai" tone="success" />
-                            </View>
+                            {sharedGoalsCount > 0 || completedGoalsCount > 0 ? (
+                                <View style={styles.legendRow}>
+                                    <ContextBadge icon="account-outline" label="Pribadi" tone="primary" />
+                                    {sharedGoalsCount > 0 ? <ContextBadge icon="account-group-outline" label="Dompet bersama" tone="info" /> : null}
+                                    {completedGoalsCount > 0 ? <ContextBadge icon="check-circle-outline" label="Selesai" tone="success" /> : null}
+                                </View>
+                            ) : null}
                         </Animated.View>
 
-                        <StatStrip
-                            items={[
-                                { label: 'Aktif', value: `${activeGoalsCount}` },
-                                { label: 'Shared', value: `${sharedGoalsCount}`, valueColor: sharedGoalsCount > 0 ? colors.info : colors.textSecondary },
-                                { label: 'Selesai', value: `${completedGoalsCount}`, valueColor: completedGoalsCount > 0 ? colors.success : colors.textSecondary },
-                            ]}
-                            vertical={metrics.isWide}
-                        />
+                        {!compactLayout || metrics.isWide ? (
+                            <StatStrip
+                                items={[
+                                    { label: 'Aktif', value: `${activeGoalsCount}` },
+                                    { label: 'Shared', value: `${sharedGoalsCount}`, valueColor: sharedGoalsCount > 0 ? colors.info : colors.textSecondary },
+                                    { label: 'Selesai', value: `${completedGoalsCount}`, valueColor: completedGoalsCount > 0 ? colors.success : colors.textSecondary },
+                                ]}
+                                vertical={metrics.isWide}
+                            />
+                        ) : null}
                     </View>
                 }
                 ListEmptyComponent={
@@ -213,10 +221,10 @@ export function SavingListScreen() {
     );
 }
 
-const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+const getStyles = (colors: ReturnType<typeof useTheme>['colors'], isCompact: boolean) =>
     StyleSheet.create({
         content: {
-            gap: 18,
+            gap: isCompact ? 14 : 18,
             maxWidth: 920,
             width: '100%',
             alignSelf: 'center',
@@ -226,7 +234,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             paddingTop: 10,
         },
         heroGrid: {
-            gap: 18,
+            gap: isCompact ? 14 : 18,
         },
         heroGridWide: {
             flexDirection: 'row',
@@ -236,12 +244,12 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             flex: 1,
         },
         filterBlock: {
-            gap: 14,
+            gap: isCompact ? 12 : 14,
             backgroundColor: colors.panelSurface,
             borderWidth: 1,
             borderColor: colors.cardBorder,
             borderRadius: BorderRadius['4xl'],
-            padding: 18,
+            padding: isCompact ? 14 : 18,
             flex: 0.82,
         },
         legendRow: {

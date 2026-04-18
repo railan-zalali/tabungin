@@ -85,8 +85,8 @@ function generateHTMLReport(
 
 export function ReportScreen() {
     const { colors } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
     const metrics = useResponsiveMetrics();
+    const styles = React.useMemo(() => getStyles(colors, metrics.isCompact), [colors, metrics.isCompact]);
     const { getCategorySummary, getMonthlyData } = useTransactionStore();
     const { categories, loadCategories } = useCategoryStore();
     const [period, setPeriod] = useState<PeriodFilter>('month');
@@ -287,33 +287,39 @@ export function ReportScreen() {
                                 title="Tren bulanan"
                                 subtitle="Perbandingan cepat pemasukan dan pengeluaran beberapa bulan terakhir."
                             />
-                            <View style={styles.chartRow}>
-                                {monthlyData.slice(-6).map((month, index) => (
-                                    <View key={`${month.month}-${index}`} style={styles.chartGroup}>
-                                        <View style={styles.barPair}>
-                                            <View
-                                                style={[
-                                                    styles.chartBar,
-                                                    {
-                                                        height: Math.max((month.totalIncome / maxMonthly) * 110, 6),
-                                                        backgroundColor: colors.chartIncome,
-                                                    },
-                                                ]}
-                                            />
-                                            <View
-                                                style={[
-                                                    styles.chartBar,
-                                                    {
-                                                        height: Math.max((month.totalExpense / maxMonthly) * 110, 6),
-                                                        backgroundColor: colors.chartExpense,
-                                                    },
-                                                ]}
-                                            />
+                            <ScrollView
+                                horizontal={metrics.isCompact}
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={metrics.isCompact ? styles.chartScrollContent : undefined}
+                            >
+                                <View style={[styles.chartRow, metrics.isCompact ? styles.chartRowCompact : null]}>
+                                    {monthlyData.slice(-6).map((month, index) => (
+                                        <View key={`${month.month}-${index}`} style={styles.chartGroup}>
+                                            <View style={styles.barPair}>
+                                                <View
+                                                    style={[
+                                                        styles.chartBar,
+                                                        {
+                                                            height: Math.max((month.totalIncome / maxMonthly) * 110, 6),
+                                                            backgroundColor: colors.chartIncome,
+                                                        },
+                                                    ]}
+                                                />
+                                                <View
+                                                    style={[
+                                                        styles.chartBar,
+                                                        {
+                                                            height: Math.max((month.totalExpense / maxMonthly) * 110, 6),
+                                                            backgroundColor: colors.chartExpense,
+                                                        },
+                                                    ]}
+                                                />
+                                            </View>
+                                            <Text style={styles.chartLabel}>{MONTH_LABELS[Math.max(0, month.month - 1)]}</Text>
                                         </View>
-                                        <Text style={styles.chartLabel}>{MONTH_LABELS[Math.max(0, month.month - 1)]}</Text>
-                                    </View>
-                                ))}
-                            </View>
+                                    ))}
+                                </View>
+                            </ScrollView>
                         </View>
                     </>
                 )}
@@ -322,7 +328,7 @@ export function ReportScreen() {
     );
 }
 
-const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+const getStyles = (colors: ReturnType<typeof useTheme>['colors'], isCompact: boolean) =>
     StyleSheet.create({
         exportButton: {
             width: 44,
@@ -338,7 +344,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             gap: 18,
         },
         metricGrid: {
-            flexDirection: 'row',
+            flexDirection: isCompact ? 'column' : 'row',
             flexWrap: 'wrap',
             gap: 12,
         },
@@ -359,8 +365,8 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             gap: 12,
         },
         categoryRow: {
-            flexDirection: 'row',
-            alignItems: 'center',
+            flexDirection: isCompact ? 'column' : 'row',
+            alignItems: isCompact ? 'flex-start' : 'center',
             justifyContent: 'space-between',
             gap: 12,
             paddingVertical: 10,
@@ -393,8 +399,15 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             minHeight: 150,
             paddingTop: 18,
         },
+        chartRowCompact: {
+            minWidth: 420,
+        },
+        chartScrollContent: {
+            paddingRight: 12,
+        },
         chartGroup: {
             flex: 1,
+            minWidth: isCompact ? 56 : 0,
             alignItems: 'center',
             gap: 8,
         },

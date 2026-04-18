@@ -80,7 +80,10 @@ function TabBarButton({
 }) {
     const { colors, motion } = useTheme();
     const metrics = useResponsiveMetrics();
-    const styles = React.useMemo(() => getStyles(colors, metrics.isCompact), [colors, metrics.isCompact]);
+    const styles = React.useMemo(
+        () => getStyles(colors, metrics.density === 'compact'),
+        [colors, metrics.density]
+    );
     const meta = TAB_META[routeName];
     const accentColor = resolveAccentColor(colors);
     const scale = useSharedValue(isFocused ? 1 : 0.96);
@@ -150,7 +153,10 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     const insets = useSafeAreaInsets();
     const { colors } = useTheme();
     const metrics = useResponsiveMetrics();
-    const styles = React.useMemo(() => getStyles(colors, metrics.isCompact), [colors, metrics.isCompact]);
+    const styles = React.useMemo(
+        () => getStyles(colors, metrics.density === 'compact'),
+        [colors, metrics.density]
+    );
     const user = useAuthStore((state) => state.user);
     const sessionStatus = useAuthStore((state) => state.sessionStatus);
     const rootNavigation = navigation.getParent() as any;
@@ -262,7 +268,15 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
     return (
         <View pointerEvents="box-none" style={styles.tabBarOuter}>
-            <View style={[styles.tabBarShell, { paddingHorizontal: metrics.horizontalPadding, paddingBottom: Math.max(insets.bottom, 10) }]}>
+            <View
+                style={[
+                    styles.tabBarShell,
+                    {
+                        paddingHorizontal: metrics.horizontalPadding,
+                        paddingBottom: Math.max(insets.bottom, metrics.density === 'compact' ? 8 : 10),
+                    },
+                ]}
+            >
                 <LinearGradient
                     colors={[colors.surfaceElevated, colors.surfaceGlass]}
                     start={{ x: 0, y: 0 }}
@@ -537,7 +551,7 @@ const getStyles = (colors: any, isCompact: boolean) =>
             alignItems: 'center',
             justifyContent: 'space-between',
             paddingHorizontal: isCompact ? 8 : 10,
-            paddingTop: isCompact ? 10 : 12,
+            paddingTop: isCompact ? 8 : 12,
             paddingBottom: 4,
             borderRadius: BorderRadius['5xl'],
             borderWidth: 1,
@@ -553,14 +567,14 @@ const getStyles = (colors: any, isCompact: boolean) =>
             flex: 1,
         },
         tabButton: {
-            minHeight: isCompact ? 60 : 64,
+            minHeight: isCompact ? 56 : 64,
             alignItems: 'center',
             justifyContent: 'center',
             gap: 6,
             borderRadius: BorderRadius['4xl'],
             overflow: 'hidden',
             paddingHorizontal: 4,
-            paddingVertical: isCompact ? 8 : 10,
+            paddingVertical: isCompact ? 6 : 10,
             position: 'relative',
         },
         activeGlow: {
@@ -577,15 +591,15 @@ const getStyles = (colors: any, isCompact: boolean) =>
             borderBottomRightRadius: BorderRadius.sm,
         },
         iconWrap: {
-            width: isCompact ? 38 : 40,
-            height: isCompact ? 38 : 40,
+            width: isCompact ? 36 : 40,
+            height: isCompact ? 36 : 40,
             borderRadius: BorderRadius['2xl'],
             alignItems: 'center',
             justifyContent: 'center',
         },
         tabLabel: {
             fontFamily: FontFamily.bodyMedium,
-            fontSize: isCompact ? 10 : 11,
+            fontSize: isCompact ? 9 : 11,
             textAlign: 'center',
             letterSpacing: 0.15,
         },

@@ -33,9 +33,17 @@ import { ContextBadge } from "../common/ContextBadge";
 
 interface WalletMemberListProps {
   walletId: string;
+  currentUserRole?: WalletMember["role"] | null;
+  canInvite?: boolean;
+  canRemove?: boolean;
 }
 
-export function WalletMemberList({ walletId }: WalletMemberListProps) {
+export function WalletMemberList({
+  walletId,
+  currentUserRole = null,
+  canInvite = true,
+  canRemove = true,
+}: WalletMemberListProps) {
   const [members, setMembers] = useState<WalletMember[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
@@ -113,6 +121,11 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
   };
 
   const handleInvite = async () => {
+    if (!canInvite) {
+      Alert.alert("Akses terbatas", "Hanya owner atau editor yang bisa mengundang anggota baru.");
+      return;
+    }
+
     if (!canUseCloudCollaboration) {
       Alert.alert("Perlu akun", "Mengundang anggota membutuhkan akun yang terhubung ke cloud.");
       return;
@@ -138,6 +151,11 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
   };
 
   const handleRemove = async (id: string) => {
+    if (!canRemove) {
+      Alert.alert("Akses terbatas", "Hanya owner yang bisa menghapus anggota.");
+      return;
+    }
+
     Alert.alert("Hapus Anggota", "Apakah Anda yakin ingin menghapus anggota ini?", [
       { text: "Batal", style: "cancel" },
       {
@@ -168,15 +186,21 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
             <MaterialCommunityIcons name='qrcode' size={16} color={colors.primary} />
             <Text style={styles.inviteBtnText}>QR</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.inviteBtn} onPress={() => setIsInviting(true)} accessibilityRole="button" accessibilityLabel="Undang anggota dompet">
-            <MaterialCommunityIcons name='plus' size={16} color={colors.primary} />
-            <Text style={styles.inviteBtnText}>Undang</Text>
-          </TouchableOpacity>
+          {canInvite ? (
+            <TouchableOpacity style={styles.inviteBtn} onPress={() => setIsInviting(true)} accessibilityRole="button" accessibilityLabel="Undang anggota dompet">
+              <MaterialCommunityIcons name='plus' size={16} color={colors.primary} />
+              <Text style={styles.inviteBtnText}>Undang</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
 
       {!canUseCloudCollaboration ? (
         <Text style={styles.emptyText}>Mode guest aktif. Shared wallet dan manajemen anggota tersedia setelah masuk dengan akun.</Text>
+      ) : !canInvite ? (
+        <Text style={styles.emptyText}>
+          Role {currentUserRole === 'viewer' ? 'viewer' : 'ini'} hanya bisa melihat anggota. Undangan baru membutuhkan owner atau editor.
+        </Text>
       ) : isLoading ? (
         <ActivityIndicator color={colors.primary} />
       ) : members.length === 0 ? (
@@ -208,9 +232,11 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
                   />
                 </View>
               </View>
-              <TouchableOpacity onPress={() => handleRemove(member.id)} style={styles.removeBtn} accessibilityRole="button" accessibilityLabel={`Hapus anggota ${member.user_email}`}>
-                <MaterialCommunityIcons name='trash-can-outline' size={20} color={colors.danger} />
-              </TouchableOpacity>
+              {canRemove && member.role !== "owner" ? (
+                <TouchableOpacity onPress={() => handleRemove(member.id)} style={styles.removeBtn} accessibilityRole="button" accessibilityLabel={`Hapus anggota ${member.user_email}`}>
+                  <MaterialCommunityIcons name='trash-can-outline' size={20} color={colors.danger} />
+                </TouchableOpacity>
+              ) : null}
             </View>
           ))}
         </View>

@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography, scaleFontSize } from '../../constants/typography';
 import { useTheme } from '../../store/useThemeStore';
+import { useResponsiveMetrics } from '../../utils/responsive';
 
 type ActionTileTone = 'primary' | 'success' | 'warning' | 'info' | 'neutral';
 
@@ -13,6 +14,7 @@ interface ActionTileProps {
     description?: string;
     tone?: ActionTileTone;
     onPress: () => void;
+    layout?: 'default' | 'compact';
 }
 
 function resolvePalette(colors: ReturnType<typeof useTheme>['colors'], tone: ActionTileTone) {
@@ -37,9 +39,12 @@ export function ActionTile({
     description,
     tone = 'primary',
     onPress,
+    layout = 'default',
 }: ActionTileProps) {
     const { colors, textSize } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors, textSize), [colors, textSize]);
+    const metrics = useResponsiveMetrics();
+    const compactLayout = layout === 'compact' || metrics.density === 'compact';
+    const styles = React.useMemo(() => getStyles(colors, textSize, compactLayout), [colors, compactLayout, textSize]);
     const palette = resolvePalette(colors, tone);
 
     return (
@@ -56,25 +61,31 @@ export function ActionTile({
             </View>
             <View style={styles.copy}>
                 <Text style={styles.title}>{title}</Text>
-                {description ? <Text style={styles.description}>{description}</Text> : null}
+                {description ? <Text style={styles.description} numberOfLines={compactLayout ? 2 : 3}>{description}</Text> : null}
             </View>
-            <MaterialCommunityIcons name="arrow-top-right" size={18} color={colors.textSecondary} />
+            <View style={styles.trailing}>
+                <MaterialCommunityIcons name="arrow-top-right" size={18} color={colors.textSecondary} />
+            </View>
         </TouchableOpacity>
     );
 }
 
-const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: ReturnType<typeof useTheme>['textSize']) =>
+const getStyles = (
+    colors: ReturnType<typeof useTheme>['colors'],
+    textSize: ReturnType<typeof useTheme>['textSize'],
+    isCompact: boolean,
+) =>
     StyleSheet.create({
         tile: {
-            minHeight: 96,
+            minHeight: isCompact ? 88 : 96,
             flexDirection: 'row',
-            alignItems: 'center',
+            alignItems: isCompact ? 'flex-start' : 'center',
             gap: 14,
             borderRadius: BorderRadius['3xl'],
             backgroundColor: colors.panelSurface,
             borderWidth: 1,
-            paddingHorizontal: 16,
-            paddingVertical: 16,
+            paddingHorizontal: isCompact ? 14 : 16,
+            paddingVertical: isCompact ? 14 : 16,
             shadowColor: colors.shadowColor,
             shadowOffset: { width: 0, height: 10 },
             shadowOpacity: 0.08,
@@ -82,8 +93,8 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             elevation: 3,
         },
         iconWrap: {
-            width: 50,
-            height: 50,
+            width: isCompact ? 46 : 50,
+            height: isCompact ? 46 : 50,
             borderRadius: BorderRadius['2xl'],
             alignItems: 'center',
             justifyContent: 'center',
@@ -102,5 +113,8 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             fontSize: scaleFontSize(FontSize.caption, textSize),
             color: colors.textSecondary,
             lineHeight: 18,
+        },
+        trailing: {
+            paddingTop: isCompact ? 2 : 0,
         },
     });

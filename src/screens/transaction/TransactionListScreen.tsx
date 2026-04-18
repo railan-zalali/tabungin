@@ -9,8 +9,10 @@ import { formatCurrency } from '../../utils/currency';
 import { formatDateGroup } from '../../utils/date';
 import type { Transaction } from '../../types/transaction';
 import { useCategoryStore } from '../../store/useCategoryStore';
+import { useProfileStore } from '../../store/useProfileStore';
 import { useTheme } from '../../store/useThemeStore';
 import { useTransactionStore } from '../../store/useTransactionStore';
+import { useWalletStore } from '../../store/useWalletStore';
 import { AppScreenHeader } from '../../components/common/AppScreenHeader';
 import { EmptyIllustrationState } from '../../components/common/EmptyIllustrationState';
 import { FilterBar } from '../../components/common/FilterBar';
@@ -19,6 +21,7 @@ import { TransactionItemSkeleton } from '../../components/common/SkeletonLoader'
 import { StatStrip } from '../../components/common/StatStrip';
 import { TransactionItem } from '../../components/transaction/TransactionItem';
 import { useResponsiveMetrics } from '../../utils/responsive';
+import { getWalletCapabilities } from '../../utils/walletPermissions';
 
 type FilterType = 'all' | 'income' | 'expense';
 type PeriodType = 'today' | 'week' | 'month' | 'all';
@@ -30,9 +33,13 @@ type TransactionListRow =
 export function TransactionListScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<any>>();
     const { colors } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
     const metrics = useResponsiveMetrics();
+    const compactLayout = metrics.density === 'compact';
+    const styles = React.useMemo(() => getStyles(colors, compactLayout), [colors, compactLayout]);
     const { transactions, isLoading, loadTransactions, removeTransaction } = useTransactionStore();
+    const wallets = useWalletStore((state) => state.wallets);
+    const walletRoles = useWalletStore((state) => state.walletRoles);
+    const activeProfileId = useProfileStore((state) => state.activeProfileId);
     const loadCategories = useCategoryStore((state) => state.loadCategories);
     const categoryCount = useCategoryStore((state) => state.categories.length);
 
@@ -126,7 +133,8 @@ export function TransactionListScreen() {
             <AppScreenHeader
                 eyebrow="Cashflow Feed"
                 title="Transaksi"
-                subtitle="Cari, saring, dan baca perubahan arus uang dengan lebih cepat."
+                subtitle="Cari dan saring arus uang dengan cepat."
+                density={metrics.headerDensity}
                 showBack
                 onBackPress={() => navigation.goBack()}
                 rightAction={{
@@ -152,6 +160,7 @@ export function TransactionListScreen() {
                         <FilterBar
                             title="Cari dan saring"
                             subtitle="Supaya daftar panjang tetap terasa ringan dipindai."
+                            mode="compact"
                             searchValue={search}
                             onSearchChange={setSearch}
                             searchPlaceholder="Cari kategori atau catatan..."
@@ -178,7 +187,17 @@ export function TransactionListScreen() {
                         items={[
                             { label: 'Transaksi', value: `${transactions.length}` },
                             { label: 'Net', value: formatCurrency(Math.abs(netAmount)), valueColor: netAmount >= 0 ? colors.success : colors.danger },
-                            { label: 'Mode', value: filterPeriod === 'all' ? 'Semua' : filterPeriod },
+                            {
+                                label: 'Mode',
+                                value:
+                                    filterPeriod === 'today'
+                                        ? 'Hari ini'
+                                        : filterPeriod === 'week'
+                                            ? 'Minggu'
+                                            : filterPeriod === 'month'
+                                                ? 'Bulan'
+                                                : 'Semua',
+                            },
                         ]}
                         vertical={metrics.isWide}
                     />
@@ -226,12 +245,26 @@ export function TransactionListScreen() {
 
                             return (
                                 <View style={styles.itemBlock}>
+                                    {(() => {
+                                        const wallet = item.transaction.wallet_id
+                                            ? wallets.find((entry) => entry.id === item.transaction.wallet_id)
+                                            : null;
+                                        const walletCapabilities = getWalletCapabilities({
+                                            wallet,
+                                            activeProfileId,
+                                            membershipRole: wallet ? walletRoles[wallet.id] ?? null : null,
+                                        });
+
+                                        return (
                                     <TransactionItem
                                         transaction={item.transaction}
                                         onDelete={removeTransaction}
                                         onEdit={(id) => navigation.navigate('AddTransaction', { editId: id })}
                                         onPress={(transaction) => navigation.navigate('TransactionDetail', { transactionId: transaction.id })}
+                                        canManage={!wallet || walletCapabilities.canManageTransactions}
                                     />
+                                        );
+                                    })()}
                                     {!item.isLastInSection ? <View style={styles.separator} /> : null}
                                 </View>
                             );
@@ -243,11 +276,11 @@ export function TransactionListScreen() {
     );
 }
 
-const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+const getStyles = (colors: ReturnType<typeof useTheme>['colors'], isCompact: boolean) =>
     StyleSheet.create({
         content: {
             flex: 1,
-            gap: 14,
+            gap: isCompact ? 10 : 14,
         },
         contentWide: {
             maxWidth: 1240,
@@ -256,7 +289,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             paddingTop: 10,
         },
         topGrid: {
-            gap: 14,
+            gap: isCompact ? 10 : 14,
         },
         topGridWide: {
             flexDirection: 'row',
@@ -275,13 +308,13 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             paddingBottom: 80,
         },
         listContent: {
-            paddingBottom: 104,
+            paddingBottom: isCompact ? 96 : 104,
         },
         sectionHeader: {
-            marginTop: 10,
-            marginBottom: 8,
-            paddingHorizontal: 14,
-            paddingVertical: 10,
+            marginTop: isCompact ? 6 : 10,
+            marginBottom: isCompact ? 6 : 8,
+            paddingHorizontal: isCompact ? 12 : 14,
+            paddingVertical: isCompact ? 8 : 10,
             borderRadius: BorderRadius['2xl'],
             backgroundColor: colors.panelSurface,
             borderWidth: 1,
@@ -325,6 +358,6 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             marginRight: 12,
         },
         sectionSpacer: {
-            height: 16,
+            height: isCompact ? 12 : 16,
         },
     });

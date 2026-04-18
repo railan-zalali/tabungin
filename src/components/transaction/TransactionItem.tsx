@@ -32,11 +32,12 @@ interface TransactionItemProps {
     onDelete?: (id: string) => void;
     onEdit?: (id: string) => void;
     onPress?: (transaction: Transaction) => void;
+    canManage?: boolean;
 }
 
 const DELETE_THRESHOLD = -80;
 
-function TransactionItemComponent({ transaction, onDelete, onEdit, onPress }: TransactionItemProps) {
+function TransactionItemComponent({ transaction, onDelete, onEdit, onPress, canManage = true }: TransactionItemProps) {
     const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
     const translateX = useSharedValue(0);
@@ -46,6 +47,12 @@ function TransactionItemComponent({ transaction, onDelete, onEdit, onPress }: Tr
     const isIncome = transaction.type === 'income';
 
     const handleDelete = useCallback(() => {
+        if (!canManage) {
+            Alert.alert('Akses terbatas', 'Transaksi pada dompet ini hanya bisa dilihat.');
+            translateX.value = withSpring(0);
+            return;
+        }
+
         Alert.alert(
             'Hapus Transaksi',
             'Yakin ingin menghapus transaksi ini?',
@@ -61,26 +68,30 @@ function TransactionItemComponent({ transaction, onDelete, onEdit, onPress }: Tr
                 },
             ]
         );
-    }, [transaction.id, onDelete]);
+    }, [canManage, transaction.id, onDelete]);
 
     const handleLongPress = useCallback(() => {
+        if (!canManage) {
+            Alert.alert('Akses terbatas', 'Transaksi pada dompet ini hanya bisa dilihat.');
+            return;
+        }
         triggerHapticImpact(Haptics.ImpactFeedbackStyle.Medium);
         Alert.alert('Pilihan', '', [
             { text: 'Edit', onPress: () => onEdit?.(transaction.id) },
             { text: 'Hapus', style: 'destructive', onPress: () => onDelete?.(transaction.id) },
             { text: 'Batal', style: 'cancel' },
         ]);
-    }, [transaction.id, onDelete, onEdit]);
+    }, [canManage, transaction.id, onDelete, onEdit]);
 
     const panGesture = Gesture.Pan()
         .activeOffsetX([-10, 10])
         .onUpdate((e) => {
-            if (e.translationX < 0) {
+            if (canManage && e.translationX < 0) {
                 translateX.value = Math.max(e.translationX, DELETE_THRESHOLD * 1.2);
             }
         })
         .onEnd((e) => {
-            if (e.translationX < DELETE_THRESHOLD) {
+            if (canManage && e.translationX < DELETE_THRESHOLD) {
                 translateX.value = withTiming(DELETE_THRESHOLD, {}, () => {
                     runOnJS(handleDelete)();
                 });
@@ -111,7 +122,9 @@ function TransactionItemComponent({ transaction, onDelete, onEdit, onPress }: Tr
                         accessible={true}
                         accessibilityRole="button"
                         accessibilityLabel={`Transaksi ${isIncome ? 'pemasukan' : 'pengeluaran'} ${category?.name ?? transaction.category}, ${formatRupiah(transaction.amount)}`}
-                        accessibilityHint="Ketuk dua kali untuk melihat detail. Tahan untuk opsi edit dan hapus. Geser kiri untuk hapus"
+                        accessibilityHint={canManage
+                            ? "Ketuk dua kali untuk melihat detail. Tahan untuk opsi edit dan hapus. Geser kiri untuk hapus"
+                            : "Ketuk dua kali untuk melihat detail transaksi dalam mode read only"}
                     >
                         <View
                             style={[

@@ -26,6 +26,8 @@ import { ScreenShell } from '../../components/common/ScreenShell';
 import { StatStrip } from '../../components/common/StatStrip';
 import { getReadableTextColor } from '../../utils/colorContrast';
 import { useResponsiveMetrics } from '../../utils/responsive';
+import { getWalletCapabilities } from '../../utils/walletPermissions';
+import type { WalletMember } from '../../database/walletQueries';
 
 function resolveWalletIcon(type?: string) {
     if (type === 'bank') return 'bank-outline';
@@ -34,9 +36,10 @@ function resolveWalletIcon(type?: string) {
     return 'wallet-outline';
 }
 
-const WalletCard = React.memo(function WalletCard({ item, activeProfileId, onEdit, onDelete }: {
+const WalletCard = React.memo(function WalletCard({ item, activeProfileId, membershipRole, onEdit, onDelete }: {
     item: Wallet;
     activeProfileId?: string | null;
+    membershipRole?: WalletMember['role'] | null;
     onEdit: (wallet: Wallet) => void;
     onDelete: (wallet: Wallet) => void;
 }) {
@@ -48,7 +51,9 @@ const WalletCard = React.memo(function WalletCard({ item, activeProfileId, onEdi
         light: colors.textInverse,
         dark: colors.textPrimary,
     });
-    const isSharedWallet = Boolean(item.profile_id && item.profile_id !== activeProfileId);
+    const capabilities = getWalletCapabilities({ wallet: item, activeProfileId, membershipRole });
+    const isSharedWallet = capabilities.isSharedWallet;
+    const interactionHint = capabilities.isReadOnly ? 'Buka detail dompet read only' : 'Buka detail atau edit dompet';
 
     return (
         <TouchableOpacity
@@ -57,7 +62,7 @@ const WalletCard = React.memo(function WalletCard({ item, activeProfileId, onEdi
             activeOpacity={0.92}
             accessibilityRole="button"
             accessibilityLabel={`${item.name || 'Dompet tanpa nama'}, saldo ${formatCurrency(item.balance || 0)}`}
-            accessibilityHint="Buka detail atau edit dompet"
+            accessibilityHint={interactionHint}
         >
             <View style={[styles.walletAccent, { backgroundColor: itemColor }]} />
             <View style={styles.walletBody}>
@@ -69,7 +74,7 @@ const WalletCard = React.memo(function WalletCard({ item, activeProfileId, onEdi
                         <Text style={styles.walletName}>{item.name || 'Dompet tanpa nama'}</Text>
                         <Text style={styles.walletType}>{item.type ? item.type.toUpperCase() : 'GENERAL'}</Text>
                     </View>
-                    {!item.is_default ? (
+                    {!item.is_default && capabilities.canDeleteWallet ? (
                         <TouchableOpacity
                             onPress={() => onDelete(item)}
                             style={styles.walletDelete}
@@ -98,7 +103,7 @@ export function WalletListScreen() {
     const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
     const metrics = useResponsiveMetrics();
-    const { wallets, loadWallets, removeWallet, error } = useWalletStore();
+    const { wallets, walletRoles, loadWallets, removeWallet, error } = useWalletStore();
     const activeProfileId = useProfileStore((state) => state.activeProfileId);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -236,12 +241,13 @@ export function WalletListScreen() {
                     />
                 }
                 renderItem={({ item }) => (
-                    <WalletCard
-                        item={item}
-                        activeProfileId={activeProfileId}
-                        onEdit={(wallet) => navigation.navigate('AddWallet', { wallet })}
-                        onDelete={handleDelete}
-                    />
+                            <WalletCard
+                                item={item}
+                                activeProfileId={activeProfileId}
+                                membershipRole={walletRoles[item.id] ?? null}
+                                onEdit={(wallet) => navigation.navigate('AddWallet', { wallet })}
+                                onDelete={handleDelete}
+                            />
                 )}
                 ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
             />

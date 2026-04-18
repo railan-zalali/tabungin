@@ -35,7 +35,7 @@ export function BudgetScreen() {
     const { budgets, loadBudgets, saveBudget, removeBudget, isLoading, totalBudget, totalSpent } = useBudgetStore();
     const { colors, gradients } = useTheme();
     const metrics = useResponsiveMetrics();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const styles = React.useMemo(() => getStyles(colors, metrics.isCompact), [colors, metrics.isCompact]);
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [amountInput, setAmountInput] = useState('');
     const [isEditing, setIsEditing] = useState(false);
@@ -277,7 +277,7 @@ export function BudgetScreen() {
     );
 }
 
-const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+const getStyles = (colors: ReturnType<typeof useTheme>['colors'], isCompact: boolean) =>
     StyleSheet.create({
         content: {
             gap: 18,
@@ -285,7 +285,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         },
         heroCard: {
             borderRadius: BorderRadius['5xl'],
-            padding: 22,
+            padding: isCompact ? 18 : 22,
             gap: 10,
             overflow: 'hidden',
             borderWidth: 1,
@@ -300,7 +300,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         },
         heroValue: {
             fontFamily: FontFamily.heading,
-            fontSize: 32,
+            fontSize: isCompact ? 28 : 32,
             color: colors.textInverse,
         },
         heroSubtitle: {
@@ -320,7 +320,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             borderRadius: BorderRadius.full,
         },
         summaryRow: {
-            flexDirection: 'row',
+            flexDirection: isCompact ? 'column' : 'row',
             gap: 12,
             marginTop: 6,
         },
@@ -363,7 +363,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             gap: 12,
         },
         budgetHeader: {
-            flexDirection: 'row',
+            flexDirection: isCompact ? 'column' : 'row',
             alignItems: 'flex-start',
             justifyContent: 'space-between',
             gap: 12,
@@ -384,6 +384,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         actionRow: {
             flexDirection: 'row',
             gap: 8,
+            alignSelf: isCompact ? 'flex-start' : 'auto',
         },
         iconButton: {
             width: 36,
@@ -404,7 +405,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             borderRadius: BorderRadius.full,
         },
         metaRow: {
-            flexDirection: 'row',
+            flexDirection: isCompact ? 'column' : 'row',
             justifyContent: 'space-between',
             gap: 12,
         },

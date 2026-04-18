@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../store/useThemeStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -24,6 +25,7 @@ import {
 } from '../../database/walletSharingService';
 import { buildWalletInviteUrl, isValidWalletId } from '../../utils/walletInvite';
 import { useResponsiveMetrics } from '../../utils/responsive';
+import { getReadableTextColor } from '../../utils/colorContrast';
 
 type JoinWalletScreenRouteProp = RouteProp<WalletStackParamList, 'JoinWallet'>;
 
@@ -227,6 +229,11 @@ export function JoinWalletScreen() {
 
     const walletName = walletInfo?.name || 'Dompet bersama';
     const walletTypeLabel = walletInfo?.type ? String(walletInfo.type).replace('-', ' ') : 'General';
+    const walletAccentColor = walletInfo?.color || colors.primary;
+    const walletIconColor = getReadableTextColor(walletAccentColor, {
+        light: colors.textInverse,
+        dark: colors.textPrimary,
+    });
 
     return (
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
@@ -263,6 +270,13 @@ export function JoinWalletScreen() {
                         { label: 'Status', value: alreadyMember ? 'Sudah masuk' : 'Siap bergabung', icon: 'door' },
                     ]}
                 />
+
+                <View style={styles.walletPreviewChip}>
+                    <View style={[styles.walletPreviewIcon, { backgroundColor: walletAccentColor }]}>
+                        <MaterialCommunityIcons name="wallet-outline" size={16} color={walletIconColor} />
+                    </View>
+                    <Text style={styles.walletPreviewText}>{walletTypeLabel}</Text>
+                </View>
 
                 <InlineNotice
                     icon="account-group-outline"
@@ -356,6 +370,30 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             width: '100%',
             maxWidth: 920,
             alignSelf: 'center',
+        },
+        walletPreviewChip: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+            alignSelf: 'flex-start',
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            borderRadius: BorderRadius.full,
+            backgroundColor: colors.panelSurface,
+            borderWidth: 1,
+            borderColor: colors.cardBorder,
+        },
+        walletPreviewIcon: {
+            width: 30,
+            height: 30,
+            borderRadius: BorderRadius.full,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        walletPreviewText: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.caption,
+            color: colors.textPrimary,
         },
         inviteBox: {
             backgroundColor: colors.surfaceElevated,

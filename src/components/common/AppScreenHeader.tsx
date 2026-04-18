@@ -49,7 +49,8 @@ export function AppScreenHeader({
 }: AppScreenHeaderProps) {
     const { colors, textSize } = useTheme();
     const metrics = useResponsiveMetrics();
-    const styles = React.useMemo(() => getStyles(colors, textSize, metrics.isCompact), [colors, metrics.isCompact, textSize]);
+    const compactLayout = density === 'compact' || metrics.headerDensity === 'compact';
+    const styles = React.useMemo(() => getStyles(colors, textSize, compactLayout), [colors, compactLayout, textSize]);
 
     return (
         <View
@@ -62,7 +63,7 @@ export function AppScreenHeader({
                 sticky && styles.sticky,
                 variant === 'solid' && styles.solid,
                 variant === 'transparent' && styles.transparent,
-                density === 'compact' && styles.compact,
+                compactLayout && styles.compact,
             ]}
         >
             <View style={styles.row}>
@@ -89,10 +90,14 @@ export function AppScreenHeader({
                     ) : null}
                     <View style={styles.copy}>
                         {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
-                        <Text style={styles.title} numberOfLines={1}>
+                        <Text style={styles.title} numberOfLines={compactLayout ? 2 : 1}>
                             {title}
                         </Text>
-                        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+                        {subtitle ? (
+                            <Text style={styles.subtitle} numberOfLines={compactLayout ? 1 : 2}>
+                                {subtitle}
+                            </Text>
+                        ) : null}
                     </View>
                 </View>
 
@@ -119,7 +124,7 @@ export function AppScreenHeader({
                 )}
             </View>
 
-            {contextBadges ? <View style={styles.contextBadges}>{contextBadges}</View> : null}
+            {contextBadges ? <View style={[styles.contextBadges, compactLayout ? styles.contextBadgesCompact : null]}>{contextBadges}</View> : null}
         </View>
     );
 }
@@ -151,7 +156,7 @@ const getStyles = (
         },
         row: {
             flexDirection: 'row',
-            alignItems: 'center',
+            alignItems: isCompact ? 'flex-start' : 'center',
             justifyContent: 'space-between',
             gap: isCompact ? 10 : 12,
         },
@@ -160,6 +165,7 @@ const getStyles = (
             alignItems: 'flex-start',
             flex: 1,
             gap: isCompact ? 10 : 12,
+            minWidth: 0,
         },
         iconButton: {
             width: 44,
@@ -173,8 +179,9 @@ const getStyles = (
         },
         copy: {
             flex: 1,
-            paddingTop: 2,
-            gap: 2,
+            minWidth: 0,
+            paddingTop: isCompact ? 0 : 2,
+            gap: isCompact ? 3 : 2,
         },
         eyebrow: {
             fontFamily: FontFamily.bodyMedium,
@@ -200,6 +207,7 @@ const getStyles = (
             borderRadius: BorderRadius.xl,
             alignItems: 'center',
             justifyContent: 'center',
+            alignSelf: isCompact ? 'flex-start' : 'center',
             backgroundColor: colors.statSurface,
             borderWidth: 1,
             borderColor: colors.cardBorder,
@@ -211,11 +219,17 @@ const getStyles = (
         actionPlaceholder: {
             width: 44,
             height: 44,
+            alignSelf: isCompact ? 'flex-start' : 'center',
         },
         contextBadges: {
             flexDirection: 'row',
             flexWrap: 'wrap',
             gap: 8,
             marginTop: isCompact ? 10 : 12,
+        },
+        contextBadgesCompact: {
+            flexWrap: 'nowrap',
+            gap: 6,
+            overflow: 'hidden',
         },
     });

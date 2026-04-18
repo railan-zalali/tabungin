@@ -20,6 +20,8 @@ import { ScreenShell } from '../../components/common/ScreenShell';
 import { SelectionChip } from '../../components/common/SelectionChip';
 import { StatStrip } from '../../components/common/StatStrip';
 import { useResponsiveMetrics } from '../../utils/responsive';
+import { useProfileStore } from '../../store/useProfileStore';
+import { getWalletCapabilities } from '../../utils/walletPermissions';
 
 const WALLET_TYPES = [
     { id: 'general', label: 'Umum', icon: 'wallet-outline' },
@@ -33,14 +35,22 @@ const COLORS = [...AppAccentPalette];
 export function AddWalletScreen() {
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
-    const { wallets, addWallet, editWallet, loadWallets } = useWalletStore();
+    const { wallets, walletRoles, addWallet, editWallet, loadWallets } = useWalletStore();
     const { colors } = useTheme();
     const metrics = useResponsiveMetrics();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const activeProfileId = useProfileStore((state) => state.activeProfileId);
 
     const routeWallet = route.params?.wallet;
     const currentWallet = routeWallet ? wallets.find((wallet: any) => wallet.id === routeWallet.id) || routeWallet : null;
     const isEditing = !!currentWallet;
+    const walletCapabilities = getWalletCapabilities({
+        wallet: currentWallet,
+        activeProfileId,
+        membershipRole: currentWallet ? walletRoles[currentWallet.id] ?? null : null,
+    });
+    const isReadOnly = isEditing && walletCapabilities.isReadOnly;
+    const canEditWallet = !isEditing || walletCapabilities.canEditWallet;
 
     const [name, setName] = useState(currentWallet?.name || '');
     const [type, setType] = useState(currentWallet?.type || 'general');
@@ -52,6 +62,11 @@ export function AddWalletScreen() {
     const selectedType = WALLET_TYPES.find((item) => item.id === type);
 
     const handleSave = async () => {
+        if (!canEditWallet) {
+            Alert.alert('Akses terbatas', 'Dompet ini hanya bisa kamu lihat. Hubungi owner atau editor jika perlu perubahan.');
+            return;
+        }
+
         if (!name.trim()) {
             Alert.alert('Perhatian', 'Nama dompet tidak boleh kosong');
             return;
@@ -93,7 +108,11 @@ export function AddWalletScreen() {
             <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
                 <AppScreenHeader
                     title={isEditing ? 'Edit dompet' : 'Tambah dompet'}
-                    subtitle="Tentukan tipe, warna, dan perilaku dompet supaya konteks transaksi terasa lebih jelas."
+                    subtitle={
+                        isReadOnly
+                            ? 'Kamu sedang melihat dompet bersama dalam mode read only.'
+                            : 'Tentukan tipe, warna, dan perilaku dompet supaya konteks transaksi terasa lebih jelas.'
+                    }
                     eyebrow="Wallet Setup"
                     showBack
                     onBackPress={() => navigation.goBack()}
@@ -115,7 +134,11 @@ export function AddWalletScreen() {
                         eyebrow="Live Preview"
                         title={name || 'Dompet baru'}
                         value={`Rp ${balance || '0'}`}
-                        description="Preview ini membantu memastikan nama, tipe, dan warna dompet sudah enak dibaca sebelum disimpan."
+                        description={
+                            isReadOnly
+                                ? 'Preview ini menampilkan kondisi dompet tanpa membuka jalur edit untuk role viewer.'
+                                : 'Preview ini membantu memastikan nama, tipe, dan warna dompet sudah enak dibaca sebelum disimpan.'
+                        }
                         icon={selectedType?.icon || 'wallet-outline'}
                         stats={[
                             { label: 'Tipe', value: selectedType?.label || 'Umum', icon: 'shape-outline' },
@@ -146,6 +169,7 @@ export function AddWalletScreen() {
                             leftIcon="wallet-outline"
                             placeholder="Contoh: Dompet Utama"
                             autoFocus={!isEditing}
+                            editable={canEditWallet}
                         />
                         <Input
                             label="Saldo awal"
@@ -155,6 +179,7 @@ export function AddWalletScreen() {
                             keyboardType="numeric"
                             placeholder="0"
                             hint="Nominal ini menjadi titik awal saldo dompet saat pertama dipakai."
+                            editable={canEditWallet}
                         />
                     </FormSection>
 
@@ -170,7 +195,10 @@ export function AddWalletScreen() {
                                     icon={walletType.icon}
                                     label={walletType.label}
                                     selected={type === walletType.id}
-                                    onPress={() => setType(walletType.id)}
+                                    onPress={() => {
+                                        if (!canEditWallet) return;
+                                        setType(walletType.id);
+                                    }}
                                 />
                             ))}
                         </View>
@@ -187,7 +215,10 @@ export function AddWalletScreen() {
                                     <TouchableOpacity
                                         key={item}
                                         style={[styles.colorBtn, { backgroundColor: item }, color === item ? styles.colorBtnActive : null]}
-                                        onPress={() => setColor(item)}
+                                        onPress={() => {
+                                            if (!canEditWallet) return;
+                                            setColor(item);
+                                        }}
                                         accessibilityRole="button"
                                         accessibilityLabel={`Pilih warna ${item}`}
                                         accessibilityState={{ selected: color === item }}
@@ -220,9 +251,13 @@ export function AddWalletScreen() {
                             </View>
                             <Switch
                                 value={isDefault}
-                                onValueChange={setIsDefault}
+                                onValueChange={(value) => {
+                                    if (!canEditWallet) return;
+                                    setIsDefault(value);
+                                }}
                                 trackColor={{ false: colors.neutral300, true: colors.primaryLight }}
                                 thumbColor={isDefault ? colors.primary : colors.surfaceElevated}
+                                disabled={!canEditWallet}
                             />
                         </View>
                     </FormSection>
@@ -233,13 +268,18 @@ export function AddWalletScreen() {
                             title="Anggota dompet"
                             subtitle="Kelola akses, undangan, dan konteks kolaborasi tanpa keluar dari layar pengaturan dompet."
                         >
-                            <WalletMemberList walletId={currentWallet.id} />
+                            <WalletMemberList
+                                walletId={currentWallet.id}
+                                currentUserRole={walletCapabilities.resolvedRole === 'owner' ? 'owner' : walletCapabilities.resolvedRole}
+                                canInvite={walletCapabilities.canInviteMember}
+                                canRemove={walletCapabilities.canRemoveMember}
+                            />
                         </FormSection>
                     ) : null}
                 </ScrollView>
 
                 <PrimaryActionBar
-                    primaryLabel={isEditing ? 'Simpan perubahan' : 'Simpan dompet'}
+                    primaryLabel={canEditWallet ? (isEditing ? 'Simpan perubahan' : 'Simpan dompet') : 'Mode read only'}
                     onPrimaryPress={handleSave}
                     primaryLoading={isLoading}
                     secondaryLabel="Batal"

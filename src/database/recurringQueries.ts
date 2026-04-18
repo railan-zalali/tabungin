@@ -326,47 +326,45 @@ export async function syncRemoteRecurringTransactions(userId: string): Promise<v
 
     const db = await getInitializedDatabase();
     try {
-      await db.withTransactionAsync(async () => {
-        for (const tx of data) {
-          const existing = await db.getFirstAsync<{ sync_status: string }>(
-            'SELECT sync_status FROM recurring_transactions WHERE id = ?',
-            [tx.id],
-          );
+      for (const tx of data) {
+        const existing = await db.getFirstAsync<{ sync_status: string }>(
+          'SELECT sync_status FROM recurring_transactions WHERE id = ?',
+          [tx.id],
+        );
 
-          if (existing && existing.sync_status !== 'synced') {
-            continue;
-          }
-
-          await db.runAsync(
-            `INSERT OR REPLACE INTO recurring_transactions
-             (id, user_id, wallet_id, category, amount, type, note, frequency,
-             day_of_month, day_of_week, start_date, end_date, next_occurrence,
-              is_active, last_generated_at, reminder_enabled, reminder_offset_minutes, created_at, updated_at, sync_status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`,
-            [
-              tx.id,
-              tx.user_id,
-              tx.wallet_id,
-              tx.category,
-              tx.amount,
-              tx.type,
-              tx.note,
-              tx.frequency,
-              tx.day_of_month,
-              tx.day_of_week,
-              tx.start_date,
-              tx.end_date,
-              tx.next_occurrence,
-              tx.is_active ? 1 : 0,
-              tx.last_generated_at,
-              tx.reminder_enabled ? 1 : 0,
-              tx.reminder_offset_minutes ?? 60,
-              tx.created_at,
-              tx.updated_at,
-            ]
-          );
+        if (existing && existing.sync_status !== 'synced') {
+          continue;
         }
-      });
+
+        await db.runAsync(
+          `INSERT OR REPLACE INTO recurring_transactions
+           (id, user_id, wallet_id, category, amount, type, note, frequency,
+           day_of_month, day_of_week, start_date, end_date, next_occurrence,
+            is_active, last_generated_at, reminder_enabled, reminder_offset_minutes, created_at, updated_at, sync_status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`,
+          [
+            tx.id,
+            tx.user_id,
+            tx.wallet_id,
+            tx.category,
+            tx.amount,
+            tx.type,
+            tx.note,
+            tx.frequency,
+            tx.day_of_month,
+            tx.day_of_week,
+            tx.start_date,
+            tx.end_date,
+            tx.next_occurrence,
+            tx.is_active ? 1 : 0,
+            tx.last_generated_at,
+            tx.reminder_enabled ? 1 : 0,
+            tx.reminder_offset_minutes ?? 60,
+            tx.created_at,
+            tx.updated_at,
+          ]
+        );
+      }
     } catch (syncError) {
       console.error('[Recurring Sync] Failed to persist remote recurring transactions locally:', syncError);
       throw syncError;

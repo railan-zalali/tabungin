@@ -34,7 +34,9 @@ export function PrimaryActionBar({
     const insets = useSafeAreaInsets();
     const { colors } = useTheme();
     const metrics = useResponsiveMetrics();
-    const styles = React.useMemo(() => getStyles(colors, metrics.isCompact), [colors, metrics.isCompact]);
+    const compactLayout = metrics.density === 'compact';
+    const styles = React.useMemo(() => getStyles(colors, compactLayout), [colors, compactLayout]);
+    const stackActions = Boolean(secondaryLabel && compactLayout);
     const resolvedBottomInset = React.useMemo(() => {
         if (typeof bottomInset === 'number') {
             return bottomInset;
@@ -44,8 +46,8 @@ export function PrimaryActionBar({
             return insets.bottom + 12 + offset;
         }
 
-        return metrics.tabBarClearance;
-    }, [bottomInset, insets.bottom, metrics.tabBarClearance, offset]);
+        return metrics.compactBottomClearance;
+    }, [bottomInset, insets.bottom, metrics.compactBottomClearance, offset]);
 
     return (
         <View
@@ -59,17 +61,23 @@ export function PrimaryActionBar({
                 containerStyle,
             ]}
         >
-            <View style={[styles.bar, barStyle]}>
+            <View style={[styles.bar, stackActions ? styles.barStacked : null, barStyle]}>
                 {secondaryLabel && onSecondaryPress ? (
-                    <Button label={secondaryLabel} onPress={onSecondaryPress} variant="outline" style={{ flex: 1 }} />
+                    <Button
+                        label={secondaryLabel}
+                        onPress={onSecondaryPress}
+                        variant="outline"
+                        fullWidth={stackActions}
+                        style={stackActions ? undefined : { flex: 1 }}
+                    />
                 ) : null}
                 <Button
                     label={primaryLabel}
                     onPress={onPrimaryPress}
                     loading={primaryLoading}
                     variant="primary"
-                    fullWidth={!secondaryLabel}
-                    style={secondaryLabel ? { flex: 1 } : undefined}
+                    fullWidth={stackActions || !secondaryLabel}
+                    style={secondaryLabel && !stackActions ? { flex: 1 } : undefined}
                 />
             </View>
         </View>
@@ -106,5 +114,8 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], isCompact: boo
             shadowOpacity: 0.08,
             shadowRadius: 20,
             elevation: 4,
+        },
+        barStacked: {
+            flexDirection: 'column',
         },
     });

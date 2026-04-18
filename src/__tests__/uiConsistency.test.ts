@@ -112,8 +112,8 @@ describe('ui consistency guardrails', () => {
       'src/screens/transaction/TransactionDetailScreen.tsx',
     ]) {
       const source = readFile(file);
-      expect(source).toContain('floatingActionClearance');
-      expect(source).toContain('bottomInset={metrics.tabBarClearance}');
+      expect(source).toMatch(/floatingActionClearance|compactBottomClearance/);
+      expect(source).toMatch(/bottomInset=\{metrics\.(tabBarClearance|compactBottomClearance)\}/);
       expect(source).not.toContain('bottomActionInset');
     }
   });
@@ -196,7 +196,7 @@ describe('ui consistency guardrails', () => {
       'src/screens/settings/AddWalletScreen.tsx': ['SelectionChip', 'StatStrip', 'InlineNotice'],
       'src/screens/settings/ReminderCenterScreen.tsx': ['MetricCard', 'SelectionChip', 'InlineNotice'],
       'src/screens/settings/SettingsScreen.tsx': ['SettingsGroup', 'InlineNotice'],
-      'src/screens/transaction/AddTransactionScreen.tsx': ['SelectionChip', 'InfoRow'],
+      'src/screens/transaction/AddTransactionScreen.tsx': ['SelectionChip', 'Input'],
       'src/screens/transaction/RecurringTransactionScreen.tsx': ['SelectionChip', 'StatStrip', 'InlineNotice'],
       'src/screens/transaction/TransactionListScreen.tsx': ['StatStrip'],
       'src/screens/notification/NotificationScreen.tsx': ['StatStrip', 'InlineNotice'],
@@ -209,6 +209,23 @@ describe('ui consistency guardrails', () => {
       const source = readFile(file);
       for (const primitive of primitives) {
         expect(source).toContain(primitive);
+      }
+    }
+  });
+
+  it('keeps priority native screens on compact mobile variants', () => {
+    const expectations: Record<string, string[]> = {
+      'src/screens/dashboard/DashboardScreen.tsx': ['density={metrics.headerDensity}', 'layout="compact"', 'hideSubtitleOnCompact'],
+      'src/screens/transaction/TransactionListScreen.tsx': ['density={metrics.headerDensity}', 'mode="compact"'],
+      'src/screens/transaction/AddTransactionScreen.tsx': ['density={metrics.headerDensity}', 'compactBottomClearance'],
+      'src/screens/saving/SavingListScreen.tsx': ['density={metrics.headerDensity}', 'layout="compact"'],
+      'src/screens/settings/SettingsScreen.tsx': ['density={metrics.headerDensity}', 'accountSummaryCard'],
+    };
+
+    for (const [file, snippets] of Object.entries(expectations)) {
+      const source = readFile(file);
+      for (const snippet of snippets) {
+        expect(source).toContain(snippet);
       }
     }
   });

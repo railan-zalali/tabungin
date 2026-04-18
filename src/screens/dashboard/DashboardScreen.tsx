@@ -44,8 +44,9 @@ interface QuickAction {
 export function DashboardScreen() {
     const navigation = useNavigation<DashboardNavigationProp>();
     const { colors } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors), [colors]);
     const metrics = useResponsiveMetrics();
+    const compactLayout = metrics.density === 'compact';
+    const styles = React.useMemo(() => getStyles(colors, compactLayout), [colors, compactLayout]);
     const user = useAuthStore((state) => state.user);
     const { profiles, activeProfileId, loadProfiles } = useProfileStore();
     const activeProfile = profiles.find((profile) => profile.id === activeProfileId);
@@ -79,6 +80,8 @@ export function DashboardScreen() {
         [activeProfileId, wallets],
     );
     const netBalance = totalIncome - totalExpense;
+    const visibleGoals = compactLayout ? activeGoals.slice(0, 1) : activeGoals.slice(0, 2);
+    const visibleTransactions = compactLayout ? recentTransactions.slice(0, 3) : recentTransactions;
 
     const loadAll = useCallback(async () => {
         await loadProfiles();
@@ -137,6 +140,7 @@ export function DashboardScreen() {
                 eyebrow="Dashboard Harian"
                 title={`Halo, ${user?.name ? user.name.split(' ')[0] : 'Kawan'}`}
                 subtitle={formatDateLong(Date.now())}
+                density={metrics.headerDensity}
                 rightAction={{
                     icon: 'bell-outline',
                     label: 'Buka notifikasi',
@@ -146,7 +150,7 @@ export function DashboardScreen() {
                     <>
                         {activeProfile ? <ContextBadge icon="account-circle-outline" label={activeProfile.name} tone="primary" /> : null}
                         <ContextBadge icon="wallet-outline" label={`${wallets.length} dompet`} tone="neutral" />
-                        {sharedWalletCount > 0 ? (
+                        {!compactLayout && sharedWalletCount > 0 ? (
                             <ContextBadge icon="account-group-outline" label={`${sharedWalletCount} bersama`} tone="info" />
                         ) : null}
                     </>
@@ -179,17 +183,18 @@ export function DashboardScreen() {
                                 eyebrow="Financial Overview"
                                 title="Saldo total lintas dompet"
                                 value={formatCurrency(totalBalance)}
+                                layout="compact"
                                 description={
                                     netBalance >= 0
-                                        ? 'Arus kas bulan ini masih positif. Saat yang bagus untuk lanjut menjaga target utama tetap bergerak.'
-                                        : 'Pengeluaran bulan ini lebih agresif dari pemasukan. Cek kategori utama sebelum ritme makin berat.'
+                                        ? 'Arus kas bulan ini masih positif dan siap dipakai menjaga target utama tetap bergerak.'
+                                        : 'Pengeluaran bulan ini lebih agresif. Cek kategori utama sebelum ritme makin berat.'
                                 }
                                 icon="wallet-outline"
                                 badges={
                                     <>
                                         <ContextBadge icon="piggy-bank-outline" label={`${goals.length} target`} inverse />
                                         <ContextBadge icon="credit-card-multiple-outline" label={`${wallets.length} dompet`} inverse />
-                                        {sharedGoalsCount > 0 ? (
+                                        {!compactLayout && sharedGoalsCount > 0 ? (
                                             <ContextBadge icon="account-group-outline" label={`${sharedGoalsCount} target bersama`} inverse />
                                         ) : null}
                                     </>
@@ -198,8 +203,6 @@ export function DashboardScreen() {
                                     { label: 'Pemasukan', value: formatCurrency(totalIncome), icon: 'arrow-up' },
                                     { label: 'Pengeluaran', value: formatCurrency(totalExpense), icon: 'arrow-down' },
                                 ]}
-                                ctaLabel="Buka insight keuangan"
-                                onPressCta={() => navigation.navigate('Report')}
                             />
 
                             <View style={styles.metricRow}>
@@ -220,55 +223,88 @@ export function DashboardScreen() {
                             </View>
                         </View>
 
-                        <View style={styles.overviewSide}>
-                            <SectionHeader
-                                eyebrow="Next Best Actions"
-                                title="Aksi cepat"
-                                subtitle="Tiga aksi paling sering dipakai, dibuat jelas dan mudah dijangkau."
-                            />
-                            <View style={[styles.quickActionGrid, metrics.widthClass === 'compact' ? styles.quickActionGridStack : null, metrics.isWide ? styles.quickActionGridWide : null]}>
-                                {quickActions.map((item) => (
+                        {metrics.isWide ? (
+                            <View style={styles.overviewSide}>
+                                <SectionHeader
+                                    eyebrow="Next Best Actions"
+                                    title="Aksi cepat"
+                                    subtitle="Tiga aksi paling sering dipakai, dibuat jelas dan mudah dijangkau."
+                                    hideSubtitleOnCompact
+                                />
+                                <View style={[styles.quickActionGrid, styles.quickActionGridWide]}>
+                                    {quickActions.map((item) => (
+                                        <ActionTile
+                                            key={item.id}
+                                            icon={item.icon}
+                                            title={item.label}
+                                            description={item.description}
+                                            tone={item.tone}
+                                            onPress={item.onPress}
+                                            layout="compact"
+                                        />
+                                    ))}
+                                </View>
+
+                                <InsightPanel
+                                    title="Fokus yang layak dipantau"
+                                    description={
+                                        sharedGoalsCount > 0
+                                            ? `Ada ${sharedGoalsCount} target bersama aktif. Pastikan konteks wallet dan ownership tetap jelas saat menambah progres.`
+                                            : activeGoals.length > 0
+                                                ? `Masih ada ${activeGoals.length} target aktif. Sedikit kontribusi rutin akan menjaga progres tetap sehat.`
+                                                : 'Belum ada target aktif. Membuat satu target utama akan membantu dashboard terasa lebih actionable.'
+                                    }
+                                    badges={
+                                        <>
+                                            <ContextBadge
+                                                icon={netBalance >= 0 ? 'trending-up' : 'trending-down'}
+                                                label={netBalance >= 0 ? 'Arus kas positif' : 'Perlu perhatian'}
+                                                tone={netBalance >= 0 ? 'success' : 'warning'}
+                                            />
+                                            <ContextBadge icon="calendar-month-outline" label="Bulan berjalan" tone="neutral" />
+                                        </>
+                                    }
+                                    actionLabel={activeGoals.length > 0 ? 'Lihat target aktif' : 'Buat target pertama'}
+                                    onAction={() =>
+                                        navigation.navigate('Savings', {
+                                            screen: activeGoals.length > 0 ? 'SavingList' : 'AddSavingGoal',
+                                        })
+                                    }
+                                    tone={netBalance >= 0 ? 'primary' : 'warning'}
+                                />
+                            </View>
+                        ) : null}
+                    </View>
+                </Animated.View>
+
+                {!metrics.isWide ? (
+                    <Animated.View entering={FadeInDown.delay(120).springify()} style={styles.quickActionRail}>
+                        <SectionHeader
+                            eyebrow="Next Best Actions"
+                            title="Aksi cepat"
+                            subtitle="Tiga aksi yang paling sering dipakai saat mencatat arus uang."
+                            hideSubtitleOnCompact
+                        />
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.quickActionRailContent}
+                        >
+                            {quickActions.map((item) => (
+                                <View key={item.id} style={styles.quickActionRailItem}>
                                     <ActionTile
-                                        key={item.id}
                                         icon={item.icon}
                                         title={item.label}
                                         description={item.description}
                                         tone={item.tone}
                                         onPress={item.onPress}
+                                        layout="compact"
                                     />
-                                ))}
-                            </View>
-
-                            <InsightPanel
-                                title="Fokus yang layak dipantau"
-                                description={
-                                    sharedGoalsCount > 0
-                                        ? `Ada ${sharedGoalsCount} target bersama aktif. Pastikan konteks wallet dan ownership tetap jelas saat menambah progres.`
-                                        : activeGoals.length > 0
-                                            ? `Masih ada ${activeGoals.length} target aktif. Sedikit kontribusi rutin akan menjaga progres tetap sehat.`
-                                            : 'Belum ada target aktif. Membuat satu target utama akan membantu dashboard terasa lebih actionable.'
-                                }
-                                badges={
-                                    <>
-                                        <ContextBadge
-                                            icon={netBalance >= 0 ? 'trending-up' : 'trending-down'}
-                                            label={netBalance >= 0 ? 'Arus kas positif' : 'Perlu perhatian'}
-                                            tone={netBalance >= 0 ? 'success' : 'warning'}
-                                        />
-                                        <ContextBadge icon="calendar-month-outline" label="Bulan berjalan" tone="neutral" />
-                                    </>
-                                }
-                                actionLabel={activeGoals.length > 0 ? 'Lihat target aktif' : 'Buat target pertama'}
-                                onAction={() =>
-                                            navigation.navigate('Savings', {
-                                                screen: activeGoals.length > 0 ? 'SavingList' : 'AddSavingGoal',
-                                            })
-                                        }
-                                tone={netBalance >= 0 ? 'primary' : 'warning'}
-                            />
-                        </View>
-                    </View>
-                </Animated.View>
+                                </View>
+                            ))}
+                        </ScrollView>
+                    </Animated.View>
+                ) : null}
 
                 <Animated.View entering={FadeInUp.delay(160).springify()} style={[styles.bottomGrid, metrics.isWide ? styles.bottomGridWide : null]}>
                     <View style={styles.bottomColumn}>
@@ -276,6 +312,7 @@ export function DashboardScreen() {
                             eyebrow="Saving Goals"
                             title="Target tabungan"
                             subtitle="Target yang sedang bergerak sekarang, lengkap dengan konteks personal atau shared."
+                            hideSubtitleOnCompact
                             actionLabel="Lihat semua"
                             onAction={() => navigation.navigate('Savings', { screen: 'SavingList' })}
                         />
@@ -295,7 +332,7 @@ export function DashboardScreen() {
                             />
                         ) : (
                             <View style={styles.cardList}>
-                                {activeGoals.slice(0, 2).map((goal, index) => (
+                                {visibleGoals.map((goal, index) => (
                                     <SavingGoalCard
                                         key={goal.id}
                                         goal={goal}
@@ -315,6 +352,7 @@ export function DashboardScreen() {
                             eyebrow="Recent Flow"
                             title="Transaksi terbaru"
                             subtitle="Pantau apa yang baru berubah sebelum kamu pindah ke layar transaksi penuh."
+                            hideSubtitleOnCompact
                             actionLabel="Lihat semua"
                             onAction={() => navigation.navigate('Transactions', { screen: 'TransactionList' })}
                         />
@@ -335,7 +373,7 @@ export function DashboardScreen() {
                                     compact
                                 />
                             ) : (
-                                recentTransactions.map((transaction, index) => (
+                                visibleTransactions.map((transaction, index) => (
                                     <View key={transaction.id}>
                                         <TransactionItem
                                             transaction={transaction}
@@ -345,19 +383,49 @@ export function DashboardScreen() {
                                                 navigation.navigate('Transactions', { screen: 'TransactionDetail', params: { transactionId: item.id } })
                                             }
                                         />
-                                        {index < recentTransactions.length - 1 ? <View style={styles.separator} /> : null}
+                                        {index < visibleTransactions.length - 1 ? <View style={styles.separator} /> : null}
                                     </View>
                                 ))
                             )}
                         </View>
                     </View>
                 </Animated.View>
+
+                {!metrics.isWide ? (
+                    <InsightPanel
+                        title="Fokus yang layak dipantau"
+                        description={
+                            sharedGoalsCount > 0
+                                ? `Ada ${sharedGoalsCount} target bersama aktif. Pastikan konteks wallet dan ownership tetap jelas saat menambah progres.`
+                                : activeGoals.length > 0
+                                    ? `Masih ada ${activeGoals.length} target aktif. Sedikit kontribusi rutin akan menjaga progres tetap sehat.`
+                                    : 'Belum ada target aktif. Membuat satu target utama akan membantu dashboard terasa lebih actionable.'
+                        }
+                        badges={
+                            <>
+                                <ContextBadge
+                                    icon={netBalance >= 0 ? 'trending-up' : 'trending-down'}
+                                    label={netBalance >= 0 ? 'Arus kas positif' : 'Perlu perhatian'}
+                                    tone={netBalance >= 0 ? 'success' : 'warning'}
+                                />
+                                {!compactLayout ? <ContextBadge icon="calendar-month-outline" label="Bulan berjalan" tone="neutral" /> : null}
+                            </>
+                        }
+                        actionLabel={activeGoals.length > 0 ? 'Lihat target aktif' : 'Buat target pertama'}
+                        onAction={() =>
+                            navigation.navigate('Savings', {
+                                screen: activeGoals.length > 0 ? 'SavingList' : 'AddSavingGoal',
+                            })
+                        }
+                        tone={netBalance >= 0 ? 'primary' : 'warning'}
+                    />
+                ) : null}
             </ScrollView>
         </ScreenShell>
     );
 }
 
-const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+const getStyles = (colors: ReturnType<typeof useTheme>['colors'], isCompact: boolean) =>
     StyleSheet.create({
         content: {
             gap: 20,
@@ -376,9 +444,10 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         },
         profileRow: {
             flexDirection: 'row',
-            alignItems: 'center',
+            alignItems: isCompact ? 'stretch' : 'center',
             justifyContent: 'space-between',
             gap: 12,
+            flexWrap: 'wrap',
         },
         overviewGrid: {
             gap: 16,
@@ -405,8 +474,18 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         quickActionGridWide: {
             flexDirection: 'column',
         },
+        quickActionRail: {
+            gap: 10,
+        },
+        quickActionRailContent: {
+            gap: 12,
+            paddingRight: 16,
+        },
+        quickActionRailItem: {
+            width: isCompact ? 252 : 280,
+        },
         metricRow: {
-            flexDirection: 'row',
+            flexDirection: isCompact ? 'column' : 'row',
             flexWrap: 'wrap',
             gap: 12,
             marginTop: 12,
@@ -419,7 +498,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             borderWidth: 1,
             borderColor: colors.cardBorder,
             borderRadius: BorderRadius['4xl'],
-            padding: 8,
+            padding: isCompact ? 6 : 8,
             overflow: 'hidden',
         },
         bottomGrid: {

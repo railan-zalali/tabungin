@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography, scaleFontSize } from '../../constants/typography';
 import { useTheme } from '../../store/useThemeStore';
+import { useResponsiveMetrics } from '../../utils/responsive';
 
 type MetricTone = 'primary' | 'success' | 'warning' | 'danger' | 'neutral';
 
@@ -39,7 +40,8 @@ export function MetricCard({
     tone = 'neutral',
 }: MetricCardProps) {
     const { colors, textSize } = useTheme();
-    const styles = React.useMemo(() => getStyles(colors, textSize), [colors, textSize]);
+    const metrics = useResponsiveMetrics();
+    const styles = React.useMemo(() => getStyles(colors, textSize, metrics.density === 'compact'), [colors, metrics.density, textSize]);
     const palette = resolvePalette(colors, tone);
 
     return (
@@ -53,19 +55,23 @@ export function MetricCard({
                 ) : null}
             </View>
             <Text style={styles.value}>{value}</Text>
-            {caption ? <Text style={styles.caption}>{caption}</Text> : null}
+            {caption ? <Text style={styles.caption} numberOfLines={2}>{caption}</Text> : null}
         </View>
     );
 }
 
-const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: ReturnType<typeof useTheme>['textSize']) =>
+const getStyles = (
+    colors: ReturnType<typeof useTheme>['colors'],
+    textSize: ReturnType<typeof useTheme>['textSize'],
+    isCompact: boolean,
+) =>
     StyleSheet.create({
         card: {
             flex: 1,
             minWidth: 140,
-            gap: 8,
+            gap: isCompact ? 6 : 8,
             borderRadius: BorderRadius['3xl'],
-            padding: 16,
+            padding: isCompact ? 14 : 16,
             backgroundColor: colors.panelSurface,
             borderWidth: 1,
             borderColor: colors.cardBorder,
@@ -82,21 +88,21 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             color: colors.textSecondary,
         },
         iconWrap: {
-            width: 30,
-            height: 30,
+            width: isCompact ? 28 : 30,
+            height: isCompact ? 28 : 30,
             borderRadius: BorderRadius.xl,
             alignItems: 'center',
             justifyContent: 'center',
         },
         value: {
             ...Typography.h2,
-            fontSize: scaleFontSize(FontSize.h2, textSize),
+            fontSize: scaleFontSize(isCompact ? FontSize.h3 : FontSize.h2, textSize),
             color: colors.textPrimary,
         },
         caption: {
             fontFamily: FontFamily.body,
             fontSize: scaleFontSize(FontSize.caption, textSize),
             color: colors.textSecondary,
-            lineHeight: 18,
+            lineHeight: isCompact ? 17 : 18,
         },
     });
