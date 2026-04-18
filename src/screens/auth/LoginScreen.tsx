@@ -1,187 +1,274 @@
-// Login Screen — Email + Password dengan validasi real-time
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
-    SafeAreaView,
-    ScrollView,
-    TouchableOpacity,
     KeyboardAvoidingView,
     Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import { Colors } from '../../constants/colors';
-import { FontFamily, FontSize } from '../../constants/typography';
+import { BorderRadius } from '../../constants/theme';
+import { FontFamily, FontSize, Typography } from '../../constants/typography';
+import { ScreenShell } from '../../components/common/ScreenShell';
+import { FormSection } from '../../components/common/FormSection';
+import { InlineNotice } from '../../components/common/InlineNotice';
+import { StatePanel } from '../../components/common/StatePanel';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useTheme } from '../../store/useThemeStore';
+import { triggerHapticNotification } from '../../utils/haptics';
+import { useResponsiveMetrics } from '../../utils/responsive';
 import { validateEmail, validatePassword } from '../../utils/validation';
 import type { RootStackParamList } from '../../types/navigation';
 
+const REMEMBER_EMAIL_KEY = '@tabungin_remember_email';
+
 export function LoginScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-    const { login, loginOffline } = useAuthStore();
-    const [email, setEmail] = useState('budi@email.com');
-    const [password, setPassword] = useState('password123');
+    const { login, authError, continueAsGuest, sessionStatus, pendingGuestMergeResolution, postAuthRedirect, clearPostAuthRedirect } = useAuthStore();
+    const { colors, gradients } = useTheme();
+    const metrics = useResponsiveMetrics();
+    const styles = React.useMemo(() => getStyles(colors, metrics.isCompact), [colors, metrics.isCompact]);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [rememberMe, setRememberMe] = useState(false);
     const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
     const [isLoading, setIsLoading] = useState(false);
 
-    const validate = (): boolean => {
-        const newErrors: typeof errors = {};
-        const emailErr = validateEmail(email);
-        const passErr = validatePassword(password);
-        if (emailErr) newErrors.email = emailErr;
-        if (passErr) newErrors.password = passErr;
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
+    useEffect(() => {
+        AsyncStorage.getItem(REMEMBER_EMAIL_KEY)
+            .then((value) => {
+                if (value) {
+                    setEmail(value);
+                    setRememberMe(true);
+                }
+            })
+            .catch((error) => console.error('Failed to load remembered email:', error));
+    }, []);
+
+    useEffect(() => {
+        if (sessionStatus === 'authenticated' && !pendingGuestMergeResolution) {
+            navigation.reset({
+                index: 0,
+                routes: [{ name: 'Main', params: postAuthRedirect ?? undefined }],
+            });
+            clearPostAuthRedirect();
+        }
+    }, [clearPostAuthRedirect, navigation, pendingGuestMergeResolution, postAuthRedirect, sessionStatus]);
+
+    const validate = () => {
+        const nextErrors: typeof errors = {};
+        const emailError = validateEmail(email);
+        const passwordError = validatePassword(password);
+
+        if (emailError) nextErrors.email = emailError;
+        if (passwordError) nextErrors.password = passwordError;
+
+        setErrors(nextErrors);
+        return Object.keys(nextErrors).length === 0;
     };
 
     const handleLogin = async () => {
         if (!validate()) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            triggerHapticNotification();
             return;
         }
-        setIsLoading(true);
-        try {
-            await login(email, 'Budi Santoso');
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
-    const handleOffline = async () => {
         setIsLoading(true);
         try {
-            await loginOffline();
+            const success = await login(email.trim(), password);
+            if (success && rememberMe) {
+                await AsyncStorage.setItem(REMEMBER_EMAIL_KEY, email.trim());
+            } else if (!rememberMe) {
+                await AsyncStorage.removeItem(REMEMBER_EMAIL_KEY);
+            }
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <SafeAreaView style={styles.safe}>
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
-                <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-                    {/* Logo */}
-                    <View style={styles.logoSection} accessibilityRole="header">
-                        <View style={styles.logoCircle} accessibilityElementsHidden={true}>
-                            <MaterialCommunityIcons name="piggy-bank" size={48} color={Colors.textInverse} />
-                        </View>
-                        <Text style={styles.appName} allowFontScaling={true}>Tabungin</Text>
-                        <Text style={styles.tagline} allowFontScaling={true}>Catat, Kelola, Wujudkan</Text>
+        <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
+                <ScrollView
+                    contentContainerStyle={[
+                        styles.content,
+                        {
+                            paddingHorizontal: metrics.horizontalPadding,
+                            paddingTop: metrics.headerTopOffset + 20,
+                            paddingBottom: metrics.safeBottomSpacing + 12,
+                            gap: metrics.verticalGap + 2,
+                        },
+                    ]}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <View style={styles.hero}>
+                        <LinearGradient colors={gradients.hero as unknown as [string, string, ...string[]]} style={styles.heroIcon}>
+                            <MaterialCommunityIcons name="piggy-bank-outline" size={32} color={colors.textInverse} />
+                        </LinearGradient>
+                        <Text style={styles.eyebrow}>Finance Premium Workspace</Text>
+                        <Text style={styles.title}>Semua dompet, target, dan insight harian siap dilanjutkan.</Text>
+                        <Text style={styles.subtitle}>Masuk untuk kembali ke ritme keuanganmu tanpa kehilangan konteks profil, target, dan arus kas terbaru.</Text>
+                        {sessionStatus === 'guest' ? (
+                            <InlineNotice
+                                icon="account-switch-outline"
+                                title="Data guest tetap aman"
+                                description="Setelah masuk, data lokal yang belum sinkron akan tetap dibawa agar transisi ke akun terasa aman."
+                                tone="primary"
+                            />
+                        ) : null}
                     </View>
 
-                    {/* Form */}
-                    <View style={styles.formSection}>
-                        <Text style={styles.heading} allowFontScaling={true} accessibilityRole="header">
-                            Selamat Datang Kembali! 👋
-                        </Text>
-                        <Text style={styles.subHeading} allowFontScaling={true}>
-                            Masuk ke akun Tabunginmu
-                        </Text>
+                    <FormSection
+                        eyebrow="Secure Sign In"
+                        title="Masuk ke akun"
+                        subtitle="Flow ini dibuat singkat supaya kamu cepat kembali ke aktivitas utama."
+                        variant="highlight"
+                    >
+                        <Input
+                            label="Email"
+                            value={email}
+                            onChangeText={(value) => {
+                                setEmail(value);
+                                setErrors((prev) => ({ ...prev, email: undefined }));
+                            }}
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                            autoComplete="email"
+                            leftIcon="email-outline"
+                            error={errors.email}
+                            placeholder="nama@email.com"
+                            required
+                        />
+                        <Input
+                            label="Password"
+                            value={password}
+                            onChangeText={(value) => {
+                                setPassword(value);
+                                setErrors((prev) => ({ ...prev, password: undefined }));
+                            }}
+                            secureTextEntry
+                            autoComplete="password"
+                            leftIcon="lock-outline"
+                            error={errors.password}
+                            placeholder="Minimal 8 karakter"
+                            required
+                        />
 
-                        <View style={styles.fields}>
-                            <Input
-                                label="Email"
-                                value={email}
-                                onChangeText={(v) => { setEmail(v); setErrors((prev) => ({ ...prev, email: undefined })); }}
-                                keyboardType="email-address"
-                                autoCapitalize="none"
-                                autoComplete="email"
-                                leftIcon="email"
-                                error={errors.email}
-                                placeholder="nama@email.com"
-                                required
-                            />
-                            <Input
-                                label="Password"
-                                value={password}
-                                onChangeText={(v) => { setPassword(v); setErrors((prev) => ({ ...prev, password: undefined })); }}
-                                secureTextEntry
-                                autoComplete="password"
-                                leftIcon="lock"
-                                error={errors.password}
-                                placeholder="Minimal 8 karakter"
-                                required
-                            />
+                        <View style={styles.optionsRow}>
+                            <TouchableOpacity style={styles.checkRow} onPress={() => setRememberMe((value) => !value)}>
+                                <MaterialCommunityIcons
+                                    name={rememberMe ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                                    size={20}
+                                    color={rememberMe ? colors.primary : colors.textSecondary}
+                                />
+                                <Text style={styles.checkText}>Ingat email saya</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+                                <Text style={styles.linkText}>Lupa password?</Text>
+                            </TouchableOpacity>
                         </View>
 
+                        {authError ? (
+                            <StatePanel
+                                icon="alert-circle-outline"
+                                title="Masih belum bisa masuk"
+                                description={authError}
+                                tone="danger"
+                            />
+                        ) : null}
+
+                        <Button label="Masuk" onPress={handleLogin} variant="primary" size="lg" fullWidth loading={isLoading} />
                         <Button
-                            label="Masuk"
-                            onPress={handleLogin}
-                            variant="primary"
+                            label="Lanjut tanpa akun"
+                            onPress={continueAsGuest}
+                            variant="secondary"
                             size="lg"
-                            loading={isLoading}
                             fullWidth
-                            accessibilityHint="Ketuk dua kali untuk masuk ke aplikasi"
                         />
+                    </FormSection>
 
-                        <View style={styles.divider}>
-                            <View style={styles.dividerLine} />
-                            <Text style={styles.dividerText} allowFontScaling={true}>atau</Text>
-                            <View style={styles.dividerLine} />
-                        </View>
-
-                        <Button
-                            label="Masuk Tanpa Akun (Mode Offline)"
-                            onPress={handleOffline}
-                            variant="outline"
-                            size="md"
-                            fullWidth
-                            accessibilityHint="Ketuk dua kali untuk menggunakan aplikasi tanpa login"
-                        />
-                    </View>
-
-                    {/* Footer */}
-                    <View style={styles.footer}>
-                        <Text style={styles.footerText} allowFontScaling={true}>
-                            Belum punya akun?{' '}
-                        </Text>
-                        <TouchableOpacity
-                            onPress={() => navigation.navigate('Register')}
-                            accessible={true}
-                            accessibilityRole="link"
-                            accessibilityLabel="Daftar akun baru"
-                            hitSlop={{ top: 10, bottom: 10 }}
-                        >
-                            <Text style={styles.footerLink} allowFontScaling={true}>
-                                Daftar sekarang
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
+                    <TouchableOpacity style={styles.bottomLink} onPress={() => navigation.navigate('Register')}>
+                        <Text style={styles.bottomLinkText}>Belum punya akun? Daftar sekarang</Text>
+                    </TouchableOpacity>
                 </ScrollView>
             </KeyboardAvoidingView>
-        </SafeAreaView>
+        </ScreenShell>
     );
 }
 
-const styles = StyleSheet.create({
-    safe: { flex: 1, backgroundColor: Colors.surface },
-    flex: { flex: 1 },
-    container: { flexGrow: 1, padding: 24 },
-    logoSection: { alignItems: 'center', paddingTop: 20, paddingBottom: 32, gap: 8 },
-    logoCircle: {
-        width: 84,
-        height: 84,
-        borderRadius: 28,
-        backgroundColor: Colors.primary,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    appName: { fontFamily: FontFamily.heading, fontSize: 28, color: Colors.textPrimary },
-    tagline: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: Colors.textSecondary },
-    formSection: { gap: 16 },
-    heading: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: Colors.textPrimary },
-    subHeading: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: Colors.textSecondary, marginBottom: 8 },
-    fields: { gap: 14 },
-    divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 4 },
-    dividerLine: { flex: 1, height: 1, backgroundColor: Colors.border },
-    dividerText: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: Colors.textSecondary },
-    footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 24, paddingBottom: 20 },
-    footerText: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: Colors.textSecondary },
-    footerLink: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.body, color: Colors.primary },
-});
+const getStyles = (colors: ReturnType<typeof useTheme>['colors'], isCompact: boolean) =>
+    StyleSheet.create({
+        flex: { flex: 1 },
+        content: {
+            gap: 18,
+        },
+        hero: {
+            gap: 8,
+        },
+        heroIcon: {
+            width: isCompact ? 52 : 58,
+            height: isCompact ? 52 : 58,
+            borderRadius: BorderRadius['2xl'],
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        eyebrow: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.caption,
+            color: colors.primary,
+            textTransform: 'uppercase',
+            letterSpacing: 0.4,
+        },
+        title: {
+            ...Typography.h1,
+            color: colors.textPrimary,
+        },
+        subtitle: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.body,
+            lineHeight: 21,
+            color: colors.textSecondary,
+        },
+        optionsRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 12,
+        },
+        checkRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+        },
+        checkText: {
+            fontFamily: FontFamily.bodyMedium,
+            fontSize: FontSize.body,
+            color: colors.textSecondary,
+        },
+        linkText: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.body,
+            color: colors.primary,
+        },
+        bottomLink: {
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingVertical: 6,
+        },
+        bottomLinkText: {
+            fontFamily: FontFamily.bodyMedium,
+            fontSize: FontSize.body,
+            color: colors.textSecondary,
+        },
+    });

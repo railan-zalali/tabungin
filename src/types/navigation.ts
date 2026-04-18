@@ -1,28 +1,39 @@
 // Tipe navigasi React Navigation untuk Tabungin
-
+import type { CompositeNavigationProp, NavigatorScreenParams } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { Wallet } from '../database/walletQueries';
 
 // Stack Navigator Root
 export type RootStackParamList = {
     Onboarding: undefined;
     Login: undefined;
     Register: undefined;
-    Main: undefined;
+    ForgotPassword: undefined;
+    GuestDataMerge: undefined;
+    AuthCallback: undefined;
+    Main: NavigatorScreenParams<TabParamList>;
+    Budget: undefined;
+    Savings: NavigatorScreenParams<SavingStackParamList>;
 };
+
+export type WalletRouteParams = { wallet?: Wallet } | undefined;
 
 // Bottom Tab Navigator
 export type TabParamList = {
     Dashboard: undefined;
-    Transactions: undefined;
-    Savings: undefined;
+    Transactions: NavigatorScreenParams<TransactionStackParamList>;
+    Wallet: NavigatorScreenParams<WalletStackParamList>;
     Report: undefined;
-    Settings: undefined;
+    Settings: NavigatorScreenParams<SettingsStackParamList>;
 };
 
 // Transaction Stack
 export type TransactionStackParamList = {
     TransactionList: undefined;
-    AddTransaction: { editId?: string } | undefined;
+    AddTransaction: { editId?: string; type?: 'income' | 'expense' } | undefined;
     TransactionDetail: { transactionId: string };
+    RecurringTransaction: undefined;
 };
 
 // Saving Stack
@@ -32,8 +43,52 @@ export type SavingStackParamList = {
     SavingDetail: { goalId: string };
 };
 
+// Wallet Stack
+export type WalletStackParamList = {
+    WalletList: undefined;
+    AddWallet: WalletRouteParams;
+    QRScanner: undefined;
+    JoinWallet: { walletId: string };
+};
+
 // Settings Stack
 export type SettingsStackParamList = {
     SettingsMain: undefined;
     Profile: undefined;
+    Notifications: undefined;
+    CategoryManagement: undefined;
+    ExportData: undefined;
+    ImportData: undefined;
+    ReminderCenter: undefined;
+    AppUpdate: undefined;
+    WalletList: undefined;
+    AddWallet: WalletRouteParams;
+    QRScanner: undefined;
+    JoinWallet: { walletId: string };
 };
+
+export type DashboardNavigationProp = CompositeNavigationProp<
+    BottomTabNavigationProp<TabParamList, 'Dashboard'>,
+    NativeStackNavigationProp<RootStackParamList>
+>;
+
+export type SettingsNavigationProp = CompositeNavigationProp<
+    NativeStackNavigationProp<SettingsStackParamList, 'SettingsMain'>,
+    CompositeNavigationProp<
+        BottomTabNavigationProp<TabParamList, 'Settings'>,
+        NativeStackNavigationProp<RootStackParamList>
+    >
+>;
+
+export type SettingsChildNavigationProp<Screen extends keyof SettingsStackParamList> = CompositeNavigationProp<
+    NativeStackNavigationProp<SettingsStackParamList, Screen>,
+    CompositeNavigationProp<
+        BottomTabNavigationProp<TabParamList, 'Settings'>,
+        NativeStackNavigationProp<RootStackParamList>
+    >
+>;
+
+export type WalletFlowNavigationProp = CompositeNavigationProp<
+    NativeStackNavigationProp<WalletStackParamList, 'WalletList'>,
+    NativeStackNavigationProp<SettingsStackParamList>
+>;

@@ -1,277 +1,454 @@
-// Saving Detail Screen — detail goal + simulator + history log
-import React, { useEffect, useCallback, useState } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    SafeAreaView,
-    ScrollView,
-    TouchableOpacity,
-    Alert,
-    TextInput,
-    Modal,
-} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import { Colors } from '../../constants/colors';
-import { FontFamily, FontSize } from '../../constants/typography';
-import { Shadow } from '../../constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BorderRadius } from '../../constants/theme';
+import { FontFamily, FontSize, Typography } from '../../constants/typography';
+import { calculateProgress } from '../../utils/calculator';
+import { formatDateLong, formatDateShort } from '../../utils/date';
+import { formatCurrency, formatInputRupiah, parseRupiah } from '../../utils/currency';
+import { getGoalComputedMeta, getSharingActivityDescription, getSharingActivityLabel } from '../../utils/goalSharing';
+import { fetchWalletMemberRole } from '../../database/walletQueries';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useProfileStore } from '../../store/useProfileStore';
 import { useSavingStore } from '../../store/useSavingStore';
+import { useTheme } from '../../store/useThemeStore';
+import { useWalletStore } from '../../store/useWalletStore';
+import { useResponsiveMetrics } from '../../utils/responsive';
 import { ProgressBar } from '../../components/saving/ProgressBar';
 import { SavingSimulator } from '../../components/saving/SavingSimulator';
+import { AppScreenHeader } from '../../components/common/AppScreenHeader';
 import { Button } from '../../components/common/Button';
-import { formatRupiah, formatInputRupiah, parseRupiah } from '../../utils/currency';
-import { formatDateShort } from '../../utils/date';
-import { calculateProgress } from '../../utils/calculator';
+import { ContextBadge } from '../../components/common/ContextBadge';
+import { FormSection } from '../../components/common/FormSection';
+import { InlineNotice } from '../../components/common/InlineNotice';
+import { MetricCard } from '../../components/common/MetricCard';
+import { PrimaryActionBar } from '../../components/common/PrimaryActionBar';
+import { ScreenShell } from '../../components/common/ScreenShell';
+import { StatePanel } from '../../components/common/StatePanel';
+import { triggerHapticNotification } from '../../utils/haptics';
+import { getSavingPlanInsight, getSavingPlanLabel } from '../../utils/savingPlan';
+import { getReadableTextColor } from '../../utils/colorContrast';
+
+const permissionLabel = (value: string) => value === 'admin' ? 'Admin' : value === 'read_only' ? 'Read only' : 'Bisa edit';
 
 export function SavingDetailScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<any>>();
     const route = useRoute<any>();
     const goalId = route.params?.goalId as string;
-
-    const { currentGoal, currentLogs, justCompletedGoalId, loadGoalById, loadLogs, addSavingLog, clearJustCompleted } = useSavingStore();
+    const { colors } = useTheme();
+    const metrics = useResponsiveMetrics();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const wallets = useWalletStore((s) => s.wallets);
+    const activeProfileId = useProfileStore((s) => s.activeProfileId);
+    const currentUserId = useAuthStore((s) => s.user?.id);
+    const currentUserEmail = useAuthStore((s) => s.user?.email?.toLowerCase() || null);
+    const { currentGoal, currentLogs, sharingMembers, sharingActivity, justCompletedGoalId, loadGoalById, loadLogs, loadSharingDetails, addSavingLog, editSavingLog, removeSavingLog, clearJustCompleted, setGoalPermission, revokeGoalSharing } = useSavingStore();
     const [showAddModal, setShowAddModal] = useState(false);
     const [addAmount, setAddAmount] = useState('');
     const [addNote, setAddNote] = useState('');
     const [isAdding, setIsAdding] = useState(false);
+    const [editingLogId, setEditingLogId] = useState<string | null>(null);
     const [showConfetti, setShowConfetti] = useState(false);
+    const [walletRole, setWalletRole] = useState<'owner' | 'editor' | 'viewer' | null>(null);
+    const [isUpdatingPermission, setIsUpdatingPermission] = useState<string | null>(null);
 
+    useEffect(() => { loadGoalById(goalId); loadLogs(goalId); loadSharingDetails(goalId); }, [goalId, loadGoalById, loadLogs, loadSharingDetails]);
     useEffect(() => {
-        loadGoalById(goalId);
-        loadLogs(goalId);
-    }, [goalId]);
-
+        if (justCompletedGoalId !== goalId) return;
+        setShowConfetti(true);
+        clearJustCompleted();
+        triggerHapticNotification();
+        const timeout = setTimeout(() => setShowConfetti(false), 5000);
+        return () => clearTimeout(timeout);
+    }, [clearJustCompleted, goalId, justCompletedGoalId]);
     useEffect(() => {
-        if (justCompletedGoalId === goalId) {
-            setShowConfetti(true);
-            clearJustCompleted();
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            setTimeout(() => setShowConfetti(false), 5000);
-        }
-    }, [justCompletedGoalId]);
-
-    const handleAddSaving = async () => {
-        const amount = parseRupiah(addAmount);
-        if (amount <= 0) {
-            Alert.alert('Nominal tidak valid', 'Masukkan nominal yang lebih dari Rp 0');
-            return;
-        }
-        setIsAdding(true);
-        try {
-            await addSavingLog({
-                goal_id: goalId,
-                amount,
-                note: addNote.trim() || null,
-                date: Date.now(),
-            });
-            setShowAddModal(false);
-            setAddAmount('');
-            setAddNote('');
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } finally {
-            setIsAdding(false);
-        }
-    };
+        let active = true;
+        const run = async () => {
+            if (!currentGoal?.wallet_id || !currentUserEmail) return setWalletRole(null);
+            const role = await fetchWalletMemberRole(currentGoal.wallet_id, currentUserEmail);
+            if (active) setWalletRole(role);
+        };
+        run().catch(() => active && setWalletRole(null));
+        return () => { active = false; };
+    }, [currentGoal?.wallet_id, currentUserEmail]);
 
     if (!currentGoal) {
         return (
-            <SafeAreaView style={styles.safe}>
-                <Text allowFontScaling={true} style={{ padding: 20, color: Colors.textSecondary }}>Memuat...</Text>
-            </SafeAreaView>
+            <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
+                <AppScreenHeader eyebrow="Goal Detail" title="Detail Target" subtitle="Memuat detail target dan aktivitas." showBack onBackPress={() => navigation.goBack()} />
+                <View style={[styles.center, { paddingHorizontal: metrics.horizontalPadding }]}>
+                    <StatePanel loading title="Memuat target" description="Data target sedang disiapkan." />
+                </View>
+            </ScreenShell>
         );
     }
 
     const progress = calculateProgress(currentGoal.current_amount, currentGoal.target_amount);
     const remaining = Math.max(currentGoal.target_amount - currentGoal.current_amount, 0);
     const isCompleted = currentGoal.is_completed || progress >= 100;
+    const wallet = wallets.find((item) => item.id === currentGoal.wallet_id);
+    const goalMeta = getGoalComputedMeta(currentGoal, wallet, activeProfileId, sharingMembers, currentUserId, walletRole, currentUserEmail);
+    const ownSharingMember = currentUserEmail ? sharingMembers.find((m) => m.user_email.toLowerCase() === currentUserEmail) : null;
+    const missesDeadline = currentGoal.estimated_date > currentGoal.deadline_at;
+    const heroTextColor = getReadableTextColor(currentGoal.color, {
+        light: colors.textInverse,
+        dark: colors.textPrimary,
+        threshold: 0.45,
+    });
+    const heroMutedTextColor = heroTextColor === colors.textInverse ? 'rgba(255,255,255,0.82)' : 'rgba(19,32,27,0.74)';
+    const heroBadgeInverse = heroTextColor === colors.textInverse;
+    const goalAccentColor = getReadableTextColor(currentGoal.color, {
+        light: currentGoal.color,
+        dark: colors.textPrimary,
+        threshold: 0.58,
+    });
+    const planInsight = getSavingPlanInsight(
+        currentGoal.target_amount,
+        currentGoal.current_amount,
+        currentGoal.saving_per_period,
+        currentGoal.period_type,
+        currentGoal.deadline_at,
+    );
+
+    const handleEdit = () => {
+        if (!goalMeta.canEdit) return Alert.alert('Akses terbatas', 'Target ini hanya bisa kamu lihat. Minta akses edit jika perlu mengubah detail target.');
+        navigation.navigate('AddSavingGoal', { editId: goalId });
+    };
+    const handleAddSaving = async () => {
+        if (!goalMeta.canContribute) return Alert.alert('Akses terbatas', 'Target ini hanya bisa kamu lihat. Minta akses edit jika perlu menambah tabungan.');
+        const amount = parseRupiah(addAmount);
+        if (amount <= 0) return Alert.alert('Nominal tidak valid', 'Masukkan nominal yang lebih dari Rp 0');
+        setIsAdding(true);
+        try {
+            if (editingLogId) {
+                await editSavingLog(editingLogId, { amount, note: addNote.trim() || null, date: Date.now() });
+            } else {
+                await addSavingLog({ goal_id: goalId, amount, note: addNote.trim() || null, date: Date.now() });
+            }
+            setShowAddModal(false); setAddAmount(''); setAddNote(''); setEditingLogId(null);
+            triggerHapticNotification();
+        } catch (error: any) {
+            Alert.alert('Gagal', error?.message || 'Tabungan belum berhasil ditambahkan.');
+        } finally { setIsAdding(false); }
+    };
+    const openAddModal = () => {
+        setEditingLogId(null);
+        setAddAmount('');
+        setAddNote('');
+        setShowAddModal(true);
+    };
+    const openEditLogModal = (logId: string) => {
+        const log = currentLogs.find((item) => item.id === logId);
+        if (!log) return;
+        setEditingLogId(log.id);
+        setAddAmount(formatInputRupiah(String(log.amount)));
+        setAddNote(log.note || '');
+        setShowAddModal(true);
+    };
+    const handleDeleteLog = (logId: string) => {
+        Alert.alert('Hapus kontribusi', 'Saldo akan dikembalikan ke dompet asal dan progres target akan disesuaikan.', [
+            { text: 'Batal', style: 'cancel' },
+            {
+                text: 'Hapus',
+                style: 'destructive',
+                onPress: async () => {
+                    try {
+                        await removeSavingLog(logId);
+                    } catch (error: any) {
+                        Alert.alert('Gagal', error?.message || 'Kontribusi belum berhasil dihapus.');
+                    }
+                },
+            },
+        ]);
+    };
+    const handleChangePermission = async (email: string, permissionLevel: 'read_only' | 'read_write') => {
+        if (!goalMeta.canManageSharing) return;
+        setIsUpdatingPermission(email);
+        try { await setGoalPermission(goalId, email, permissionLevel); } catch (error: any) { Alert.alert('Gagal', error?.message || 'Izin anggota belum berhasil diubah.'); } finally { setIsUpdatingPermission(null); }
+    };
+    const handleRevokeMember = async (email: string) => {
+        if (!goalMeta.canManageSharing) return;
+        Alert.alert('Cabut akses', `Akses ${email} akan dicabut dari target ini.`, [
+            { text: 'Batal', style: 'cancel' },
+            { text: 'Cabut', style: 'destructive', onPress: async () => {
+                setIsUpdatingPermission(email);
+                try { await revokeGoalSharing(goalId, email); } catch (error: any) { Alert.alert('Gagal', error?.message || 'Akses anggota belum berhasil dicabut.'); } finally { setIsUpdatingPermission(null); }
+            } },
+        ]);
+    };
+
+    const infoItems = [
+        { label: 'Target', value: formatCurrency(currentGoal.target_amount), icon: 'flag-variant' },
+        { label: 'Terkumpul', value: formatCurrency(currentGoal.current_amount), icon: 'piggy-bank' },
+        { label: 'Sisa', value: formatCurrency(remaining), icon: 'timer-sand' },
+        { label: 'Nabung/Periode', value: `${formatCurrency(currentGoal.saving_per_period)}/${currentGoal.period_type}`, icon: 'calendar-refresh' },
+    ];
 
     return (
-        <SafeAreaView style={styles.safe}>
-            {/* Konfeti celebration */}
-            {showConfetti && (
-                <View style={styles.confettiOverlay} accessible={true} accessibilityLiveRegion="assertive" accessibilityLabel="Selamat! Target tabungan sudah tercapai!">
-                    <Text style={styles.confettiText}>🎉</Text>
-                    <Text style={styles.confettiTitle} allowFontScaling={true}>Selamat!</Text>
-                    <Text style={styles.confettiSub} allowFontScaling={true}>
-                        Target {currentGoal.name} sudah tercapai! 🎊
-                    </Text>
-                </View>
-            )}
+        <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
+            <AppScreenHeader eyebrow="Goal Detail" title={currentGoal.name} subtitle="Detail target, ownership, dan aktivitas kontribusi." showBack onBackPress={() => navigation.goBack()} rightAction={{ icon: 'pencil-outline', label: 'Edit target', onPress: handleEdit }} />
+            {showConfetti ? <View style={styles.confetti}><Text style={styles.confettiEmoji}>🎉</Text><Text style={styles.confettiTitle}>Selamat!</Text><Text style={styles.confettiText}>Target {currentGoal.name} sudah tercapai.</Text></View> : null}
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingHorizontal: metrics.horizontalPadding, paddingBottom: isCompleted ? metrics.contentBottomInset : metrics.floatingActionClearance + 24 }]}>
+                <LinearGradient colors={[currentGoal.color, currentGoal.color, currentGoal.color]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+                    <View style={styles.badges}>
+                        {wallet ? <ContextBadge icon={goalMeta.isSharedWalletGoal ? 'account-group-outline' : 'wallet-outline'} label={wallet.name} inverse={heroBadgeInverse} /> : null}
+                        <ContextBadge icon={goalMeta.isSharedGoal ? 'account-group-outline' : 'account-outline'} label={goalMeta.scopeLabel} inverse={heroBadgeInverse} />
+                        {sharingMembers.length > 0 ? <ContextBadge icon="shield-account-outline" label={`${sharingMembers.length} member`} inverse={heroBadgeInverse} /> : null}
+                    </View>
+                    <Text style={styles.heroEmoji}>{currentGoal.emoji}</Text>
+                    <Text style={[styles.heroName, { color: heroTextColor }]}>{currentGoal.name}</Text>
+                    <Text style={[styles.heroProgress, { color: heroTextColor }]}>{progress.toFixed(1)}%</Text>
+                    <ProgressBar progress={progress} color={heroTextColor} height={12} animationDelay={120} style={{ width: '84%' }} />
+                    <Text style={[styles.heroDescription, { color: heroMutedTextColor }]}>{goalMeta.scopeDescription}</Text>
+                    {isCompleted ? <View style={styles.completed}><MaterialCommunityIcons name="check-circle" size={18} color={colors.success} /><Text style={styles.completedText}>Sudah tercapai</Text></View> : null}
+                </LinearGradient>
 
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} accessible={true} accessibilityRole="button" accessibilityLabel="Kembali">
-                    <MaterialCommunityIcons name="arrow-left" size={22} color={Colors.textPrimary} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle} allowFontScaling={true} accessibilityRole="header" numberOfLines={1}>{currentGoal.name}</Text>
-                <View style={{ width: 44 }} />
-            </View>
-
-            <ScrollView contentContainerStyle={styles.content}>
-                {/* Hero section */}
-                <View style={[styles.heroSection, { backgroundColor: `${currentGoal.color}15` }]}>
-                    <Text style={styles.heroEmoji} accessibilityElementsHidden={true}>{currentGoal.emoji}</Text>
-                    <Text style={styles.heroName} allowFontScaling={true} accessibilityRole="header">{currentGoal.name}</Text>
-                    <Text style={[styles.heroProgress, { color: currentGoal.color }]} allowFontScaling={true} accessibilityLiveRegion="polite" accessibilityLabel={`Progress ${progress.toFixed(0)} persen`}>
-                        {progress.toFixed(1)}%
-                    </Text>
-                    <ProgressBar progress={progress} color={currentGoal.color} height={12} animationDelay={200} accessibilityLabel={`Progress tabungan ${currentGoal.name} ${progress.toFixed(0)} persen`} style={{ width: '80%' }} />
-                    {isCompleted && (
-                        <View style={styles.completedBanner} accessible={true} accessibilityLabel="Target sudah tercapai">
-                            <MaterialCommunityIcons name="check-circle" size={20} color={Colors.success} accessibilityElementsHidden={true} />
-                            <Text style={styles.completedText} allowFontScaling={true}>Sudah tercapai! 🎉</Text>
+                <FormSection eyebrow="Performance" title="Ringkasan target" subtitle="Empat angka utama untuk membaca progres sebelum mengambil aksi berikutnya." variant="highlight">
+                    <View style={styles.metricGrid}>
+                        {infoItems.map((item) => (
+                            <MetricCard
+                                key={item.label}
+                                label={item.label}
+                                value={item.value}
+                                icon={item.icon}
+                                tone={item.label === 'Sisa' ? 'warning' : item.label === 'Terkumpul' ? 'success' : 'primary'}
+                            />
+                        ))}
+                    </View>
+                    <View style={styles.timelineCard}>
+                        <View style={styles.timelineRow}>
+                            <Text style={styles.label}>Deadline target</Text>
+                            <Text style={styles.value}>{formatDateLong(currentGoal.deadline_at)}</Text>
                         </View>
-                    )}
-                </View>
-
-                {/* Info Grid */}
-                <View style={[styles.infoGrid, Shadow.sm]}>
-                    {[
-                        { label: 'Target', value: formatRupiah(currentGoal.target_amount), icon: 'flag' },
-                        { label: 'Terkumpul', value: formatRupiah(currentGoal.current_amount), icon: 'piggy-bank' },
-                        { label: 'Sisa', value: formatRupiah(remaining), icon: 'timer-sand' },
-                        { label: 'Nabung/Periode', value: formatRupiah(currentGoal.saving_per_period), icon: 'calendar-refresh' },
-                    ].map((item) => (
-                        <View key={item.label} style={styles.infoItem} accessible={true} accessibilityLabel={`${item.label}: ${item.value}`}>
-                            <MaterialCommunityIcons name={item.icon as any} size={20} color={currentGoal.color} accessibilityElementsHidden={true} />
-                            <Text style={styles.infoLabel} allowFontScaling={true}>{item.label}</Text>
-                            <Text style={styles.infoValue} allowFontScaling={true}>{item.value}</Text>
+                        <View style={styles.timelineRow}>
+                            <Text style={styles.label}>Estimasi sistem</Text>
+                            <Text style={styles.value}>{formatDateLong(currentGoal.estimated_date)}</Text>
                         </View>
-                    ))}
-                </View>
+                        {missesDeadline ? (
+                            <View style={styles.deadlineWarning}>
+                                <MaterialCommunityIcons name="alert-outline" size={18} color={colors.warning} />
+                                <Text style={styles.deadlineWarningText}>
+                                    Dengan ritme tabungan saat ini, estimasi sistem melewati deadline yang kamu tetapkan.
+                                </Text>
+                            </View>
+                        ) : null}
+                        {planInsight ? (
+                            <View style={styles.planCard}>
+                                <View style={styles.planHeader}>
+                                    <Text style={styles.label}>Status ritme</Text>
+                                    <Text
+                                        style={[
+                                            styles.planBadge,
+                                            planInsight.status === 'behind'
+                                                ? styles.planBadgeWarning
+                                                : planInsight.status === 'ahead'
+                                                    ? styles.planBadgeSuccess
+                                                    : styles.planBadgeInfo,
+                                        ]}
+                                    >
+                                        {getSavingPlanLabel(planInsight.status)}
+                                    </Text>
+                                </View>
+                                <Text style={styles.memberMeta}>
+                                    Butuh sekitar {formatCurrency(planInsight.requiredPerPeriod)} per {currentGoal.period_type === 'daily' ? 'hari' : currentGoal.period_type === 'weekly' ? 'minggu' : 'bulan'} untuk mengejar deadline.
+                                </Text>
+                            </View>
+                        ) : null}
+                    </View>
+                </FormSection>
 
-                {/* Simulator */}
-                {!isCompleted && (
+                <FormSection eyebrow="Ownership" title="Konteks ownership" subtitle="Menjelaskan scope target, peranmu, dan level akses yang aktif saat ini." density="compact">
+                    <View style={styles.row}><View style={styles.context}><Text style={styles.label}>Scope</Text><Text style={styles.value}>{goalMeta.scopeLabel}</Text></View><View style={styles.context}><Text style={styles.label}>Wallet</Text><Text style={styles.value}>{wallet?.name || 'Tanpa dompet khusus'}</Text></View></View>
+                    <View style={styles.row}><View style={styles.context}><Text style={styles.label}>Peran kamu</Text><Text style={styles.value}>{permissionLabel(goalMeta.currentUserPermission)}</Text></View><View style={styles.context}><Text style={styles.label}>Akses langsung</Text><Text style={styles.value}>{ownSharingMember ? 'Ya' : 'Turunan wallet / owner'}</Text></View></View>
+                    <View style={styles.badgesLight}>
+                        <ContextBadge icon="pencil-outline" label={goalMeta.canEdit ? 'Bisa edit target' : 'Read only'} tone={goalMeta.canEdit ? 'success' : 'warning'} />
+                        <ContextBadge icon="cash-plus" label={goalMeta.canContribute ? 'Bisa tambah tabungan' : 'Kontribusi terkunci'} tone={goalMeta.canContribute ? 'primary' : 'warning'} />
+                        <ContextBadge icon="shield-account-outline" label={goalMeta.canManageSharing ? 'Bisa kelola sharing' : 'Sharing terkunci'} tone={goalMeta.canManageSharing ? 'info' : 'neutral'} />
+                    </View>
+                </FormSection>
+
+                <InlineNotice
+                    icon={goalMeta.isSharedGoal ? 'account-group-outline' : 'account-outline'}
+                    title={goalMeta.isSharedGoal ? 'Target ini punya konteks kolaborasi' : 'Target ini bersifat personal'}
+                    description={goalMeta.isSharedGoal
+                        ? 'Perubahan kontribusi, izin anggota, dan progres target perlu dibaca bersama konteks shared wallet atau member yang aktif.'
+                        : 'Perubahan target ini hanya memengaruhi konteks personal dan dompet yang terhubung.'}
+                    tone={goalMeta.isSharedGoal ? 'info' : 'primary'}
+                />
+
+                {!isCompleted ? (
                     <SavingSimulator
                         targetAmount={currentGoal.target_amount}
                         currentAmount={currentGoal.current_amount}
                         periodType={currentGoal.period_type}
                         initialSavingAmount={currentGoal.saving_per_period}
+                        deadlineAt={currentGoal.deadline_at}
                     />
-                )}
+                ) : null}
 
-                {/* Log Tabungan */}
-                {currentLogs.length > 0 && (
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle} allowFontScaling={true} accessibilityRole="header">Riwayat Tabungan</Text>
-                        <View style={[styles.logList, Shadow.sm]}>
-                            {currentLogs.map((log, idx) => (
-                                <React.Fragment key={log.id}>
-                                    <View style={styles.logItem} accessible={true} accessibilityLabel={`Tanggal ${formatDateShort(log.date)}, tambah ${formatRupiah(log.amount)}${log.note ? ', ' + log.note : ''}`}>
-                                        <View style={styles.logIcon} accessibilityElementsHidden={true}>
-                                            <MaterialCommunityIcons name="plus-circle" size={20} color={Colors.primary} />
+                {goalMeta.isSharedGoal || sharingMembers.length > 0 || sharingActivity.length > 0 ? (
+                    <FormSection eyebrow="Sharing" title="Akses dan aktivitas shared" subtitle="Lihat siapa yang punya akses dan perubahan penting yang tercatat di target ini." density="compact">
+                        {sharingMembers.length > 0 ? (
+                            <View style={styles.stack}>
+                                {sharingMembers.map((member) => (
+                                    <View key={member.user_email} style={styles.member}>
+                                        <View style={styles.memberIcon}><MaterialCommunityIcons name="account-outline" size={18} color={colors.info} /></View>
+                                        <View style={styles.flex1}>
+                                            <Text style={styles.memberTitle}>{member.user_email}</Text>
+                                            <Text style={styles.memberMeta}>{permissionLabel(member.permission_level)} · dibagikan {formatDateShort(member.shared_at)}</Text>
                                         </View>
-                                        <View style={styles.logInfo}>
-                                            <Text style={styles.logAmount} allowFontScaling={true}>+{formatRupiah(log.amount)}</Text>
-                                            {log.note && <Text style={styles.logNote} allowFontScaling={true}>{log.note}</Text>}
-                                        </View>
-                                        <Text style={styles.logDate} allowFontScaling={true}>{formatDateShort(log.date)}</Text>
+                                        {goalMeta.canManageSharing && member.user_email.toLowerCase() !== currentUserEmail ? (
+                                            <View style={styles.memberActions}>
+                                                <TouchableOpacity style={[styles.permission, member.permission_level === 'read_only' ? styles.permissionActive : null]} disabled={isUpdatingPermission === member.user_email} onPress={() => handleChangePermission(member.user_email, 'read_only')}><Text style={[styles.permissionText, member.permission_level === 'read_only' ? styles.permissionTextActive : null]}>Read</Text></TouchableOpacity>
+                                                <TouchableOpacity style={[styles.permission, member.permission_level === 'read_write' ? styles.permissionActive : null]} disabled={isUpdatingPermission === member.user_email} onPress={() => handleChangePermission(member.user_email, 'read_write')}><Text style={[styles.permissionText, member.permission_level === 'read_write' ? styles.permissionTextActive : null]}>Edit</Text></TouchableOpacity>
+                                                <TouchableOpacity style={styles.revoke} onPress={() => handleRevokeMember(member.user_email)}><MaterialCommunityIcons name="close" size={16} color={colors.danger} /></TouchableOpacity>
+                                            </View>
+                                        ) : null}
                                     </View>
-                                    {idx < currentLogs.length - 1 && <View style={styles.logDivider} />}
-                                </React.Fragment>
+                                ))}
+                            </View>
+                        ) : <StatePanel icon="account-off-outline" title="Belum ada anggota tambahan" description="Target ini belum memiliki anggota lain dengan akses langsung." />}
+                        {sharingActivity.length > 0 ? (
+                            <View style={styles.stack}>
+                                {sharingActivity.map((activity, index) => (
+                                    <View key={activity.id}>
+                                        <View style={styles.activity}><View style={styles.dot} /><View style={styles.flex1}><Text style={styles.memberTitle}>{getSharingActivityLabel(activity)}</Text><Text style={styles.memberMeta}>{getSharingActivityDescription(activity)}</Text><Text style={styles.dateMeta}>{formatDateShort(activity.timestamp)}</Text></View></View>
+                                        {index < sharingActivity.length - 1 ? <View style={styles.activityDivider} /> : null}
+                                    </View>
+                                ))}
+                            </View>
+                        ) : null}
+                    </FormSection>
+                ) : null}
+
+                {currentLogs.length > 0 ? (
+                    <FormSection eyebrow="Contribution Log" title="Riwayat tabungan" subtitle={`${currentLogs.length} kontribusi tercatat di target ini.`} density="compact">
+                        <View style={styles.stack}>
+                            {currentLogs.map((log, index) => (
+                                <View key={log.id}>
+                                    <View style={styles.log}>
+                                        <View style={styles.infoIcon}><MaterialCommunityIcons name="plus" size={18} color={goalAccentColor} /></View>
+                                        <View style={styles.flex1}>
+                                            <Text style={[styles.value, { color: goalAccentColor }]}>+{formatCurrency(log.amount)}</Text>
+                                            {log.note ? <Text style={styles.memberMeta}>{log.note}</Text> : null}
+                                            <Text style={styles.dateMeta}>{formatDateShort(log.date)}</Text>
+                                        </View>
+                                        {goalMeta.canContribute ? (
+                                            <View style={styles.logActions}>
+                                                <TouchableOpacity
+                                                    style={styles.logActionButton}
+                                                    onPress={() => openEditLogModal(log.id)}
+                                                    accessibilityRole="button"
+                                                    accessibilityLabel={`Edit kontribusi ${formatCurrency(log.amount)}`}
+                                                >
+                                                    <MaterialCommunityIcons name="pencil-outline" size={16} color={colors.primary} />
+                                                </TouchableOpacity>
+                                                <TouchableOpacity
+                                                    style={styles.logActionButtonDanger}
+                                                    onPress={() => handleDeleteLog(log.id)}
+                                                    accessibilityRole="button"
+                                                    accessibilityLabel={`Hapus kontribusi ${formatCurrency(log.amount)}`}
+                                                >
+                                                    <MaterialCommunityIcons name="trash-can-outline" size={16} color={colors.danger} />
+                                                </TouchableOpacity>
+                                            </View>
+                                        ) : null}
+                                    </View>
+                                    {index < currentLogs.length - 1 ? <View style={styles.activityDivider} /> : null}
+                                </View>
                             ))}
                         </View>
-                    </View>
-                )}
+                    </FormSection>
+                ) : null}
             </ScrollView>
 
-            {/* Tombol Tambah Tabungan */}
-            {!isCompleted && (
-                <View style={styles.footer}>
-                    <Button
-                        label="+ Tambah Tabungan"
-                        onPress={() => setShowAddModal(true)}
-                        variant="primary"
-                        size="lg"
-                        fullWidth
-                        accessibilityHint="Ketuk dua kali untuk menambah nominal tabungan"
-                    />
-                </View>
-            )}
+            {!isCompleted ? <PrimaryActionBar primaryLabel={goalMeta.canContribute ? 'Tambah Tabungan' : 'Akses Read Only'} onPrimaryPress={() => goalMeta.canContribute ? openAddModal() : Alert.alert('Akses terbatas', 'Target ini hanya bisa kamu lihat. Hubungi admin atau editor wallet untuk menambah tabungan.')} bottomInset={metrics.tabBarClearance} /> : null}
 
-            {/* Modal Tambah Tabungan */}
             <Modal visible={showAddModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowAddModal(false)}>
-                <SafeAreaView style={styles.modalSafe}>
-                    <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle} allowFontScaling={true} accessibilityRole="header">Tambah Tabungan</Text>
-                        <TouchableOpacity onPress={() => setShowAddModal(false)} accessible={true} accessibilityRole="button" accessibilityLabel="Tutup">
-                            <MaterialCommunityIcons name="close" size={22} color={Colors.textPrimary} />
-                        </TouchableOpacity>
-                    </View>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalRoot}>
+                    <AppScreenHeader
+                        title={editingLogId ? 'Edit Kontribusi' : 'Tambah Tabungan'}
+                        subtitle={editingLogId ? 'Perubahan kontribusi akan menyesuaikan saldo dompet dan progres target.' : 'Kontribusi baru akan langsung masuk ke progres target.'}
+                        showClose
+                        onClosePress={() => {
+                            setShowAddModal(false);
+                            setEditingLogId(null);
+                            setAddAmount('');
+                            setAddNote('');
+                        }}
+                    />
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalGoalName} allowFontScaling={true}>🎯 {currentGoal.name}</Text>
-                        <View style={styles.rupiahInput}>
-                            <Text style={styles.prefix} allowFontScaling={true}>Rp</Text>
-                            <TextInput
-                                style={styles.modalAmountInput}
-                                value={addAmount}
-                                onChangeText={(v) => setAddAmount(formatInputRupiah(v))}
-                                keyboardType="numeric"
-                                placeholder="0"
-                                placeholderTextColor={Colors.textDisabled}
-                                autoFocus
-                                accessible={true}
-                                accessibilityLabel="Nominal tabungan yang ingin ditambahkan"
-                                allowFontScaling={true}
-                            />
-                        </View>
-                        <TextInput
-                            style={styles.modalNoteInput}
-                            value={addNote}
-                            onChangeText={setAddNote}
-                            placeholder="Catatan (opsional)"
-                            placeholderTextColor={Colors.textDisabled}
-                            accessible={true}
-                            accessibilityLabel="Catatan tabungan"
-                            allowFontScaling={true}
-                        />
-                        <Button label="Simpan Tabungan" onPress={handleAddSaving} variant="primary" size="lg" loading={isAdding} fullWidth />
+                        <Text style={styles.memberMeta}>{currentGoal.emoji} {currentGoal.name}</Text>
+                        <Text style={styles.memberMeta}>Saldo akan dipindahkan dari dompet {wallet?.name || 'terhubung'} ke target ini.</Text>
+                        <View style={[styles.amountWrap, { borderColor: currentGoal.color }]}><Text style={styles.amountPrefix}>Rp</Text><TextInput style={styles.amountInput} value={addAmount} onChangeText={(value) => setAddAmount(formatInputRupiah(value))} keyboardType="numeric" placeholder="0" placeholderTextColor={colors.textDisabled} autoFocus /></View>
+                        <TextInput style={styles.noteInput} value={addNote} onChangeText={setAddNote} placeholder="Catatan (opsional)" placeholderTextColor={colors.textSecondary} />
+                        <Button label={editingLogId ? 'Simpan Perubahan' : 'Simpan Tabungan'} onPress={handleAddSaving} loading={isAdding} fullWidth />
                     </View>
-                </SafeAreaView>
+                </KeyboardAvoidingView>
             </Modal>
-        </SafeAreaView>
+        </ScreenShell>
     );
 }
 
-const styles = StyleSheet.create({
-    safe: { flex: 1, backgroundColor: Colors.background },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, backgroundColor: Colors.surface },
-    backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: Colors.textPrimary, flex: 1, textAlign: 'center' },
-    content: { padding: 16, gap: 16, paddingBottom: 100 },
-    heroSection: { borderRadius: 20, padding: 28, alignItems: 'center', gap: 12 },
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
+    center: { flex: 1, justifyContent: 'center' },
+    flex1: { flex: 1 },
+    content: { gap: 18, paddingTop: 20 },
+    stack: { gap: 10 },
+    metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+    row: { flexDirection: 'row', gap: 12 },
+    badges: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    badgesLight: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    hero: { borderRadius: BorderRadius['5xl'], padding: 24, alignItems: 'center', gap: 12, overflow: 'hidden' },
     heroEmoji: { fontSize: 56 },
-    heroName: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: Colors.textPrimary, textAlign: 'center' },
-    heroProgress: { fontFamily: FontFamily.heading, fontSize: 42 },
-    completedBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.successLight, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
-    completedText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.body, color: Colors.success },
-    infoGrid: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: Colors.surface, borderRadius: 16, overflow: 'hidden' },
-    infoItem: { width: '50%', padding: 16, gap: 6, borderBottomWidth: 1, borderRightWidth: 1, borderColor: Colors.divider, alignItems: 'flex-start' },
-    infoLabel: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: Colors.textSecondary },
-    infoValue: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.body, color: Colors.textPrimary },
-    section: { gap: 10 },
-    sectionTitle: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: Colors.textPrimary },
-    logList: { backgroundColor: Colors.surface, borderRadius: 14, overflow: 'hidden' },
-    logItem: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
-    logIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
-    logInfo: { flex: 1 },
-    logAmount: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.body, color: Colors.primary },
-    logNote: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: Colors.textSecondary },
-    logDate: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: Colors.textSecondary },
-    logDivider: { height: 1, backgroundColor: Colors.divider, marginLeft: 62 },
-    footer: { padding: 20, paddingBottom: 32, backgroundColor: Colors.surface, borderTopWidth: 1, borderTopColor: Colors.border },
-    confettiOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(16, 185, 129, 0.9)', alignItems: 'center', justifyContent: 'center', zIndex: 100, gap: 12 },
-    confettiText: { fontSize: 80 },
-    confettiTitle: { fontFamily: FontFamily.heading, fontSize: 36, color: Colors.textInverse },
-    confettiSub: { fontFamily: FontFamily.body, fontSize: FontSize.h4, color: Colors.textInverse, textAlign: 'center', paddingHorizontal: 40 },
-    modalSafe: { flex: 1, backgroundColor: Colors.surface },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: Colors.border },
-    modalTitle: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: Colors.textPrimary },
-    modalContent: { padding: 20, gap: 16 },
-    modalGoalName: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.body, color: Colors.textSecondary },
-    rupiahInput: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surfaceElevated, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1.5, borderColor: Colors.primary, gap: 8, minHeight: 60 },
-    prefix: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.body, color: Colors.textSecondary },
-    modalAmountInput: { flex: 1, fontFamily: FontFamily.heading, fontSize: 30, color: Colors.textPrimary },
-    modalNoteInput: { backgroundColor: Colors.surfaceElevated, borderRadius: 12, padding: 14, fontFamily: FontFamily.body, fontSize: FontSize.body, color: Colors.textPrimary, borderWidth: 1, borderColor: Colors.border, minHeight: 52 },
+    heroName: { ...Typography.h3, color: colors.textInverse, textAlign: 'center' },
+    heroProgress: { fontFamily: FontFamily.heading, fontSize: 40, color: colors.textInverse },
+    heroDescription: { fontFamily: FontFamily.body, fontSize: FontSize.caption, lineHeight: 20, color: 'rgba(255,255,255,0.82)', textAlign: 'center', paddingHorizontal: 10 },
+    completed: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 8, borderRadius: BorderRadius.full, backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border },
+    completedText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.caption, color: colors.success },
+    infoIcon: { width: 38, height: 38, borderRadius: BorderRadius.xl, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryBg },
+    timelineCard: { gap: 10, backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border, borderRadius: BorderRadius['2xl'], padding: 14 },
+    timelineRow: { gap: 3 },
+    deadlineWarning: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 2, padding: 12, borderRadius: BorderRadius.xl, backgroundColor: colors.warningBg, borderWidth: 1, borderColor: `${colors.warning}2B` },
+    deadlineWarningText: { flex: 1, fontFamily: FontFamily.body, fontSize: FontSize.caption, lineHeight: 18, color: colors.textSecondary },
+    planCard: { gap: 8, padding: 12, borderRadius: BorderRadius.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+    planHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+    planBadge: { overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 6, borderRadius: BorderRadius.full, fontFamily: FontFamily.bodyBold, fontSize: FontSize.caption },
+    planBadgeInfo: { backgroundColor: colors.infoBg, color: colors.info },
+    planBadgeSuccess: { backgroundColor: colors.successBg, color: colors.success },
+    planBadgeWarning: { backgroundColor: colors.warningBg, color: colors.warning },
+    context: { flex: 1, backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border, borderRadius: BorderRadius['2xl'], padding: 14 },
+    label: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary },
+    value: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.body, color: colors.textPrimary, marginTop: 3 },
+    member: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border, borderRadius: BorderRadius['2xl'], padding: 14 },
+    memberIcon: { width: 38, height: 38, borderRadius: BorderRadius.xl, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.infoBg },
+    memberTitle: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.body, color: colors.textPrimary },
+    memberMeta: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary, marginTop: 2 },
+    dateMeta: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textTertiary, marginTop: 4 },
+    memberActions: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+    permission: { minWidth: 52, alignItems: 'center', paddingHorizontal: 10, paddingVertical: 8, borderRadius: BorderRadius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+    permissionActive: { borderColor: colors.primary, backgroundColor: colors.primaryBg },
+    permissionText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.caption, color: colors.textSecondary },
+    permissionTextActive: { fontFamily: FontFamily.bodyBold, color: colors.primary },
+    revoke: { width: 34, height: 34, borderRadius: BorderRadius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.dangerBg },
+    activity: { flexDirection: 'row', gap: 12, paddingVertical: 10 },
+    dot: { width: 12, height: 12, borderRadius: BorderRadius.full, backgroundColor: colors.primary, marginTop: 6 },
+    activityDivider: { height: 1, backgroundColor: colors.divider, marginLeft: 18 },
+    log: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+    logActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    logActionButton: { width: 34, height: 34, borderRadius: BorderRadius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryBg },
+    logActionButtonDanger: { width: 34, height: 34, borderRadius: BorderRadius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.dangerBg },
+    confetti: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: 'rgba(16, 185, 129, 0.94)' },
+    confettiEmoji: { fontSize: 72 },
+    confettiTitle: { fontFamily: FontFamily.heading, fontSize: 34, color: colors.textInverse },
+    confettiText: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: colors.textInverse, textAlign: 'center', paddingHorizontal: 32 },
+    modalRoot: { flex: 1, backgroundColor: colors.surface },
+    modalContent: { padding: 20, gap: 18 },
+    amountWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: BorderRadius['3xl'], paddingHorizontal: 18, minHeight: 58, backgroundColor: colors.surfaceAlt },
+    amountPrefix: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h3, color: colors.textSecondary },
+    amountInput: { flex: 1, fontFamily: FontFamily.heading, fontSize: 30, color: colors.textPrimary, paddingVertical: 10 },
+    noteInput: { minHeight: 56, borderRadius: BorderRadius['3xl'], borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceAlt, paddingHorizontal: 16, paddingVertical: 14, fontFamily: FontFamily.body, fontSize: FontSize.body, color: colors.textPrimary },
 });

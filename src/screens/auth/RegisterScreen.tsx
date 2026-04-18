@@ -1,94 +1,160 @@
-// Register Screen — Validasi real-time semua field
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
-    SafeAreaView,
-    ScrollView,
-    TouchableOpacity,
     KeyboardAvoidingView,
     Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import * as Haptics from 'expo-haptics';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../constants/colors';
-import { FontFamily, FontSize } from '../../constants/typography';
+import { BorderRadius } from '../../constants/theme';
+import { FontFamily, FontSize, Typography } from '../../constants/typography';
+import { ScreenShell } from '../../components/common/ScreenShell';
+import { FormSection } from '../../components/common/FormSection';
+import { InlineNotice } from '../../components/common/InlineNotice';
+import { StatePanel } from '../../components/common/StatePanel';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { useAuthStore } from '../../store/useAuthStore';
-import { validateEmail, validatePassword, validateConfirmPassword, validateName } from '../../utils/validation';
+import { useTheme } from '../../store/useThemeStore';
+import { triggerHapticNotification } from '../../utils/haptics';
+import { useResponsiveMetrics } from '../../utils/responsive';
+import {
+    validateConfirmPassword,
+    validateEmail,
+    validateName,
+    validatePassword,
+} from '../../utils/validation';
 import type { RootStackParamList } from '../../types/navigation';
+
+function getStrength(password: string) {
+    let score = 0;
+    if (password.length >= 8) score += 1;
+    if (password.length >= 12) score += 1;
+    if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score += 1;
+    if (/\d/.test(password)) score += 1;
+    if (/[^a-zA-Z0-9]/.test(password)) score += 1;
+
+    if (score <= 2) return { label: 'Perlu diperkuat', color: Colors.danger, width: '36%' as const };
+    if (score <= 3) return { label: 'Sudah cukup', color: Colors.warning, width: '68%' as const };
+    return { label: 'Kuat', color: Colors.success, width: '100%' as const };
+}
 
 export function RegisterScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-    const { register } = useAuthStore();
+    const { register, authError, sessionStatus, pendingGuestMergeResolution, postAuthRedirect, clearPostAuthRedirect } = useAuthStore();
+    const { colors, gradients } = useTheme();
+    const metrics = useResponsiveMetrics();
+    const styles = React.useMemo(() => getStyles(colors, metrics.isCompact), [colors, metrics.isCompact]);
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [confirm, setConfirm] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(false);
+    const strength = useMemo(() => getStrength(password), [password]);
 
-    const validate = (): boolean => {
-        const errs: Record<string, string> = {};
-        const nameErr = validateName(name);
-        const emailErr = validateEmail(email);
-        const passErr = validatePassword(password);
-        const confirmErr = validateConfirmPassword(password, confirm);
-        if (nameErr) errs.name = nameErr;
-        if (emailErr) errs.email = emailErr;
-        if (passErr) errs.password = passErr;
-        if (confirmErr) errs.confirm = confirmErr;
-        setErrors(errs);
-        return Object.keys(errs).length === 0;
+    useEffect(() => {
+        if (sessionStatus === 'authenticated' && !pendingGuestMergeResolution) {
+            navigation.reset({
+                index: 0,
+                routes: [{ name: 'Main', params: postAuthRedirect ?? undefined }],
+            });
+            clearPostAuthRedirect();
+        }
+    }, [clearPostAuthRedirect, navigation, pendingGuestMergeResolution, postAuthRedirect, sessionStatus]);
+
+    const clearError = (field: string) => {
+        setErrors((prev) => {
+            const next = { ...prev };
+            delete next[field];
+            return next;
+        });
+    };
+
+    const validate = () => {
+        const nextErrors: Record<string, string> = {};
+        const nameError = validateName(name);
+        const emailError = validateEmail(email);
+        const passwordError = validatePassword(password);
+        const confirmError = validateConfirmPassword(password, confirmPassword);
+
+        if (nameError) nextErrors.name = nameError;
+        if (emailError) nextErrors.email = emailError;
+        if (passwordError) nextErrors.password = passwordError;
+        if (confirmError) nextErrors.confirmPassword = confirmError;
+
+        setErrors(nextErrors);
+        return Object.keys(nextErrors).length === 0;
     };
 
     const handleRegister = async () => {
         if (!validate()) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            triggerHapticNotification();
             return;
         }
+
         setIsLoading(true);
         try {
-            await register(name.trim(), email.trim());
+            await register(name.trim(), email.trim(), password);
         } finally {
             setIsLoading(false);
         }
     };
 
-    const clearError = (field: string) => setErrors((e) => { const n = { ...e }; delete n[field]; return n; });
-
     return (
-        <SafeAreaView style={styles.safe}>
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
-                <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
+                <ScrollView
+                    contentContainerStyle={[
+                        styles.content,
+                        {
+                            paddingHorizontal: metrics.horizontalPadding,
+                            paddingTop: metrics.headerTopOffset + 20,
+                            paddingBottom: metrics.safeBottomSpacing + 12,
+                            gap: metrics.verticalGap + 2,
+                        },
+                    ]}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <View style={styles.hero}>
+                        <LinearGradient colors={gradients.hero as unknown as [string, string, ...string[]]} style={styles.heroIcon}>
+                            <MaterialCommunityIcons name="account-plus-outline" size={32} color={colors.textInverse} />
+                        </LinearGradient>
+                        <Text style={styles.eyebrow}>Create Your Main Workspace</Text>
+                        <Text style={styles.title}>Mulai dengan akun utama yang nanti jadi pusat profil, dompet, dan kolaborasi.</Text>
+                        <Text style={styles.subtitle}>Kami jaga flow pendaftaran tetap singkat, tetapi cukup jelas untuk dipakai jangka panjang.</Text>
+                        {sessionStatus === 'guest' ? (
+                            <InlineNotice
+                                icon="account-switch-outline"
+                                title="Data guest tetap aman"
+                                description="Setelah akun dibuat, data lokal yang belum sinkron tetap bisa dibawa ke akun tanpa memutus ritme pencatatanmu."
+                                tone="primary"
+                            />
+                        ) : null}
+                    </View>
 
-                    <TouchableOpacity
-                        style={styles.backBtn}
-                        onPress={() => navigation.goBack()}
-                        accessible={true}
-                        accessibilityRole="button"
-                        accessibilityLabel="Kembali ke login"
+                    <FormSection
+                        eyebrow="Primary Identity"
+                        title="Buat akun baru"
+                        subtitle="Lengkapi identitas utama dulu, nanti detail lain bisa disesuaikan di pengaturan."
+                        variant="highlight"
                     >
-                        <Text style={styles.backText} allowFontScaling={true}>← Kembali</Text>
-                    </TouchableOpacity>
-
-                    <Text style={styles.heading} allowFontScaling={true} accessibilityRole="header">
-                        Buat Akun Baru ✨
-                    </Text>
-                    <Text style={styles.subHeading} allowFontScaling={true}>
-                        Mulai perjalanan finansialmu bersama Tabungin
-                    </Text>
-
-                    <View style={styles.fields}>
                         <Input
                             label="Nama Lengkap"
                             value={name}
-                            onChangeText={(v) => { setName(v); clearError('name'); }}
-                            autoCapitalize="words"
-                            leftIcon="account"
+                            onChangeText={(value) => {
+                                setName(value);
+                                clearError('name');
+                            }}
+                            leftIcon="account-outline"
                             error={errors.name}
                             placeholder="Budi Santoso"
                             required
@@ -96,77 +162,138 @@ export function RegisterScreen() {
                         <Input
                             label="Email"
                             value={email}
-                            onChangeText={(v) => { setEmail(v); clearError('email'); }}
+                            onChangeText={(value) => {
+                                setEmail(value);
+                                clearError('email');
+                            }}
                             keyboardType="email-address"
                             autoCapitalize="none"
                             autoComplete="email"
-                            leftIcon="email"
+                            leftIcon="email-outline"
                             error={errors.email}
                             placeholder="nama@email.com"
                             required
                         />
-                        <Input
-                            label="Password"
-                            value={password}
-                            onChangeText={(v) => { setPassword(v); clearError('password'); }}
-                            secureTextEntry
-                            leftIcon="lock"
-                            error={errors.password}
-                            placeholder="Minimal 8 karakter"
-                            hint="Gunakan kombinasi huruf dan angka"
-                            required
-                        />
+                        <View style={styles.passwordBlock}>
+                            <Input
+                                label="Password"
+                                value={password}
+                                onChangeText={(value) => {
+                                    setPassword(value);
+                                    clearError('password');
+                                }}
+                                secureTextEntry
+                                leftIcon="lock-outline"
+                                error={errors.password}
+                                placeholder="Minimal 8 karakter"
+                                required
+                            />
+                            {password ? (
+                                <View style={styles.strengthCard}>
+                                    <View style={styles.strengthBar}>
+                                        <View style={[styles.strengthFill, { width: strength.width, backgroundColor: strength.color }]} />
+                                    </View>
+                                    <Text style={[styles.strengthLabel, { color: strength.color }]}>{strength.label}</Text>
+                                </View>
+                            ) : null}
+                        </View>
                         <Input
                             label="Konfirmasi Password"
-                            value={confirm}
-                            onChangeText={(v) => { setConfirm(v); clearError('confirm'); }}
+                            value={confirmPassword}
+                            onChangeText={(value) => {
+                                setConfirmPassword(value);
+                                clearError('confirmPassword');
+                            }}
                             secureTextEntry
-                            leftIcon="lock-check"
-                            error={errors.confirm}
+                            leftIcon="lock-check-outline"
+                            error={errors.confirmPassword}
                             placeholder="Ulangi password"
                             required
                         />
-                    </View>
 
-                    <Button
-                        label="Buat Akun"
-                        onPress={handleRegister}
-                        variant="primary"
-                        size="lg"
-                        loading={isLoading}
-                        fullWidth
-                        style={{ marginTop: 8 }}
-                        accessibilityHint="Ketuk dua kali untuk membuat akun baru"
-                    />
+                        {authError ? (
+                            <StatePanel
+                                icon="alert-circle-outline"
+                                title="Akun belum berhasil dibuat"
+                                description={authError}
+                                tone="danger"
+                            />
+                        ) : null}
 
-                    <View style={styles.footer}>
-                        <Text style={styles.footerText} allowFontScaling={true}>Sudah punya akun? </Text>
-                        <TouchableOpacity
-                            onPress={() => navigation.navigate('Login')}
-                            accessible={true}
-                            accessibilityRole="link"
-                            accessibilityLabel="Masuk ke akun yang sudah ada"
-                            hitSlop={{ top: 10, bottom: 10 }}
-                        >
-                            <Text style={styles.footerLink} allowFontScaling={true}>Masuk</Text>
-                        </TouchableOpacity>
-                    </View>
+                        <Button label="Buat Akun" onPress={handleRegister} variant="primary" size="lg" fullWidth loading={isLoading} />
+                    </FormSection>
+
+                    <TouchableOpacity style={styles.bottomLink} onPress={() => navigation.navigate('Login')}>
+                        <Text style={styles.bottomLinkText}>Sudah punya akun? Masuk saja</Text>
+                    </TouchableOpacity>
                 </ScrollView>
             </KeyboardAvoidingView>
-        </SafeAreaView>
+        </ScreenShell>
     );
 }
 
-const styles = StyleSheet.create({
-    safe: { flex: 1, backgroundColor: Colors.surface },
-    flex: { flex: 1 },
-    container: { flexGrow: 1, padding: 24, gap: 14 },
-    backBtn: { paddingVertical: 8, minHeight: 48, justifyContent: 'center', width: 120 },
-    backText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.body, color: Colors.primary },
-    heading: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: Colors.textPrimary },
-    subHeading: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: Colors.textSecondary },
-    fields: { gap: 14 },
-    footer: { flexDirection: 'row', justifyContent: 'center', paddingVertical: 16 },
-    footerText: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: Colors.textSecondary },
-    footerLink: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.body, color: Colors.primary },
-});
+const getStyles = (colors: ReturnType<typeof useTheme>['colors'], isCompact: boolean) =>
+    StyleSheet.create({
+        flex: { flex: 1 },
+        content: {
+            gap: 18,
+        },
+        hero: {
+            gap: 8,
+        },
+        heroIcon: {
+            width: isCompact ? 52 : 58,
+            height: isCompact ? 52 : 58,
+            borderRadius: BorderRadius['2xl'],
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        eyebrow: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.caption,
+            color: colors.primary,
+            textTransform: 'uppercase',
+            letterSpacing: 0.4,
+        },
+        title: {
+            ...Typography.h1,
+            color: colors.textPrimary,
+        },
+        subtitle: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.body,
+            lineHeight: 21,
+            color: colors.textSecondary,
+        },
+        passwordBlock: {
+            gap: 10,
+        },
+        strengthCard: {
+            gap: 6,
+            paddingHorizontal: 2,
+        },
+        strengthBar: {
+            height: 8,
+            borderRadius: BorderRadius.full,
+            backgroundColor: colors.surfaceMuted,
+            overflow: 'hidden',
+        },
+        strengthFill: {
+            height: '100%',
+            borderRadius: BorderRadius.full,
+        },
+        strengthLabel: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.caption,
+        },
+        bottomLink: {
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingVertical: 6,
+        },
+        bottomLinkText: {
+            fontFamily: FontFamily.bodyMedium,
+            fontSize: FontSize.body,
+            color: colors.textSecondary,
+        },
+    });

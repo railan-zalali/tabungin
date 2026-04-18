@@ -17,31 +17,42 @@ import Animated, {
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
 import type { Transaction } from '../../types/transaction';
 import { formatRupiah } from '../../utils/currency';
+import { BorderRadius } from '../../constants/theme';
 
-import { getCategoryById } from '../../constants/categories';
-import { useAuthStore } from '../../store/useAuthStore';
+import { useCategoryStore } from '../../store/useCategoryStore';
+import { useTheme } from '../../store/useThemeStore';
+import { resolveCategoryByKey } from '../../utils/categoryResolver';
+import { triggerHapticImpact, triggerHapticNotification } from '../../utils/haptics';
 
 interface TransactionItemProps {
     transaction: Transaction;
     onDelete?: (id: string) => void;
     onEdit?: (id: string) => void;
     onPress?: (transaction: Transaction) => void;
+    canManage?: boolean;
 }
 
 const DELETE_THRESHOLD = -80;
 
-export function TransactionItem({ transaction, onDelete, onEdit, onPress }: TransactionItemProps) {
+function TransactionItemComponent({ transaction, onDelete, onEdit, onPress, canManage = true }: TransactionItemProps) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
     const translateX = useSharedValue(0);
-    const hapticEnabled = useAuthStore((s) => s.hapticEnabled);
+    const categories = useCategoryStore((s) => s.categories);
 
-    const category = getCategoryById(transaction.category);
+    const category = resolveCategoryByKey(transaction.category, categories);
     const isIncome = transaction.type === 'income';
 
     const handleDelete = useCallback(() => {
+        if (!canManage) {
+            Alert.alert('Akses terbatas', 'Transaksi pada dompet ini hanya bisa dilihat.');
+            translateX.value = withSpring(0);
+            return;
+        }
+
         Alert.alert(
             'Hapus Transaksi',
             'Yakin ingin menghapus transaksi ini?',
@@ -51,32 +62,36 @@ export function TransactionItem({ transaction, onDelete, onEdit, onPress }: Tran
                     text: 'Hapus',
                     style: 'destructive',
                     onPress: () => {
-                        if (hapticEnabled) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                        triggerHapticNotification(Haptics.NotificationFeedbackType.Warning);
                         onDelete?.(transaction.id);
                     },
                 },
             ]
         );
-    }, [transaction.id, onDelete, hapticEnabled]);
+    }, [canManage, transaction.id, onDelete]);
 
     const handleLongPress = useCallback(() => {
-        if (hapticEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        if (!canManage) {
+            Alert.alert('Akses terbatas', 'Transaksi pada dompet ini hanya bisa dilihat.');
+            return;
+        }
+        triggerHapticImpact(Haptics.ImpactFeedbackStyle.Medium);
         Alert.alert('Pilihan', '', [
             { text: 'Edit', onPress: () => onEdit?.(transaction.id) },
             { text: 'Hapus', style: 'destructive', onPress: () => onDelete?.(transaction.id) },
             { text: 'Batal', style: 'cancel' },
         ]);
-    }, [transaction.id, onDelete, onEdit, hapticEnabled]);
+    }, [canManage, transaction.id, onDelete, onEdit]);
 
     const panGesture = Gesture.Pan()
         .activeOffsetX([-10, 10])
         .onUpdate((e) => {
-            if (e.translationX < 0) {
+            if (canManage && e.translationX < 0) {
                 translateX.value = Math.max(e.translationX, DELETE_THRESHOLD * 1.2);
             }
         })
         .onEnd((e) => {
-            if (e.translationX < DELETE_THRESHOLD) {
+            if (canManage && e.translationX < DELETE_THRESHOLD) {
                 translateX.value = withTiming(DELETE_THRESHOLD, {}, () => {
                     runOnJS(handleDelete)();
                 });
@@ -93,7 +108,7 @@ export function TransactionItem({ transaction, onDelete, onEdit, onPress }: Tran
         <View style={styles.wrapper}>
             {/* Background hapus — terlihat saat diswipe */}
             <View style={styles.deleteBackground} accessibilityElementsHidden={true}>
-                <MaterialCommunityIcons name="trash-can" size={24} color={Colors.textInverse} />
+                <MaterialCommunityIcons name="trash-can" size={24} color={colors.textInverse} />
                 <Text style={styles.deleteText}>Hapus</Text>
             </View>
 
@@ -107,20 +122,21 @@ export function TransactionItem({ transaction, onDelete, onEdit, onPress }: Tran
                         accessible={true}
                         accessibilityRole="button"
                         accessibilityLabel={`Transaksi ${isIncome ? 'pemasukan' : 'pengeluaran'} ${category?.name ?? transaction.category}, ${formatRupiah(transaction.amount)}`}
-                        accessibilityHint="Ketuk dua kali untuk melihat detail. Tahan untuk opsi edit dan hapus. Geser kiri untuk hapus"
+                        accessibilityHint={canManage
+                            ? "Ketuk dua kali untuk melihat detail. Tahan untuk opsi edit dan hapus. Geser kiri untuk hapus"
+                            : "Ketuk dua kali untuk melihat detail transaksi dalam mode read only"}
                     >
-                        {/* Ikon kategori — WCAG: icon + warna + teks */}
                         <View
                             style={[
                                 styles.iconContainer,
-                                { backgroundColor: isIncome ? Colors.successLight : Colors.dangerLight },
+                                { backgroundColor: isIncome ? colors.successLight : colors.dangerLight },
                             ]}
                             accessibilityElementsHidden={true}
                         >
                             <MaterialCommunityIcons
                                 name={(category?.icon ?? 'cash') as any}
                                 size={22}
-                                color={isIncome ? Colors.success : Colors.danger}
+                                color={isIncome ? colors.success : colors.danger}
                             />
                         </View>
 
@@ -136,9 +152,17 @@ export function TransactionItem({ transaction, onDelete, onEdit, onPress }: Tran
                         </View>
 
                         {/* Amount dengan warna + teks prefix — WCAG triple redundancy */}
-                        <View style={styles.amountContainer}>
+                        <View
+                            style={[
+                                styles.amountContainer,
+                                {
+                                    backgroundColor: isIncome ? colors.successBg : colors.dangerBg,
+                                    borderColor: isIncome ? `${colors.success}1F` : `${colors.danger}1F`,
+                                },
+                            ]}
+                        >
                             <Text
-                                style={[styles.amount, { color: isIncome ? Colors.success : Colors.danger }]}
+                                style={[styles.amount, { color: isIncome ? colors.success : colors.danger }]}
                                 allowFontScaling={true}
                                 accessibilityLabel={`${isIncome ? 'Pemasukan' : 'Pengeluaran'} ${formatRupiah(transaction.amount)}`}
                             >
@@ -152,61 +176,71 @@ export function TransactionItem({ transaction, onDelete, onEdit, onPress }: Tran
     );
 }
 
+export const TransactionItem = React.memo(TransactionItemComponent);
 
 
-const styles = StyleSheet.create({
+
+const getStyles = (colors: any) => StyleSheet.create({
     wrapper: {
         position: 'relative',
         overflow: 'hidden',
-        borderRadius: 0,
+        borderRadius: BorderRadius['3xl'],
     },
     deleteBackground: {
         position: 'absolute',
         right: 0,
         top: 0,
         bottom: 0,
-        backgroundColor: Colors.danger,
+        backgroundColor: colors.danger,
         justifyContent: 'center',
         alignItems: 'center',
         flexDirection: 'row',
-        paddingHorizontal: 20,
+        paddingHorizontal: 24,
         gap: 8,
     },
     deleteText: {
-        color: Colors.textInverse,
+        color: colors.textInverse,
         fontFamily: FontFamily.bodyBold,
         fontSize: FontSize.caption,
     },
     container: {
-        backgroundColor: Colors.surface,
+        backgroundColor: colors.surfaceElevated,
     },
     inner: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
         paddingHorizontal: 16,
-        paddingVertical: 14,
-        minHeight: 72,
+        paddingVertical: 16,
+        minHeight: 76,
     },
     iconContainer: {
-        width: 44,
-        height: 44,
-        borderRadius: 12,
+        width: 48,
+        height: 48,
+        borderRadius: BorderRadius.xl,
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: colors.border,
     },
-    info: { flex: 1, gap: 3 },
+    info: { flex: 1, gap: 4 },
     categoryName: {
         fontFamily: FontFamily.bodyMedium,
         fontSize: FontSize.body,
-        color: Colors.textPrimary,
+        color: colors.textPrimary,
     },
     note: {
         fontFamily: FontFamily.body,
         fontSize: FontSize.caption,
-        color: Colors.textSecondary,
+        color: colors.textSecondary,
     },
-    amountContainer: { alignItems: 'flex-end' },
+    amountContainer: {
+        alignItems: 'flex-end',
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        borderRadius: BorderRadius.lg,
+        borderWidth: 1,
+    },
     amount: {
         fontFamily: FontFamily.bodyBold,
         fontSize: FontSize.body,

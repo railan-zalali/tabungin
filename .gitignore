@@ -1,1 +1,19 @@
 node_modules
+.expo/
+dist/
+web-build/
+
+# Native
+android/
+ios/
+
+# Env
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.testsprite/
+
+# MacOS
+.DS_Store

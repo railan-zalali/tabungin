@@ -1,0 +1,209 @@
+import { create } from 'zustand';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Colors as BaseColors } from '../constants/colors';
+import { useProfileStore } from './useProfileStore';
+import { Motion } from '../constants/theme';
+import { getTextScale } from '../constants/typography';
+
+type ThemeMode = 'light' | 'dark';
+export type TextSize = 'normal' | 'large' | 'xlarge';
+
+interface ThemeState {
+    mode: ThemeMode;
+    textSize: TextSize;
+    
+    setMode: (mode: ThemeMode) => void;
+    setTextSize: (size: TextSize) => void;
+}
+
+const THEME_STORAGE_KEY = 'theme-storage';
+
+type PersistedThemeState = Pick<ThemeState, 'mode' | 'textSize'>;
+
+async function persistThemeState(partial: Partial<PersistedThemeState>) {
+    try {
+        const current = useThemeStore.getState();
+        const nextState: PersistedThemeState = {
+            mode: partial.mode ?? current.mode,
+            textSize: partial.textSize ?? current.textSize,
+        };
+        await AsyncStorage.setItem(THEME_STORAGE_KEY, JSON.stringify({ state: nextState }));
+    } catch (error) {
+        console.warn('[Theme] Failed to persist theme state:', error);
+    }
+}
+
+export const useThemeStore = create<ThemeState>()((set) => ({
+    mode: 'light',
+    textSize: 'normal',
+
+    setMode: (mode) => {
+        set({ mode });
+        void persistThemeState({ mode });
+    },
+    setTextSize: (textSize) => {
+        set({ textSize });
+        void persistThemeState({ textSize });
+    },
+}));
+
+void (async () => {
+    try {
+        const raw = await AsyncStorage.getItem(THEME_STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as { state?: Partial<PersistedThemeState> };
+        const persisted = parsed?.state;
+        if (!persisted) return;
+
+        useThemeStore.setState({
+            mode: persisted.mode === 'dark' ? 'dark' : 'light',
+            textSize:
+                persisted.textSize === 'large' || persisted.textSize === 'xlarge'
+                    ? persisted.textSize
+                    : 'normal',
+        });
+    } catch (error) {
+        console.warn('[Theme] Failed to hydrate theme state:', error);
+    }
+})();
+
+function clamp(value: number, min: number, max: number) {
+    return Math.min(max, Math.max(min, value));
+}
+
+function hexToRgb(hex: string) {
+    const normalized = hex.replace('#', '');
+    const safeHex = normalized.length === 3
+        ? normalized.split('').map((char) => char + char).join('')
+        : normalized;
+
+    const value = parseInt(safeHex, 16);
+    return {
+        r: (value >> 16) & 255,
+        g: (value >> 8) & 255,
+        b: value & 255,
+    };
+}
+
+function rgba(hex: string, alpha: number) {
+    const { r, g, b } = hexToRgb(hex);
+    return `rgba(${r}, ${g}, ${b}, ${clamp(alpha, 0, 1)})`;
+}
+
+function mix(hexA: string, hexB: string, weight: number) {
+    const ratio = clamp(weight, 0, 1);
+    const a = hexToRgb(hexA);
+    const b = hexToRgb(hexB);
+
+    const toHex = (value: number) => Math.round(value).toString(16).padStart(2, '0');
+    const mixed = {
+        r: a.r * (1 - ratio) + b.r * ratio,
+        g: a.g * (1 - ratio) + b.g * ratio,
+        b: a.b * (1 - ratio) + b.b * ratio,
+    };
+
+    return `#${toHex(mixed.r)}${toHex(mixed.g)}${toHex(mixed.b)}`;
+}
+
+export function useTheme() {
+    const { mode, textSize } = useThemeStore();
+    const { profiles, activeProfileId } = useProfileStore();
+    
+    const activeProfile = profiles.find(p => p.id === activeProfileId);
+    const primaryColor = activeProfile?.color || BaseColors.primary;
+    const isDark = mode === 'dark';
+    const neutralBase = isDark ? BaseColors.dark : BaseColors;
+    const primaryDark = mix(primaryColor, isDark ? '#08110D' : '#173625', isDark ? 0.38 : 0.24);
+    const primarySoft = rgba(primaryColor, isDark ? 0.24 : 0.10);
+    const primaryStrong = rgba(primaryColor, isDark ? 0.32 : 0.16);
+    const surfaceGlass = neutralBase.surfaceGlass;
+    const shadowColor = isDark ? 'rgba(0, 0, 0, 0.58)' : 'rgba(15, 23, 20, 0.16)';
+
+    const colors = {
+        ...BaseColors,
+        primary: primaryColor,
+        primaryDark,
+        primaryLight: primarySoft,
+        primaryBg: mix(primaryColor, neutralBase.surface, isDark ? 0.18 : 0.08),
+        background: neutralBase.background,
+        backgroundAlt: neutralBase.backgroundAlt,
+        backgroundCanvas: neutralBase.backgroundCanvas,
+        surface: neutralBase.surface,
+        surfaceAlt: neutralBase.surfaceAlt,
+        surfaceElevated: neutralBase.surfaceElevated,
+        surfaceCard: neutralBase.surfaceCard,
+        surfaceGlass,
+        surfaceInset: neutralBase.surfaceInset,
+        surfaceMuted: neutralBase.surfaceMuted,
+        textPrimary: neutralBase.textPrimary,
+        textSecondary: neutralBase.textSecondary,
+        textTertiary: neutralBase.textTertiary,
+        textDisabled: neutralBase.textDisabled,
+        border: neutralBase.border,
+        borderStrong: neutralBase.borderStrong,
+        divider: neutralBase.divider,
+        overlay: neutralBase.overlay,
+        overlayLight: neutralBase.overlayLight,
+        shadowColor,
+        successBg: isDark ? BaseColors.dark.successBg : BaseColors.successBg,
+        warningBg: isDark ? BaseColors.dark.warningBg : BaseColors.warningBg,
+        dangerBg: isDark ? BaseColors.dark.dangerBg : BaseColors.dangerBg,
+        infoBg: isDark ? BaseColors.dark.infoBg : BaseColors.infoBg,
+        successLight: rgba(BaseColors.success, isDark ? 0.28 : 0.16),
+        warningLight: rgba(BaseColors.warning, isDark ? 0.28 : 0.16),
+        dangerLight: rgba(BaseColors.danger, isDark ? 0.28 : 0.16),
+        infoLight: rgba(BaseColors.info, isDark ? 0.28 : 0.16),
+        glassStroke: isDark ? rgba('#FFFFFF', 0.08) : rgba(BaseColors.border, 0.88),
+        glassTint: surfaceGlass,
+        heroStart: mix(primaryColor, isDark ? '#FFFFFF' : neutralBase.surface, isDark ? 0.08 : 0.10),
+        heroEnd: primaryDark,
+        heroSoft: primaryStrong,
+        pageHeader: rgba(neutralBase.surfaceElevated, isDark ? 0.88 : 0.78),
+        heroSurface: mix(primaryColor, neutralBase.surfaceElevated, isDark ? 0.18 : 0.08),
+        heroOverlay: rgba(primaryColor, isDark ? 0.22 : 0.1),
+        panelSurface: neutralBase.surfaceElevated,
+        panelSurfaceAlt: neutralBase.surfaceAlt,
+        panelSurfaceStrong: mix(primaryColor, neutralBase.surfaceElevated, isDark ? 0.16 : 0.06),
+        interactiveIdle: neutralBase.surface,
+        interactiveActive: mix(primaryColor, neutralBase.surface, isDark ? 0.2 : 0.12),
+        interactiveSoft: isDark ? rgba('#FFFFFF', 0.06) : rgba(primaryColor, 0.05),
+        successSurface: isDark ? rgba(BaseColors.success, 0.22) : mix(BaseColors.success, neutralBase.surface, 0.1),
+        warningSurface: isDark ? rgba(BaseColors.warning, 0.22) : mix(BaseColors.warning, neutralBase.surface, 0.12),
+        dangerSurface: isDark ? rgba(BaseColors.danger, 0.22) : mix(BaseColors.danger, neutralBase.surface, 0.1),
+        focusRing: rgba(primaryColor, isDark ? 0.34 : 0.2),
+        stickyHeader: rgba(neutralBase.background, isDark ? 0.92 : 0.88),
+        tabBarGlass: isDark ? rgba('#0F1916', 0.88) : rgba('#FFFFFF', 0.88),
+        formFieldBg: isDark ? rgba('#FFFFFF', 0.04) : neutralBase.surface,
+        formFieldError: isDark ? rgba(BaseColors.danger, 0.2) : mix(BaseColors.danger, neutralBase.surface, 0.08),
+        listRowPressed: isDark ? rgba('#FFFFFF', 0.06) : rgba(primaryColor, 0.05),
+        cardBorder: isDark ? rgba('#FFFFFF', 0.07) : rgba(BaseColors.border, 0.94),
+        cardBorderStrong: isDark ? rgba('#FFFFFF', 0.12) : rgba(primaryColor, 0.18),
+        headerDivider: isDark ? rgba('#FFFFFF', 0.06) : rgba(BaseColors.borderStrong, 0.4),
+        statSurface: isDark ? rgba('#FFFFFF', 0.05) : rgba(primaryColor, 0.05),
+        statSurfaceStrong: isDark ? rgba('#FFFFFF', 0.08) : rgba(primaryColor, 0.09),
+        chipSurface: isDark ? rgba('#FFFFFF', 0.05) : neutralBase.surface,
+        chipSelectedSurface: isDark ? rgba(primaryColor, 0.18) : rgba(primaryColor, 0.1),
+        chipSelectedBorder: rgba(primaryColor, isDark ? 0.42 : 0.26),
+        emptyStateBg: isDark ? rgba('#FFFFFF', 0.03) : neutralBase.surfaceElevated,
+        emptyStateHalo: rgba(primaryColor, isDark ? 0.18 : 0.1),
+        emptyStateRing: isDark ? rgba('#FFFFFF', 0.08) : rgba(primaryColor, 0.12),
+        illustrationPrimary: primaryColor,
+        illustrationSecondary: isDark ? rgba(BaseColors.info, 0.28) : rgba(BaseColors.info, 0.14),
+        chartIncome: BaseColors.success,
+        chartExpense: BaseColors.danger,
+        chartNeutral: isDark ? BaseColors.dark.textTertiary : BaseColors.textTertiary,
+        heroBorder: isDark ? rgba('#FFFFFF', 0.08) : rgba('#FFFFFF', 0.18),
+    };
+
+    const gradients = {
+        hero: [colors.heroStart, colors.primary, colors.heroEnd] as const,
+        surface: [colors.surfaceElevated, colors.surfaceGlass] as const,
+        success: [rgba(BaseColors.success, 0.12), rgba(BaseColors.success, 0.03)] as const,
+        warning: [rgba(BaseColors.warning, 0.12), rgba(BaseColors.warning, 0.03)] as const,
+        info: [rgba(BaseColors.info, 0.12), rgba(BaseColors.info, 0.03)] as const,
+        premiumPanel: [colors.panelSurface, colors.surfaceGlass] as const,
+        heroMuted: [colors.heroSurface, colors.surfaceElevated, colors.heroOverlay] as const,
+    };
+
+    return { colors, gradients, motion: Motion, isDark, mode, textSize, textScale: getTextScale(textSize) };
+}

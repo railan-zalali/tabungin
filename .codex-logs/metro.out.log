@@ -1,0 +1,84 @@
+env: load .env
+env: export EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_SUPABASE_URL
+Starting project at C:\Railan\New folder\tabungin
+Starting Metro Bundler
+
+warning: Bundler cache is empty, rebuilding (this may take a minute)
+Waiting on http://localhost:8081
+Logs for your project will appear below.
+Android node_modules\expo\AppEntry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android node_modules\expo\AppEntry.js ▓▓▓▓▓▓▓░░░░░░░░░ 47.1% (175/415)
+Android node_modules\expo\AppEntry.js ▓▓▓▓▓▓▓▓▓░░░░░░░ 58.8% ( 822/1088)
+Android node_modules\expo\AppEntry.js ▓▓▓▓▓▓▓▓▓▓▓░░░░░ 72.3% (1094/1297)
+Android node_modules\expo\AppEntry.js ▓▓▓▓▓▓▓▓▓▓▓▓░░░░ 79.5% (1326/1487)
+Android node_modules\expo\AppEntry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 93.8% (1693/1770)
+Android Bundled 21075ms node_modules\expo\AppEntry.js (2120 modules)
+ WARN  SafeAreaView has been deprecated and will be removed in a future release. Please use 'react-native-safe-area-context' instead. See https://github.com/AppAndFlow/react-native-safe-area-context
+ LOG  [DB Migration] Upgrade dari v13 ke v14
+ LOG  [DB Migration] Menjalankan migrasi v14...
+ LOG  [DB Migration] Migrasi v14 selesai.
+ LOG  [DB Migration] Database sekarang di versi 14
+ LOG  [Realtime] Initializing transactions channel...
+ LOG  [Realtime] Initializing wallets channel...
+ LOG  [Realtime] Connected to transactions channel
+ LOG  [Realtime] Connected to wallets channel
+Android node_modules\expo\AppEntry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android Bundled 103ms node_modules\expo\AppEntry.js (1 module)
+ WARN  SafeAreaView has been deprecated and will be removed in a future release. Please use 'react-native-safe-area-context' instead. See https://github.com/AppAndFlow/react-native-safe-area-context
+ LOG  [Realtime] Initializing transactions channel...
+ LOG  [Realtime] Initializing wallets channel...
+ INFO  Launching DevTools...
+
+ LOG  [Realtime] Connected to transactions channel
+ LOG  [Realtime] Connected to wallets channel
+ LOG  Starting sync...
+Android src\store\useProfileStore.ts ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android Bundled 562ms src\store\useProfileStore.ts (955 modules)
+ ERROR  Failed to push sharing_activity_log: new row violates row-level security policy for table "sharing_activity_log"
+ LOG  Sync completed.
+ LOG  Starting sync...
+ LOG  [Sync] Assigning profile_id 7621460b-3549-4832-a59b-5206420b00ba to new wallet
+ LOG  Sync completed.
+ LOG  Starting sync...
+ LOG  Sync completed.
+ LOG  [Realtime] Connected to transactions channel
+ LOG  [Realtime] Connected to wallets channel
+ LOG  [Realtime] Connected to transactions channel
+ LOG  [Realtime] Connected to wallets channel
+Android node_modules\expo\AppEntry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android Bundled 82ms node_modules\expo\AppEntry.js (1 module)
+ WARN  SafeAreaView has been deprecated and will be removed in a future release. Please use 'react-native-safe-area-context' instead. See https://github.com/AppAndFlow/react-native-safe-area-context
+ LOG  [Realtime] Initializing transactions channel...
+ LOG  [Realtime] Initializing wallets channel...
+ INFO  Launching DevTools...
+
+ LOG  [Realtime] Connected to transactions channel
+ LOG  [Realtime] Connected to wallets channel
+ LOG  Starting sync...
+Android src\store\useProfileStore.ts ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android Bundled 55ms src\store\useProfileStore.ts (1 module)
+ LOG  Sync completed.
+ LOG  Starting sync...
+ LOG  Sync completed.
+ WARN  [expo-notifications]: `shouldShowAlert` is deprecated. Specify `shouldShowBanner` and / or `shouldShowList` instead.
+ LOG  Starting sync...
+ LOG  Sync completed.
+ LOG  Starting sync...
+ LOG  Sync completed.
+ LOG  Starting sync...
+ ERROR  Push changes failed: [Error: Call to function 'NativeDatabase.execAsync' has been rejected.
+→ Caused by: cannot start a transaction within a transaction]
+ ERROR  [Recurring Sync] Failed to persist remote recurring transactions locally: [Error: Call to function 'NativeDatabase.execAsync' has been rejected.
+→ Caused by: cannot rollback - no transaction is active]
+ WARN  Recurring sync skipped, falling back to local cache: [Error: Call to function 'NativeDatabase.execAsync' has been rejected.
+→ Caused by: cannot rollback - no transaction is active]
+ LOG  Sync completed.
+ LOG  Starting sync...
+ LOG  Sync completed.
+Android node_modules\expo\AppEntry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android Bundled 78ms node_modules\expo\AppEntry.js (1 module)
+ WARN  SafeAreaView has been deprecated and will be removed in a future release. Please use 'react-native-safe-area-context' instead. See https://github.com/AppAndFlow/react-native-safe-area-context
+ LOG  [Realtime] Initializing transactions channel...
+ LOG  [Realtime] Initializing wallets channel...
+ LOG  [Realtime] Connected to transactions channel
+ LOG  [Realtime] Connected to wallets channel

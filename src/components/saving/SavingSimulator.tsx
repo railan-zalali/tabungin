@@ -7,12 +7,14 @@ import type { PeriodType } from '../../types/saving';
 import { formatRupiah, formatInputRupiah, parseRupiah } from '../../utils/currency';
 import { formatEstimatedDate } from '../../utils/date';
 import { simulateSaving, formatDuration } from '../../utils/calculator';
+import { getSavingPlanInsight, getSavingPlanLabel } from '../../utils/savingPlan';
 
 interface SavingSimulatorProps {
     targetAmount: number;
     currentAmount: number;
     periodType: PeriodType;
     initialSavingAmount?: number;
+    deadlineAt?: number;
 }
 
 export function SavingSimulator({
@@ -20,6 +22,7 @@ export function SavingSimulator({
     currentAmount,
     periodType,
     initialSavingAmount = 0,
+    deadlineAt,
 }: SavingSimulatorProps) {
     const [inputValue, setInputValue] = useState(
         initialSavingAmount > 0 ? formatInputRupiah(String(initialSavingAmount)) : ''
@@ -32,6 +35,9 @@ export function SavingSimulator({
 
     const periodLabel = periodType === 'daily' ? 'hari'
         : periodType === 'weekly' ? 'minggu' : 'bulan';
+    const planInsight = result && deadlineAt
+        ? getSavingPlanInsight(targetAmount, currentAmount, parseRupiah(inputValue), periodType, deadlineAt)
+        : null;
 
     const handleChange = useCallback((text: string) => {
         const formatted = formatInputRupiah(text);
@@ -90,6 +96,19 @@ export function SavingSimulator({
                             {formatEstimatedDate(result.estimatedDate)}
                         </Text>
                     </View>
+                    {planInsight ? (
+                        <>
+                            <View style={styles.divider} />
+                            <View style={styles.planBlock}>
+                                <Text style={styles.planBadge} allowFontScaling={true}>
+                                    {getSavingPlanLabel(planInsight.status)}
+                                </Text>
+                                <Text style={styles.planCaption} allowFontScaling={true}>
+                                    Perlu sekitar {formatRupiah(planInsight.requiredPerPeriod)} per {periodLabel} untuk tetap aman terhadap deadline.
+                                </Text>
+                            </View>
+                        </>
+                    ) : null}
                 </View>
             )}
         </View>
@@ -162,6 +181,20 @@ const styles = StyleSheet.create({
         fontFamily: FontFamily.bodyBold,
         fontSize: FontSize.body,
         color: Colors.textPrimary,
+    },
+    planBlock: {
+        gap: 6,
+    },
+    planBadge: {
+        fontFamily: FontFamily.bodyBold,
+        fontSize: FontSize.caption,
+        color: Colors.primaryDark,
+    },
+    planCaption: {
+        fontFamily: FontFamily.body,
+        fontSize: FontSize.caption,
+        color: Colors.textSecondary,
+        lineHeight: 18,
     },
     divider: { height: 1, backgroundColor: Colors.divider },
 });

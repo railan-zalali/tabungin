@@ -8,6 +8,7 @@ import { FontFamily } from '../constants/typography';
 import { TransactionListScreen } from '../screens/transaction/TransactionListScreen';
 import { AddTransactionScreen } from '../screens/transaction/AddTransactionScreen';
 import { TransactionDetailScreen } from '../screens/transaction/TransactionDetailScreen';
+import { RecurringTransactionScreen } from '../screens/transaction/RecurringTransactionScreen';
 import { SavingListScreen } from '../screens/saving/SavingListScreen';
 import { AddSavingGoalScreen } from '../screens/saving/AddSavingGoalScreen';
 import { SavingDetailScreen } from '../screens/saving/SavingDetailScreen';
@@ -21,6 +22,7 @@ export function TransactionStackNavigator() {
             <TxStack.Screen name="TransactionList" component={TransactionListScreen} />
             <TxStack.Screen name="AddTransaction" component={AddTransactionScreen} />
             <TxStack.Screen name="TransactionDetail" component={TransactionDetailScreen} />
+            <TxStack.Screen name="RecurringTransaction" component={RecurringTransactionScreen} />
         </TxStack.Navigator>
     );
 }

@@ -1,122 +1,367 @@
-// Transaction Detail Screen
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import React, { useEffect, useMemo } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
-import { FontFamily, FontSize } from '../../constants/typography';
-import { Shadow } from '../../constants/theme';
-import { useTransactionStore } from '../../store/useTransactionStore';
-import { getCategoryById } from '../../constants/categories';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BorderRadius } from '../../constants/theme';
+import { FontFamily, FontSize, Typography } from '../../constants/typography';
+import { formatDateLong, formatDateShort } from '../../utils/date';
 import { formatRupiah } from '../../utils/currency';
-import { formatDateLong } from '../../utils/date';
+import { resolveCategoryByKey } from '../../utils/categoryResolver';
+import { useTheme } from '../../store/useThemeStore';
+import { useCategoryStore } from '../../store/useCategoryStore';
+import { useProfileStore } from '../../store/useProfileStore';
+import { useTransactionStore } from '../../store/useTransactionStore';
+import { useWalletStore } from '../../store/useWalletStore';
+import { useResponsiveMetrics } from '../../utils/responsive';
+import { AppScreenHeader } from '../../components/common/AppScreenHeader';
+import { ContextBadge } from '../../components/common/ContextBadge';
+import { EmptyIllustrationState } from '../../components/common/EmptyIllustrationState';
+import { FormSection } from '../../components/common/FormSection';
+import { InfoRow } from '../../components/common/InfoRow';
+import { InlineNotice } from '../../components/common/InlineNotice';
+import { MetricCard } from '../../components/common/MetricCard';
+import { PrimaryActionBar } from '../../components/common/PrimaryActionBar';
+import { ScreenShell } from '../../components/common/ScreenShell';
+import { getWalletCapabilities } from '../../utils/walletPermissions';
 
 export function TransactionDetailScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<any>>();
     const route = useRoute<any>();
-    const { transactions, removeTransaction } = useTransactionStore();
-    const transaction = transactions.find((t) => t.id === route.params?.transactionId);
-    const category = transaction ? getCategoryById(transaction.category) : null;
+    const { colors } = useTheme();
+    const metrics = useResponsiveMetrics();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const { transactions, recentTransactions, removeTransaction } = useTransactionStore();
+    const wallets = useWalletStore((state) => state.wallets);
+    const walletRoles = useWalletStore((state) => state.walletRoles);
+    const loadWallets = useWalletStore((state) => state.loadWallets);
+    const activeProfileId = useProfileStore((state) => state.activeProfileId);
+    const categories = useCategoryStore((state) => state.categories);
+    const loadCategories = useCategoryStore((state) => state.loadCategories);
+    const transactionId = route.params?.transactionId;
+
+    const transaction = transactions.find((item) => item.id === transactionId) ?? recentTransactions.find((item) => item.id === transactionId);
+    const category = transaction ? resolveCategoryByKey(transaction.category, categories) : null;
+    const wallet = transaction?.wallet_id ? wallets.find((item) => item.id === transaction.wallet_id) : null;
+    const walletCapabilities = getWalletCapabilities({
+        wallet,
+        activeProfileId,
+        membershipRole: wallet ? walletRoles[wallet.id] ?? null : null,
+    });
+    const isSharedWallet = walletCapabilities.isSharedWallet;
+    const canManageTransaction = !wallet || walletCapabilities.canManageTransactions;
+
+    useEffect(() => {
+        if (categories.length === 0) {
+            loadCategories();
+        }
+    }, [categories.length, loadCategories]);
+
+    useEffect(() => {
+        if (wallets.length === 0) {
+            loadWallets();
+        }
+    }, [loadWallets, wallets.length]);
 
     if (!transaction) {
         return (
-            <SafeAreaView style={styles.safe}>
-                <Text style={styles.notFound} allowFontScaling={true}>Transaksi tidak ditemukan</Text>
-            </SafeAreaView>
+            <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
+                <AppScreenHeader eyebrow="Transaction Detail" title="Detail Transaksi" subtitle="Data transaksi tidak tersedia lagi di daftar aktif." showBack onBackPress={() => navigation.goBack()} />
+                <View style={[styles.emptyWrap, { paddingHorizontal: metrics.horizontalPadding }]}>
+                    <EmptyIllustrationState
+                        icon="file-search-outline"
+                        title="Transaksi tidak ditemukan"
+                        description="Data transaksi yang kamu cari sudah tidak tersedia atau belum tersinkron."
+                        actionLabel="Kembali"
+                        onAction={() => navigation.goBack()}
+                    />
+                </View>
+            </ScreenShell>
         );
     }
 
     const isIncome = transaction.type === 'income';
+    const amountColor = isIncome ? colors.success : colors.danger;
+
+    const detailItems = [
+        {
+            label: 'Kategori',
+            value: category?.name ?? transaction.category,
+            icon: category?.icon ?? 'tag-outline',
+        },
+        {
+            label: 'Tanggal',
+            value: formatDateLong(transaction.date),
+            icon: 'calendar-outline',
+        },
+        {
+            label: 'Dompet',
+            value: wallet ? wallet.name : 'Tidak terhubung',
+            icon: isSharedWallet ? 'account-group-outline' : 'wallet-outline',
+            meta: wallet ? (isSharedWallet ? 'Shared wallet' : 'Personal wallet') : 'Opsional',
+        },
+        {
+            label: 'Catatan',
+            value: transaction.note?.trim() ? transaction.note : 'Tidak ada catatan tambahan',
+            icon: 'note-text-outline',
+        },
+    ];
+
+    const handleEdit = () => {
+        if (!canManageTransaction) {
+            Alert.alert('Akses terbatas', 'Transaksi pada dompet ini hanya bisa dilihat.');
+            return;
+        }
+        navigation.navigate('AddTransaction', { editId: transaction.id });
+    };
 
     const handleDelete = () => {
+        if (!canManageTransaction) {
+            Alert.alert('Akses terbatas', 'Transaksi pada dompet ini hanya bisa dilihat.');
+            return;
+        }
         Alert.alert('Hapus Transaksi', 'Yakin ingin menghapus transaksi ini?', [
             { text: 'Batal', style: 'cancel' },
             {
-                text: 'Hapus', style: 'destructive',
-                onPress: async () => { await removeTransaction(transaction.id); navigation.goBack(); }
-            }
+                text: 'Hapus',
+                style: 'destructive',
+                onPress: async () => {
+                    await removeTransaction(transaction.id);
+                    navigation.goBack();
+                },
+            },
         ]);
     };
 
     return (
-        <SafeAreaView style={styles.safe}>
-            <View style={styles.header}>
-                <TouchableOpacity
-                    onPress={() => navigation.goBack()}
-                    style={styles.backBtn}
-                    accessible={true}
-                    accessibilityRole="button"
-                    accessibilityLabel="Kembali"
-                >
-                    <MaterialCommunityIcons name="arrow-left" size={22} color={Colors.textPrimary} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle} allowFontScaling={true} accessibilityRole="header">Detail Transaksi</Text>
-                <TouchableOpacity
-                    onPress={handleDelete}
-                    style={styles.deleteBtn}
-                    accessible={true}
-                    accessibilityRole="button"
-                    accessibilityLabel="Hapus transaksi"
-                >
-                    <MaterialCommunityIcons name="trash-can-outline" size={22} color={Colors.danger} />
-                </TouchableOpacity>
-            </View>
+        <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
+            <AppScreenHeader
+                eyebrow="Transaction Detail"
+                title="Detail Transaksi"
+                subtitle="Ringkasan transaksi dengan konteks kategori, tanggal, dan dompet."
+                showBack
+                onBackPress={() => navigation.goBack()}
+                rightAction={{
+                    icon: 'pencil-outline',
+                    label: 'Edit transaksi',
+                    onPress: handleEdit,
+                }}
+            />
 
-            <ScrollView contentContainerStyle={styles.content}>
-                {/* Hero */}
-                <View style={[styles.heroCard, { backgroundColor: isIncome ? Colors.successLight : Colors.dangerLight }]}>
-                    <View style={[styles.heroIcon, { backgroundColor: isIncome ? Colors.success : Colors.danger }]}>
-                        <MaterialCommunityIcons name={(category?.icon ?? 'cash') as any} size={36} color={Colors.textInverse} accessibilityElementsHidden={true} />
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[
+                    styles.content,
+                    {
+                        paddingHorizontal: metrics.horizontalPadding,
+                        paddingBottom: metrics.floatingActionClearance + 24,
+                    },
+                ]}
+            >
+                <LinearGradient
+                    colors={isIncome ? [colors.success, colors.primaryDark, colors.success] : [colors.danger, colors.primaryDark, colors.danger]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.heroCard}
+                >
+                    <View style={styles.heroTopRow}>
+                        <View style={styles.heroIcon}>
+                            <MaterialCommunityIcons name={(category?.icon ?? 'cash') as any} size={30} color={colors.textInverse} />
+                        </View>
+                        <View style={styles.heroCopy}>
+                            <Text style={styles.heroCategory}>{category?.name ?? transaction.category}</Text>
+                            <Text style={styles.heroDate}>{formatDateShort(transaction.date)}</Text>
+                        </View>
                     </View>
-                    <Text style={[styles.heroAmount, { color: isIncome ? Colors.success : Colors.danger }]} allowFontScaling={true} accessibilityLiveRegion="polite">
+
+                    <Text style={styles.heroAmount}>
                         {isIncome ? '+' : '-'} {formatRupiah(transaction.amount)}
                     </Text>
-                    <View style={styles.typePill} accessible={true} accessibilityLabel={isIncome ? 'Pemasukan' : 'Pengeluaran'}>
-                        <MaterialCommunityIcons name={isIncome ? 'arrow-up' : 'arrow-down'} size={14} color={isIncome ? Colors.success : Colors.danger} accessibilityElementsHidden={true} />
-                        <Text style={[styles.typePillText, { color: isIncome ? Colors.success : Colors.danger }]} allowFontScaling={true}>
-                            {isIncome ? 'Pemasukan' : 'Pengeluaran'}
-                        </Text>
-                    </View>
-                </View>
 
-                {/* Detail Info */}
-                <View style={[styles.detailCard, Shadow.sm]}>
-                    {[
-                        { label: 'Kategori', value: category?.name ?? transaction.category, icon: category?.icon ?? 'tag' },
-                        { label: 'Tanggal', value: formatDateLong(transaction.date), icon: 'calendar' },
-                        { label: 'Catatan', value: transaction.note ?? '-', icon: 'note-text' },
-                    ].map((item) => (
-                        <View key={item.label} style={styles.detailRow}>
-                            <MaterialCommunityIcons name={item.icon as any} size={18} color={Colors.textSecondary} accessibilityElementsHidden={true} />
-                            <View style={styles.detailInfo}>
-                                <Text style={styles.detailLabel} allowFontScaling={true}>{item.label}</Text>
-                                <Text style={styles.detailValue} allowFontScaling={true}>{item.value}</Text>
+                    <View style={styles.badgeRow}>
+                        <ContextBadge icon={isIncome ? 'trending-up' : 'trending-down'} label={isIncome ? 'Pemasukan' : 'Pengeluaran'} inverse />
+                        {wallet ? (
+                            <ContextBadge icon={isSharedWallet ? 'account-group-outline' : 'wallet-outline'} label={wallet.name} inverse />
+                        ) : null}
+                    </View>
+                </LinearGradient>
+
+                <FormSection
+                    eyebrow="Key Snapshot"
+                    title="Ringkasan cepat"
+                    subtitle="Dua informasi yang paling sering dicek sebelum memutuskan edit atau hapus."
+                    variant="highlight"
+                >
+                    <View style={styles.metricGrid}>
+                        <MetricCard
+                            label="Nominal"
+                            value={`${isIncome ? '+' : '-'} ${formatRupiah(transaction.amount)}`}
+                            icon="cash"
+                            tone={isIncome ? 'success' : 'danger'}
+                        />
+                        <MetricCard
+                            label="Tanggal"
+                            value={formatDateShort(transaction.date)}
+                            icon="calendar-check-outline"
+                            tone="primary"
+                        />
+                    </View>
+                </FormSection>
+
+                <FormSection
+                    eyebrow="Context"
+                    title="Rincian transaksi"
+                    subtitle="Informasi lengkap yang membantu kamu membaca konteks sebelum melakukan perubahan."
+                    density="compact"
+                >
+                    <View style={styles.detailList}>
+                        {detailItems.map((item, index) => (
+                            <View key={item.label}>
+                                <InfoRow
+                                    icon={item.icon}
+                                    label={item.label}
+                                    value={item.value}
+                                    tone={item.label === 'Dompet' ? 'primary' : 'neutral'}
+                                />
+                                {item.meta ? <Text style={styles.detailMeta}>{item.meta}</Text> : null}
+                                {index < detailItems.length - 1 ? <View style={styles.divider} /> : null}
                             </View>
-                        </View>
-                    ))}
-                </View>
+                        ))}
+                    </View>
+                </FormSection>
+
+                <InlineNotice
+                    icon={isIncome ? 'trending-up' : 'trending-down'}
+                    title={isIncome ? 'Pemasukan tercatat' : 'Pengeluaran tercatat'}
+                    description={isSharedWallet
+                        ? 'Transaksi ini terhubung ke shared wallet, jadi perubahan nominal akan memengaruhi konteks kolaborasi dan histori bersama.'
+                        : 'Transaksi ini terhubung ke dompet personal, jadi perubahan akan langsung memengaruhi ringkasan saldo dan laporan periodik.'}
+                    tone={isIncome ? 'success' : 'warning'}
+                />
+
+                {!canManageTransaction ? (
+                    <InlineNotice
+                        icon="shield-lock-outline"
+                        title="Mode read only"
+                        description="Role viewer tetap bisa membaca detail transaksi, tetapi perubahan dan penghapusan dibatasi."
+                        tone="info"
+                    />
+                ) : null}
             </ScrollView>
-        </SafeAreaView>
+
+            <PrimaryActionBar
+                primaryLabel={canManageTransaction ? 'Edit Transaksi' : 'Akses read only'}
+                onPrimaryPress={handleEdit}
+                secondaryLabel={canManageTransaction ? 'Hapus' : 'Kembali'}
+                onSecondaryPress={canManageTransaction ? handleDelete : () => navigation.goBack()}
+                bottomInset={metrics.tabBarClearance}
+            />
+        </ScreenShell>
     );
 }
 
-const styles = StyleSheet.create({
-    safe: { flex: 1, backgroundColor: Colors.background },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
-    backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: Colors.textPrimary },
-    deleteBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-    content: { padding: 20, gap: 16 },
-    notFound: { fontFamily: FontFamily.body, fontSize: FontSize.body, color: Colors.textSecondary, textAlign: 'center', padding: 40 },
-    heroCard: { borderRadius: 20, padding: 28, alignItems: 'center', gap: 12 },
-    heroIcon: { width: 72, height: 72, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-    heroAmount: { fontFamily: FontFamily.heading, fontSize: 32, textAlign: 'center' },
-    typePill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.surface, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20 },
-    typePillText: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.caption },
-    detailCard: { backgroundColor: Colors.surface, borderRadius: 16, overflow: 'hidden' },
-    detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.divider },
-    detailInfo: { flex: 1 },
-    detailLabel: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: Colors.textSecondary },
-    detailValue: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.body, color: Colors.textPrimary, marginTop: 2 },
-});
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+    StyleSheet.create({
+        emptyWrap: {
+            flex: 1,
+            justifyContent: 'center',
+            paddingTop: 20,
+        },
+        content: {
+            gap: 18,
+            paddingTop: 20,
+        },
+        heroCard: {
+            borderRadius: BorderRadius['5xl'],
+            padding: 24,
+            gap: 16,
+            overflow: 'hidden',
+        },
+        heroTopRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+        },
+        heroIcon: {
+            width: 58,
+            height: 58,
+            borderRadius: BorderRadius['2xl'],
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(255,255,255,0.14)',
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.18)',
+        },
+        heroCopy: {
+            flex: 1,
+        },
+        heroCategory: {
+            ...Typography.h4,
+            color: colors.textInverse,
+        },
+        heroDate: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: 'rgba(255,255,255,0.8)',
+            marginTop: 2,
+        },
+        heroAmount: {
+            fontFamily: FontFamily.heading,
+            fontSize: 32,
+            color: colors.textInverse,
+        },
+        badgeRow: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 8,
+        },
+        summaryRow: {
+            gap: 12,
+        },
+        metricGrid: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 12,
+        },
+        summaryItem: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+            backgroundColor: colors.surfaceAlt,
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: BorderRadius['2xl'],
+            padding: 14,
+        },
+        summaryCopy: {
+            flex: 1,
+        },
+        summaryLabel: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+        },
+        summaryValue: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.body,
+            color: colors.textPrimary,
+            marginTop: 3,
+        },
+        detailList: {
+            gap: 0,
+        },
+        detailMeta: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textTertiary,
+            marginTop: 8,
+            marginLeft: 48,
+        },
+        divider: {
+            height: 1,
+            backgroundColor: colors.divider,
+            marginLeft: 48,
+            marginTop: 14,
+        },
+    });

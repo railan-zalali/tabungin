@@ -1,6 +1,6 @@
 // Komponen Card dengan fade + slide-up entrance animation
 import React, { useEffect } from 'react';
-import { StyleSheet, View, ViewStyle } from 'react-native';
+import { StyleSheet, ViewStyle } from 'react-native';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
@@ -8,17 +8,19 @@ import Animated, {
     withDelay,
     Easing,
 } from 'react-native-reanimated';
-import { Colors } from '../../constants/colors';
-import { Shadow } from '../../constants/theme';
+import { useTheme } from '../../store/useThemeStore';
+import { BorderRadius } from '../../constants/theme';
 
 interface CardProps {
     children: React.ReactNode;
     style?: ViewStyle;
     elevated?: boolean;
-    variant?: 'default' | 'flat' | 'outlined';
+    variant?: 'default' | 'flat' | 'outlined' | 'glass';
     animationDelay?: number;
     onPress?: () => void;
     accessibilityLabel?: string;
+    interactive?: boolean;
+    padding?: number;
 }
 
 export function Card({
@@ -27,9 +29,13 @@ export function Card({
     elevated = false,
     variant = 'default',
     animationDelay = 0,
+    interactive = false,
+    padding,
 }: CardProps) {
     const opacity = useSharedValue(0);
     const translateY = useSharedValue(20);
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
 
     useEffect(() => {
         opacity.value = withDelay(
@@ -40,7 +46,7 @@ export function Card({
             animationDelay,
             withTiming(0, { duration: 350, easing: Easing.out(Easing.ease) })
         );
-    }, []);
+    }, [animationDelay, opacity, translateY]);
 
     const animatedStyle = useAnimatedStyle(() => ({
         opacity: opacity.value,
@@ -51,9 +57,12 @@ export function Card({
         <Animated.View
             style={[
                 styles.base,
+                variant === 'flat' && styles.flat,
                 variant === 'outlined' && styles.outlined,
-                elevated && Shadow.md,
-                !elevated && variant === 'default' && Shadow.sm,
+                variant === 'glass' && styles.glass,
+                elevated ? styles.shadowLg : variant !== 'flat' ? styles.shadowSm : null,
+                interactive && styles.interactive,
+                padding !== undefined ? { padding } : null,
                 style,
                 animatedStyle,
             ]}
@@ -63,19 +72,44 @@ export function Card({
     );
 }
 
-const styles = StyleSheet.create({
-    base: {
-        backgroundColor: Colors.surface,
-        borderRadius: 12,
-        padding: 16,
-        overflow: 'hidden',
-    },
-    flat: {
-        backgroundColor: Colors.background,
-    },
-    outlined: {
-        backgroundColor: Colors.surface,
-        borderWidth: 1,
-        borderColor: Colors.border,
-    },
-});
+const getStyles = (colors: any) =>
+    StyleSheet.create({
+        base: {
+            backgroundColor: colors.surfaceElevated,
+            borderRadius: BorderRadius['3xl'],
+            padding: 18,
+            overflow: 'hidden',
+            borderWidth: 1,
+            borderColor: colors.cardBorder,
+        },
+        flat: {
+            backgroundColor: colors.surfaceAlt,
+            borderColor: 'transparent',
+        },
+        outlined: {
+            backgroundColor: colors.surface,
+            borderWidth: 1,
+            borderColor: colors.cardBorderStrong,
+        },
+        glass: {
+            backgroundColor: colors.surfaceGlass,
+            borderColor: colors.cardBorder,
+        },
+        interactive: {
+            backgroundColor: colors.panelSurfaceStrong,
+        },
+        shadowSm: {
+            shadowColor: colors.shadowColor,
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.08,
+            shadowRadius: 16,
+            elevation: 3,
+        },
+        shadowLg: {
+            shadowColor: colors.shadowColor,
+            shadowOffset: { width: 0, height: 16 },
+            shadowOpacity: 0.12,
+            shadowRadius: 24,
+            elevation: 8,
+        },
+    });

@@ -4,14 +4,34 @@ import type { SettingsStackParamList } from '../types/navigation';
 
 import { SettingsScreen } from '../screens/settings/SettingsScreen';
 import { ProfileScreen } from '../screens/settings/ProfileScreen';
+import { NotificationScreen } from '../screens/notification/NotificationScreen';
+import { CategoryManagementScreen } from '../screens/category/CategoryManagementScreen';
+import { ExportDataScreen } from '../screens/settings/ExportDataScreen';
+import { ImportDataScreen } from '../screens/settings/ImportDataScreen';
+import { ReminderCenterScreen } from '../screens/settings/ReminderCenterScreen';
+import { AppUpdateScreen } from '../screens/settings/AppUpdateScreen';
+import { WalletListScreen } from '../screens/settings/WalletListScreen';
+import { AddWalletScreen } from '../screens/settings/AddWalletScreen';
+import { QRScannerScreen } from '../screens/wallet/QRScannerScreen';
+import { JoinWalletScreen } from '../screens/wallet/JoinWalletScreen';
 
 const Stack = createNativeStackNavigator<SettingsStackParamList>();
 
 export function SettingsStackNavigator() {
     return (
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Navigator initialRouteName="SettingsMain" screenOptions={{ headerShown: false }}>
             <Stack.Screen name="SettingsMain" component={SettingsScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="Notifications" component={NotificationScreen} />
+            <Stack.Screen name="CategoryManagement" component={CategoryManagementScreen} />
+            <Stack.Screen name="ExportData" component={ExportDataScreen} />
+            <Stack.Screen name="ImportData" component={ImportDataScreen} />
+            <Stack.Screen name="ReminderCenter" component={ReminderCenterScreen} />
+            <Stack.Screen name="AppUpdate" component={AppUpdateScreen} />
+            <Stack.Screen name="WalletList" component={WalletListScreen} />
+            <Stack.Screen name="AddWallet" component={AddWalletScreen} />
+            <Stack.Screen name="QRScanner" component={QRScannerScreen} />
+            <Stack.Screen name="JoinWallet" component={JoinWalletScreen} />
         </Stack.Navigator>
     );
 }

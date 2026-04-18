@@ -8,7 +8,8 @@ import Animated, {
     withTiming,
     Easing,
 } from 'react-native-reanimated';
-import { Colors } from '../../constants/colors';
+import { useTheme } from '../../store/useThemeStore';
+import { BorderRadius } from '../../constants/theme';
 
 interface SkeletonProps {
     width?: number | `${number}%`;
@@ -19,10 +20,11 @@ interface SkeletonProps {
 
 export function Skeleton({ width = '100%', height = 16, borderRadius = 8, style }: SkeletonProps) {
     const shimmer = useSharedValue(0);
+    const { colors } = useTheme();
 
     useEffect(() => {
         shimmer.value = withRepeat(
-            withTiming(1, { duration: 1000, easing: Easing.ease }),
+            withTiming(1, { duration: 1100, easing: Easing.ease }),
             -1,
             true
         );
@@ -36,7 +38,7 @@ export function Skeleton({ width = '100%', height = 16, borderRadius = 8, style 
         <Animated.View
             style={[
                 styles.skeleton,
-                { width: width as any, height, borderRadius },
+                { width: width as any, height, borderRadius, backgroundColor: colors.surfaceMuted },
                 shimmerStyle,
                 style,
             ]}
@@ -49,8 +51,9 @@ export function Skeleton({ width = '100%', height = 16, borderRadius = 8, style 
 
 // Preset untuk transaction item skeleton
 export function TransactionItemSkeleton() {
+    const { colors } = useTheme();
     return (
-        <View style={styles.transactionItem}>
+        <View style={[styles.transactionItem, { backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border }]}>
             <Skeleton width={44} height={44} borderRadius={22} />
             <View style={styles.transactionContent}>
                 <Skeleton width="60%" height={14} />
@@ -64,8 +67,9 @@ export function TransactionItemSkeleton() {
 
 // Preset untuk saving goal card skeleton
 export function SavingGoalCardSkeleton() {
+    const { colors } = useTheme();
     return (
-        <View style={styles.goalCard}>
+        <View style={[styles.goalCard, { backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border }]}>
             <View style={styles.goalHeader}>
                 <Skeleton width={48} height={48} borderRadius={12} />
                 <View style={{ flex: 1, gap: 8 }}>
@@ -82,22 +86,18 @@ export function SavingGoalCardSkeleton() {
 }
 
 const styles = StyleSheet.create({
-    skeleton: {
-        backgroundColor: Colors.border,
-    },
+    skeleton: {},
     transactionItem: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
         padding: 16,
-        backgroundColor: Colors.surface,
+        borderRadius: BorderRadius['3xl'],
     },
     transactionContent: { flex: 1 },
     goalCard: {
-        backgroundColor: Colors.surface,
-        borderRadius: 12,
+        borderRadius: BorderRadius['3xl'],
         padding: 16,
-        marginHorizontal: 16,
         marginBottom: 12,
     },
     goalHeader: { flexDirection: 'row', gap: 12, alignItems: 'center' },

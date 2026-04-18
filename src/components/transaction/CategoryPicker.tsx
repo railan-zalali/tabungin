@@ -1,20 +1,18 @@
 // Komponen CategoryPicker — grid 4 kolom untuk pilih kategori transaksi
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
     View,
     Text,
     StyleSheet,
     TouchableOpacity,
     ScrollView,
+    ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
-import {
-    EXPENSE_CATEGORIES,
-    INCOME_CATEGORIES,
-    type CategoryItem,
-} from '../../constants/categories';
+import { useCategoryStore } from '../../store/useCategoryStore';
+import { resolveCategoriesForType } from '../../utils/categoryResolver';
+import { useTheme } from '../../store/useThemeStore';
 
 interface CategoryPickerProps {
     type: 'income' | 'expense';
@@ -23,88 +21,122 @@ interface CategoryPickerProps {
 }
 
 export function CategoryPicker({ type, selectedCategory, onSelect }: CategoryPickerProps) {
-    const categories = type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+    const { categories: storedCategories, loadCategories, isLoading } = useCategoryStore();
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const categories = resolveCategoriesForType(type, storedCategories);
+
+    useEffect(() => {
+        if (storedCategories.length === 0) {
+            loadCategories();
+        }
+    }, [storedCategories.length, loadCategories]);
 
     return (
         <ScrollView showsVerticalScrollIndicator={false}>
             <View style={styles.grid}>
-                {categories.map((cat) => {
-                    const isSelected = selectedCategory === cat.id;
-                    return (
-                        <TouchableOpacity
-                            key={cat.id}
-                            style={[
-                                styles.item,
-                                isSelected && { borderColor: cat.color, backgroundColor: `${cat.color}15` },
-                            ]}
-                            onPress={() => onSelect(cat.id)}
-                            accessible={true}
-                            accessibilityRole="radio"
-                            accessibilityLabel={cat.name}
-                            accessibilityState={{ selected: isSelected }}
-                            accessibilityHint={`Ketuk dua kali untuk memilih kategori ${cat.name}`}
-                        >
-                            <View
+                {isLoading && categories.length === 0 ? (
+                    <View style={styles.loadingState}>
+                        <ActivityIndicator size="small" color={colors.primary} />
+                        <Text style={styles.loadingText}>Memuat kategori...</Text>
+                    </View>
+                ) : (
+                    categories.map((cat) => {
+                        const isSelected = selectedCategory === cat.id;
+                        return (
+                            <TouchableOpacity
+                                key={cat.id}
                                 style={[
-                                    styles.iconWrap,
-                                    { backgroundColor: isSelected ? cat.color : `${cat.color}20` },
+                                    styles.item,
+                                    isSelected && { borderColor: cat.color, backgroundColor: `${cat.color}15` },
                                 ]}
-                                accessibilityElementsHidden={true}
+                                onPress={() => onSelect(cat.id)}
+                                accessible={true}
+                                accessibilityRole="radio"
+                                accessibilityLabel={cat.name}
+                                accessibilityState={{ selected: isSelected }}
+                                accessibilityHint={`Ketuk dua kali untuk memilih kategori ${cat.name}`}
                             >
-                                <MaterialCommunityIcons
-                                    name={cat.icon as any}
-                                    size={24}
-                                    color={isSelected ? Colors.textInverse : cat.color}
-                                />
-                            </View>
-                            <Text
-                                style={[styles.label, isSelected && { color: cat.color, fontFamily: FontFamily.bodyMedium }]}
-                                allowFontScaling={true}
-                                numberOfLines={2}
-                                textBreakStrategy="balanced"
-                            >
-                                {cat.name}
-                            </Text>
-                        </TouchableOpacity>
-                    );
-                })}
+                                <View
+                                    style={[
+                                        styles.iconWrap,
+                                        { backgroundColor: isSelected ? cat.color : `${cat.color}20` },
+                                    ]}
+                                    accessibilityElementsHidden={true}
+                                >
+                                        <MaterialCommunityIcons
+                                            name={cat.icon as any}
+                                            size={24}
+                                            color={isSelected ? colors.textInverse : cat.color}
+                                        />
+                                    </View>
+                                    <Text
+                                    style={[styles.label, isSelected && { color: cat.color, fontFamily: FontFamily.bodyMedium }]}
+                                    allowFontScaling={true}
+                                    numberOfLines={2}
+                                    textBreakStrategy="balanced"
+                                >
+                                    {cat.name}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })
+                )}
             </View>
         </ScrollView>
     );
 }
 
-const styles = StyleSheet.create({
-    grid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 10,
-        paddingVertical: 8,
-    },
-    item: {
-        width: '22%',
-        aspectRatio: 0.85,
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 6,
-        borderRadius: 12,
-        borderWidth: 1.5,
-        borderColor: 'transparent',
-        backgroundColor: Colors.surfaceElevated,
-        paddingVertical: 10,
-        minHeight: 80,
-    },
-    iconWrap: {
-        width: 44,
-        height: 44,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    label: {
-        fontFamily: FontFamily.body,
-        fontSize: 10,
-        color: Colors.textSecondary,
-        textAlign: 'center',
-        lineHeight: 14,
-    },
-});
+const getStyles = (colors: any) =>
+    StyleSheet.create({
+        grid: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 10,
+            paddingVertical: 8,
+        },
+        item: {
+            width: '22%',
+            aspectRatio: 0.85,
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            borderRadius: 14,
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: colors.surfaceElevated,
+            paddingVertical: 10,
+            minHeight: 80,
+            shadowColor: colors.shadowColor,
+            shadowOpacity: 0.05,
+            shadowRadius: 10,
+            shadowOffset: { width: 0, height: 5 },
+            elevation: 1,
+        },
+        iconWrap: {
+            width: 44,
+            height: 44,
+            borderRadius: 14,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        label: {
+            fontFamily: FontFamily.body,
+            fontSize: 10,
+            color: colors.textSecondary,
+            textAlign: 'center',
+            lineHeight: 14,
+        },
+        loadingState: {
+            width: '100%',
+            minHeight: 88,
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+        },
+        loadingText: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+        },
+    });

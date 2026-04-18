@@ -1,96 +1,120 @@
-// Onboarding Screen — 3 slide dengan animasi dan dot indicator
 import React, { useRef, useState } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    Dimensions,
-    TouchableOpacity,
-    FlatList,
-    SafeAreaView,
-} from 'react-native';
-import Animated, {
-    useSharedValue,
-    useAnimatedStyle,
-    interpolate,
-    Extrapolate,
-} from 'react-native-reanimated';
+import { FlatList, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
-import { FontFamily, FontSize } from '../../constants/typography';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { BorderRadius } from '../../constants/theme';
+import { FontFamily, FontSize, Typography } from '../../constants/typography';
+import { ScreenShell } from '../../components/common/ScreenShell';
+import { Button } from '../../components/common/Button';
+import { InlineNotice } from '../../components/common/InlineNotice';
+import { MetricCard } from '../../components/common/MetricCard';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useTheme } from '../../store/useThemeStore';
+import { useResponsiveMetrics } from '../../utils/responsive';
 import type { RootStackParamList } from '../../types/navigation';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface Slide {
     id: string;
     icon: string;
-    iconColor: string;
     title: string;
     description: string;
-    bgColor: string;
+    accent: 'primary' | 'warning' | 'info';
 }
 
 const SLIDES: Slide[] = [
     {
-        id: '1',
-        icon: 'wallet',
-        iconColor: Colors.primary,
-        title: 'Catat Keuangan Harianmu',
-        description: 'Catat pemasukan & pengeluaranmu dengan mudah. Kelola setiap rupiah jadi lebih berarti.',
-        bgColor: Colors.primaryLight,
+        id: 'capture',
+        icon: 'wallet-outline',
+        title: 'Catat arus uang tanpa ribet',
+        description: 'Pemasukan, pengeluaran, dan dompet aktif tampil lebih jelas supaya kamu cepat paham kondisi hari ini.',
+        accent: 'primary',
     },
     {
-        id: '2',
-        icon: 'piggy-bank',
-        iconColor: Colors.secondary,
-        title: 'Wujudkan Impianmu',
-        description: 'Buat target tabungan untuk barang impianmu. Pantau progres dan capai tujuanmu lebih cepat!',
-        bgColor: Colors.secondaryLight,
+        id: 'goals',
+        icon: 'bullseye-arrow',
+        title: 'Dorong target pribadi dan bersama',
+        description: 'Tabungan, progress, dan konteks shared wallet terasa rapi sehingga tujuan lebih mudah dipantau.',
+        accent: 'warning',
     },
     {
-        id: '3',
-        icon: 'chart-donut',
-        iconColor: Colors.info,
-        title: 'Laporan Visual Lengkap',
-        description: 'Lihat laporan keuangan secara visual. Pahami kebiasaan belanjamu dan buat keputusan lebih smart.',
-        bgColor: Colors.infoLight,
+        id: 'insight',
+        icon: 'chart-box-outline',
+        title: 'Baca insight yang benar-benar berguna',
+        description: 'Snapshot, tren, dan insight keuangan membantu kamu ambil keputusan tanpa tenggelam di angka.',
+        accent: 'info',
     },
 ];
 
+function resolveSlidePalette(colors: ReturnType<typeof useTheme>['colors'], accent: Slide['accent']) {
+    switch (accent) {
+        case 'warning':
+            return { bg: colors.warningSurface, ring: colors.warningBg, text: colors.warning };
+        case 'info':
+            return { bg: colors.infoBg, ring: colors.infoLight, text: colors.info };
+        case 'primary':
+        default:
+            return { bg: colors.primaryBg, ring: colors.primaryLight, text: colors.primary };
+    }
+}
+
 export function OnboardingScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+    const flatListRef = useRef<FlatList<Slide>>(null);
     const [currentIndex, setCurrentIndex] = useState(0);
-    const flatListRef = useRef<FlatList>(null);
+    const continueAsGuest = useAuthStore((state) => state.continueAsGuest);
+    const { colors, gradients } = useTheme();
+    const metrics = useResponsiveMetrics();
+    const { width } = useWindowDimensions();
+    const styles = React.useMemo(() => getStyles(colors, metrics.isCompact), [colors, metrics.isCompact]);
 
     const handleNext = () => {
         if (currentIndex < SLIDES.length - 1) {
-            flatListRef.current?.scrollToIndex({ index: currentIndex + 1 });
-            setCurrentIndex((prev) => prev + 1);
-        } else {
-            navigation.navigate('Login');
+            flatListRef.current?.scrollToIndex({ index: currentIndex + 1, animated: true });
+            return;
         }
+        navigation.navigate('Login');
     };
 
-    const handleSkip = () => navigation.navigate('Login');
-
     return (
-        <SafeAreaView style={styles.container}>
-            {/* Tombol skip */}
-            <TouchableOpacity
-                style={styles.skipBtn}
-                onPress={handleSkip}
-                accessible={true}
-                accessibilityRole="button"
-                accessibilityLabel="Lewati onboarding"
-                accessibilityHint="Ketuk dua kali untuk langsung masuk ke halaman login"
-            >
-                <Text style={styles.skipText} allowFontScaling={true}>Lewati</Text>
-            </TouchableOpacity>
+        <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
+            <View style={[styles.topBar, { paddingHorizontal: metrics.horizontalPadding, paddingTop: metrics.headerTopOffset + 4 }]}>
+                <View style={styles.brandWrap}>
+                    <LinearGradient colors={gradients.hero as unknown as [string, string, ...string[]]} style={styles.brandIcon}>
+                        <MaterialCommunityIcons name="piggy-bank-outline" size={28} color={colors.textInverse} />
+                    </LinearGradient>
+                    <View>
+                        <Text style={styles.brandTitle}>Tabungin</Text>
+                        <Text style={styles.brandSubtitle}>Rapi, tenang, dan selalu kontekstual.</Text>
+                    </View>
+                </View>
 
-            {/* Slides */}
+                <TouchableOpacity
+                    style={styles.skipBtn}
+                    onPress={() => navigation.navigate('Login')}
+                    accessibilityRole="button"
+                    accessibilityLabel="Lewati onboarding dan buka login"
+                >
+                    <Text style={styles.skipText}>Lewati</Text>
+                </TouchableOpacity>
+            </View>
+
+            <View style={[styles.heroIntro, { paddingHorizontal: metrics.horizontalPadding, gap: metrics.heroSpacing }]}>
+                <Text style={styles.eyebrow}>Mission Control Keuangan Harian</Text>
+                <Text style={styles.heroTitle}>Biar setiap rupiah terasa jelas, bukan sekadar tercatat.</Text>
+                <InlineNotice
+                    icon="shield-check-outline"
+                    description="Rancang pengalaman harian yang cepat dibaca: cashflow, target, dan insight disatukan tanpa membuat layar terasa padat."
+                    tone="primary"
+                />
+                <View style={styles.metricRow}>
+                    <MetricCard label="Cashflow" value="Rapi" icon="swap-horizontal" tone="success" />
+                    <MetricCard label="Goals" value="Terarah" icon="bullseye-arrow" tone="warning" />
+                </View>
+            </View>
+
             <FlatList
                 ref={flatListRef}
                 data={SLIDES}
@@ -98,133 +122,224 @@ export function OnboardingScreen() {
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
-                scrollEnabled={true}
-                onMomentumScrollEnd={(e) => {
-                    const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-                    setCurrentIndex(idx);
+                contentContainerStyle={styles.slider}
+                onMomentumScrollEnd={(event) => {
+                    const index = Math.round(event.nativeEvent.contentOffset.x / width);
+                    setCurrentIndex(index);
                 }}
-                renderItem={({ item }) => (
-                    <View style={[styles.slide, { width: SCREEN_WIDTH }]}>
-                        <View style={[styles.illustrationContainer, { backgroundColor: item.bgColor }]}>
-                            <MaterialCommunityIcons
-                                name={item.icon as any}
-                                size={100}
-                                color={item.iconColor}
-                                accessibilityElementsHidden={true}
-                            />
-                        </View>
-                        <Text style={styles.title} allowFontScaling={true}>{item.title}</Text>
-                        <Text style={styles.description} allowFontScaling={true}>{item.description}</Text>
-                    </View>
-                )}
+                renderItem={({ item, index }) => {
+                    const palette = resolveSlidePalette(colors, item.accent);
+                    return (
+                        <Animated.View entering={FadeInDown.delay(index * 80).springify()} style={[styles.slide, { width }]}>
+                            <View style={[styles.slideCard, { backgroundColor: colors.panelSurface }]}>
+                                <View style={[styles.iconStage, { backgroundColor: palette.bg }]}>
+                                    <View style={[styles.iconRing, { backgroundColor: palette.ring }]} />
+                                    <MaterialCommunityIcons name={item.icon as any} size={84} color={palette.text} />
+                                </View>
+
+                                <View style={styles.slideCopy}>
+                                    <Text style={styles.slideTitle}>{item.title}</Text>
+                                    <Text style={styles.slideDescription}>{item.description}</Text>
+                                </View>
+                            </View>
+                        </Animated.View>
+                    );
+                }}
             />
 
-            {/* Dot indicator */}
-            <View style={styles.dotsContainer} accessibilityLabel={`Slide ${currentIndex + 1} dari ${SLIDES.length}`}>
-                {SLIDES.map((_, i) => (
-                    <View
-                        key={i}
-                        style={[
-                            styles.dot,
-                            i === currentIndex ? styles.dotActive : styles.dotInactive,
-                        ]}
-                    />
-                ))}
-            </View>
+            <View style={[styles.footer, { paddingHorizontal: metrics.horizontalPadding, paddingBottom: metrics.safeBottomSpacing + 8 }]}>
+                <View style={styles.progressRow} accessibilityLabel={`Slide ${currentIndex + 1} dari ${SLIDES.length}`}>
+                    {SLIDES.map((slide, index) => (
+                        <View
+                            key={slide.id}
+                            style={[styles.dot, index === currentIndex ? styles.dotActive : styles.dotInactive]}
+                        />
+                    ))}
+                </View>
 
-            {/* Tombol CTA */}
-            <TouchableOpacity
-                style={styles.cta}
-                onPress={handleNext}
-                accessible={true}
-                accessibilityRole="button"
-                accessibilityLabel={currentIndex === SLIDES.length - 1 ? 'Mulai sekarang' : 'Selanjutnya'}
-            >
-                <Text style={styles.ctaText} allowFontScaling={true}>
-                    {currentIndex === SLIDES.length - 1 ? 'Mulai Sekarang 🚀' : 'Selanjutnya'}
-                </Text>
-                <MaterialCommunityIcons
-                    name="arrow-right"
-                    size={20}
-                    color={Colors.textInverse}
-                    accessibilityElementsHidden={true}
+                <Button
+                    label={currentIndex === SLIDES.length - 1 ? 'Masuk ke Tabungin' : 'Lanjut'}
+                    onPress={handleNext}
+                    variant="primary"
+                    size="lg"
+                    fullWidth
                 />
-            </TouchableOpacity>
-        </SafeAreaView>
+
+                <TouchableOpacity
+                    style={styles.secondaryCta}
+                    onPress={() => navigation.navigate('Register')}
+                    accessibilityRole="button"
+                    accessibilityLabel="Buat akun baru"
+                >
+                    <Text style={styles.secondaryCtaText}>Belum punya akun? Buat akun baru</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.guestCta}
+                    onPress={() => continueAsGuest()}
+                    accessibilityRole="button"
+                    accessibilityLabel="Lanjut tanpa akun"
+                >
+                    <Text style={styles.guestCtaText}>Lanjut tanpa akun</Text>
+                </TouchableOpacity>
+            </View>
+        </ScreenShell>
     );
 }
 
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.surface },
-    skipBtn: {
-        position: 'absolute',
-        top: 56,
-        right: 20,
-        zIndex: 10,
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        minHeight: 48,
-        justifyContent: 'center',
-    },
-    skipText: {
-        fontFamily: FontFamily.bodyMedium,
-        fontSize: FontSize.body,
-        color: Colors.textSecondary,
-    },
-    slide: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 32,
-        paddingTop: 80,
-        gap: 24,
-    },
-    illustrationContainer: {
-        width: 200,
-        height: 200,
-        borderRadius: 100,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 8,
-    },
-    title: {
-        fontFamily: FontFamily.heading,
-        fontSize: FontSize.h2,
-        color: Colors.textPrimary,
-        textAlign: 'center',
-        lineHeight: 32,
-    },
-    description: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.body,
-        color: Colors.textSecondary,
-        textAlign: 'center',
-        lineHeight: 24,
-    },
-    dotsContainer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        gap: 8,
-        paddingBottom: 20,
-    },
-    dot: { borderRadius: 99, height: 8 },
-    dotActive: { width: 24, backgroundColor: Colors.primary },
-    dotInactive: { width: 8, backgroundColor: Colors.border },
-    cta: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 10,
-        backgroundColor: Colors.primary,
-        marginHorizontal: 24,
-        marginBottom: 32,
-        paddingVertical: 18,
-        borderRadius: 16,
-        minHeight: 60,
-    },
-    ctaText: {
-        fontFamily: FontFamily.bodyBold,
-        fontSize: FontSize.h4,
-        color: Colors.textInverse,
-    },
-});
+const getStyles = (colors: ReturnType<typeof useTheme>['colors'], isCompact: boolean) =>
+    StyleSheet.create({
+        topBar: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingBottom: 12,
+            gap: 12,
+        },
+        brandWrap: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            flex: 1,
+        },
+        brandIcon: {
+            width: 48,
+            height: 48,
+            borderRadius: BorderRadius.xl,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        brandTitle: {
+            ...Typography.h4,
+            color: colors.textPrimary,
+        },
+        brandSubtitle: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+            marginTop: 2,
+        },
+        skipBtn: {
+            minHeight: 44,
+            paddingHorizontal: 14,
+            borderRadius: BorderRadius.full,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.panelSurface,
+            borderWidth: 1,
+            borderColor: colors.border,
+        },
+        skipText: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+        },
+        heroIntro: {
+            paddingTop: 8,
+            gap: 8,
+        },
+        metricRow: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 12,
+            marginTop: 4,
+        },
+        eyebrow: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.caption,
+            color: colors.primary,
+            textTransform: 'uppercase',
+            letterSpacing: 0.4,
+        },
+        heroTitle: {
+            ...Typography.h1,
+            color: colors.textPrimary,
+        },
+        slider: {
+            paddingTop: isCompact ? 16 : 22,
+        },
+        slide: {
+            paddingHorizontal: isCompact ? 16 : 20,
+        },
+        slideCard: {
+            borderRadius: BorderRadius['5xl'],
+            padding: isCompact ? 20 : 24,
+            borderWidth: 1,
+            borderColor: colors.border,
+            shadowColor: colors.shadowColor,
+            shadowOffset: { width: 0, height: 12 },
+            shadowOpacity: 0.08,
+            shadowRadius: 22,
+            elevation: 5,
+            gap: isCompact ? 18 : 22,
+        },
+        iconStage: {
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: isCompact ? 200 : 260,
+            borderRadius: BorderRadius['4xl'],
+            overflow: 'hidden',
+        },
+        iconRing: {
+            position: 'absolute',
+            width: isCompact ? 156 : 188,
+            height: isCompact ? 156 : 188,
+            borderRadius: BorderRadius.full,
+        },
+        slideCopy: {
+            gap: 10,
+        },
+        slideTitle: {
+            ...Typography.h2,
+            color: colors.textPrimary,
+        },
+        slideDescription: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.body,
+            lineHeight: 21,
+            color: colors.textSecondary,
+        },
+        footer: {
+            paddingTop: isCompact ? 16 : 20,
+            gap: isCompact ? 12 : 16,
+        },
+        progressRow: {
+            flexDirection: 'row',
+            justifyContent: 'center',
+            gap: 8,
+        },
+        dot: {
+            height: 8,
+            borderRadius: BorderRadius.full,
+        },
+        dotActive: {
+            width: 24,
+            backgroundColor: colors.primary,
+        },
+        dotInactive: {
+            width: 8,
+            backgroundColor: colors.border,
+        },
+        secondaryCta: {
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingVertical: 6,
+        },
+        secondaryCtaText: {
+            fontFamily: FontFamily.bodyMedium,
+            fontSize: FontSize.body,
+            color: colors.textSecondary,
+        },
+        guestCta: {
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingVertical: 4,
+        },
+        guestCtaText: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.caption,
+            color: colors.primary,
+            textTransform: 'uppercase',
+            letterSpacing: 0.4,
+        },
+    });

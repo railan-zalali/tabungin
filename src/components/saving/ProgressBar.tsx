@@ -7,8 +7,8 @@ import Animated, {
     withSpring,
     withDelay,
 } from 'react-native-reanimated';
-import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
+import { useTheme } from '../../store/useThemeStore';
 
 interface ProgressBarProps {
     progress: number; // 0-100
@@ -23,7 +23,7 @@ interface ProgressBarProps {
 
 export function ProgressBar({
     progress,
-    color = Colors.primary,
+    color,
     height = 10,
     showLabel = false,
     label,
@@ -32,6 +32,9 @@ export function ProgressBar({
     accessibilityLabel,
 }: ProgressBarProps) {
     const widthValue = useSharedValue(0);
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const resolvedColor = color ?? colors.primary;
     const clampedProgress = Math.min(Math.max(progress, 0), 100);
 
     useEffect(() => {
@@ -56,7 +59,7 @@ export function ProgressBar({
                     )}
                     {showLabel && (
                         <Text
-                            style={[styles.percentText, { color }]}
+                            style={[styles.percentText, { color: resolvedColor }]}
                             allowFontScaling={true}
                             accessibilityLiveRegion="polite"
                             accessibilityLabel={accessibilityLabel ?? `Progress ${clampedProgress.toFixed(0)} persen`}
@@ -82,7 +85,7 @@ export function ProgressBar({
                 <Animated.View
                     style={[
                         styles.fill,
-                        { backgroundColor: color, height },
+                        { backgroundColor: resolvedColor, height },
                         animFill,
                     ]}
                 />
@@ -91,28 +94,29 @@ export function ProgressBar({
     );
 }
 
-const styles = StyleSheet.create({
-    labelRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 6,
-    },
-    labelText: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
-        color: Colors.textSecondary,
-    },
-    percentText: {
-        fontFamily: FontFamily.bodyBold,
-        fontSize: FontSize.caption,
-    },
-    track: {
-        width: '100%',
-        backgroundColor: Colors.surfaceElevated,
-        borderRadius: 999,
-        overflow: 'hidden',
-    },
-    fill: {
-        borderRadius: 999,
-    },
-});
+const getStyles = (colors: any) =>
+    StyleSheet.create({
+        labelRow: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            marginBottom: 6,
+        },
+        labelText: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+        },
+        percentText: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.caption,
+        },
+        track: {
+            width: '100%',
+            backgroundColor: colors.surfaceMuted,
+            borderRadius: 999,
+            overflow: 'hidden',
+        },
+        fill: {
+            borderRadius: 999,
+        },
+    });

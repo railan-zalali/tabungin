@@ -1,323 +1,363 @@
-// Transaction List Screen — dengan filter, search, grouped by date
-import React, { useEffect, useState, useCallback } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    SafeAreaView,
-    SectionList,
-    TouchableOpacity,
-    RefreshControl,
-    TextInput,
-} from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
+import { FlashList } from '@shopify/flash-list';
+import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize } from '../../constants/typography';
-import { Shadow } from '../../constants/theme';
+import { formatCurrency } from '../../utils/currency';
+import { formatDateGroup } from '../../utils/date';
+import type { Transaction } from '../../types/transaction';
+import { useCategoryStore } from '../../store/useCategoryStore';
+import { useProfileStore } from '../../store/useProfileStore';
+import { useTheme } from '../../store/useThemeStore';
 import { useTransactionStore } from '../../store/useTransactionStore';
-import type { Transaction, DailySummary } from '../../types/transaction';
-import { formatRupiah } from '../../utils/currency';
-import { formatDateGroup, startOfDay, endOfDay, isSameDay } from '../../utils/date';
-import { TransactionItem } from '../../components/transaction/TransactionItem';
+import { useWalletStore } from '../../store/useWalletStore';
+import { AppScreenHeader } from '../../components/common/AppScreenHeader';
+import { EmptyIllustrationState } from '../../components/common/EmptyIllustrationState';
+import { FilterBar } from '../../components/common/FilterBar';
+import { ScreenShell } from '../../components/common/ScreenShell';
 import { TransactionItemSkeleton } from '../../components/common/SkeletonLoader';
-import { EmptyState } from '../../components/common/EmptyState';
+import { StatStrip } from '../../components/common/StatStrip';
+import { TransactionItem } from '../../components/transaction/TransactionItem';
+import { useResponsiveMetrics } from '../../utils/responsive';
+import { getWalletCapabilities } from '../../utils/walletPermissions';
 
 type FilterType = 'all' | 'income' | 'expense';
 type PeriodType = 'today' | 'week' | 'month' | 'all';
+type TransactionListRow =
+    | { id: string; kind: 'section'; title: string; totalIncome: number; totalExpense: number }
+    | { id: string; kind: 'transaction'; transaction: Transaction; isLastInSection: boolean }
+    | { id: string; kind: 'spacer' };
 
 export function TransactionListScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<any>>();
+    const { colors } = useTheme();
+    const metrics = useResponsiveMetrics();
+    const compactLayout = metrics.density === 'compact';
+    const styles = React.useMemo(() => getStyles(colors, compactLayout), [colors, compactLayout]);
     const { transactions, isLoading, loadTransactions, removeTransaction } = useTransactionStore();
+    const wallets = useWalletStore((state) => state.wallets);
+    const walletRoles = useWalletStore((state) => state.walletRoles);
+    const activeProfileId = useProfileStore((state) => state.activeProfileId);
+    const loadCategories = useCategoryStore((state) => state.loadCategories);
+    const categoryCount = useCategoryStore((state) => state.categories.length);
+
     const [filterType, setFilterType] = useState<FilterType>('all');
     const [filterPeriod, setFilterPeriod] = useState<PeriodType>('month');
     const [search, setSearch] = useState('');
     const [refreshing, setRefreshing] = useState(false);
 
     const load = useCallback(() => {
-        loadTransactions({
+        return loadTransactions({
             type: filterType === 'all' ? 'all' : filterType,
-            period: filterPeriod === 'all' ? undefined : filterPeriod as any,
+            period: filterPeriod === 'all' ? undefined : (filterPeriod as any),
             searchQuery: search || undefined,
         });
-    }, [filterType, filterPeriod, search]);
+    }, [filterPeriod, filterType, loadTransactions, search]);
 
-    useEffect(() => { load(); }, [filterType, filterPeriod, search]);
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            load();
+        }, 350);
+        return () => clearTimeout(timeout);
+    }, [load]);
+
+    useEffect(() => {
+        if (categoryCount === 0) {
+            loadCategories();
+        }
+    }, [categoryCount, loadCategories]);
 
     const onRefresh = async () => {
         setRefreshing(true);
-        await load();
-        setRefreshing(false);
+        try {
+            await load();
+        } finally {
+            setRefreshing(false);
+        }
     };
 
-    // Kelompokkan transaksi berdasarkan tanggal
-    const grouped = React.useMemo(() => {
+    const grouped = useMemo(() => {
         const map = new Map<string, { date: number; transactions: Transaction[] }>();
-        for (const tx of transactions) {
-            const dayKey = new Date(tx.date).toDateString();
-            if (!map.has(dayKey)) {
-                map.set(dayKey, { date: tx.date, transactions: [] });
+        for (const transaction of transactions) {
+            const key = new Date(transaction.date).toDateString();
+            if (!map.has(key)) {
+                map.set(key, { date: transaction.date, transactions: [] });
             }
-            map.get(dayKey)!.transactions.push(tx);
+            map.get(key)?.transactions.push(transaction);
         }
+
         return Array.from(map.values()).map((group) => ({
             title: formatDateGroup(group.date),
             date: group.date,
             data: group.transactions,
-            totalIncome: group.transactions.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0),
-            totalExpense: group.transactions.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
+            totalIncome: group.transactions.filter((item) => item.type === 'income').reduce((sum, item) => sum + item.amount, 0),
+            totalExpense: group.transactions.filter((item) => item.type === 'expense').reduce((sum, item) => sum + item.amount, 0),
         }));
     }, [transactions]);
+    const rows = useMemo<TransactionListRow[]>(
+        () =>
+            grouped.flatMap((section) => [
+                {
+                    id: `section-${section.date}`,
+                    kind: 'section' as const,
+                    title: section.title,
+                    totalIncome: section.totalIncome,
+                    totalExpense: section.totalExpense,
+                },
+                ...section.data.map((transaction, index) => ({
+                    id: transaction.id,
+                    kind: 'transaction' as const,
+                    transaction,
+                    isLastInSection: index === section.data.length - 1,
+                })),
+                {
+                    id: `spacer-${section.date}`,
+                    kind: 'spacer' as const,
+                },
+            ]),
+        [grouped],
+    );
 
-    const typeFilters: { id: FilterType; label: string }[] = [
-        { id: 'all', label: 'Semua' },
-        { id: 'income', label: 'Pemasukan' },
-        { id: 'expense', label: 'Pengeluaran' },
-    ];
-
-    const periodFilters: { id: PeriodType; label: string }[] = [
-        { id: 'today', label: 'Hari ini' },
-        { id: 'week', label: 'Minggu ini' },
-        { id: 'month', label: 'Bulan ini' },
-        { id: 'all', label: 'Semua' },
-    ];
+    const netAmount = useMemo(
+        () =>
+            transactions.reduce((sum, item) => {
+                return sum + (item.type === 'income' ? item.amount : -item.amount);
+            }, 0),
+        [transactions],
+    );
 
     return (
-        <SafeAreaView style={styles.safe}>
-            {/* Header */}
-            <View style={styles.header}>
-                <Text style={styles.title} allowFontScaling={true} accessibilityRole="header">
-                    Transaksi
-                </Text>
-                <TouchableOpacity
-                    style={styles.addBtn}
-                    onPress={() => navigation.navigate('AddTransaction')}
-                    accessible={true}
-                    accessibilityRole="button"
-                    accessibilityLabel="Tambah transaksi baru"
-                >
-                    <MaterialCommunityIcons name="plus" size={22} color={Colors.textInverse} />
-                </TouchableOpacity>
-            </View>
+        <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
+            <AppScreenHeader
+                eyebrow="Cashflow Feed"
+                title="Transaksi"
+                subtitle="Cari dan saring arus uang dengan cepat."
+                density={metrics.headerDensity}
+                showBack
+                onBackPress={() => navigation.goBack()}
+                rightAction={{
+                    icon: 'plus',
+                    label: 'Tambah transaksi',
+                    onPress: () => navigation.navigate('AddTransaction'),
+                }}
+                variant="transparent"
+            />
 
-            {/* Search Bar */}
-            <View style={styles.searchContainer}>
-                <MaterialCommunityIcons name="magnify" size={20} color={Colors.textSecondary} accessibilityElementsHidden={true} />
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Cari transaksi..."
-                    placeholderTextColor={Colors.textDisabled}
-                    value={search}
-                    onChangeText={setSearch}
-                    accessible={true}
-                    accessibilityLabel="Cari transaksi"
-                    allowFontScaling={true}
-                />
-                {search.length > 0 && (
-                    <TouchableOpacity onPress={() => setSearch('')} accessible={true} accessibilityLabel="Hapus pencarian">
-                        <MaterialCommunityIcons name="close-circle" size={18} color={Colors.textSecondary} />
-                    </TouchableOpacity>
+            <View
+                style={[
+                    styles.content,
+                    {
+                        paddingHorizontal: metrics.horizontalPadding,
+                        gap: metrics.verticalGap,
+                    },
+                    metrics.isWide ? styles.contentWide : null,
+                ]}
+            >
+                <View style={[styles.topGrid, metrics.isWide ? styles.topGridWide : null]}>
+                    <View style={styles.topMain}>
+                        <FilterBar
+                            title="Cari dan saring"
+                            subtitle="Supaya daftar panjang tetap terasa ringan dipindai."
+                            mode="compact"
+                            searchValue={search}
+                            onSearchChange={setSearch}
+                            searchPlaceholder="Cari kategori atau catatan..."
+                            resultLabel={`${grouped.length} kelompok hari`}
+                            segmentValue={filterType}
+                            segmentOptions={[
+                                { id: 'all', label: 'Semua' },
+                                { id: 'income', label: 'Pemasukan' },
+                                { id: 'expense', label: 'Pengeluaran' },
+                            ]}
+                            onSegmentChange={setFilterType}
+                            chipValue={filterPeriod}
+                            chipOptions={[
+                                { id: 'today', label: 'Hari ini' },
+                                { id: 'week', label: 'Minggu ini' },
+                                { id: 'month', label: 'Bulan ini' },
+                                { id: 'all', label: 'Semua' },
+                            ]}
+                            onChipChange={setFilterPeriod}
+                        />
+                    </View>
+
+                    <StatStrip
+                        items={[
+                            { label: 'Transaksi', value: `${transactions.length}` },
+                            { label: 'Net', value: formatCurrency(Math.abs(netAmount)), valueColor: netAmount >= 0 ? colors.success : colors.danger },
+                            {
+                                label: 'Mode',
+                                value:
+                                    filterPeriod === 'today'
+                                        ? 'Hari ini'
+                                        : filterPeriod === 'week'
+                                            ? 'Minggu'
+                                            : filterPeriod === 'month'
+                                                ? 'Bulan'
+                                                : 'Semua',
+                            },
+                        ]}
+                        vertical={metrics.isWide}
+                    />
+                </View>
+
+                {isLoading && !refreshing ? (
+                    <View style={styles.loadingList}>
+                        <TransactionItemSkeleton />
+                        <TransactionItemSkeleton />
+                        <TransactionItemSkeleton />
+                    </View>
+                ) : grouped.length === 0 ? (
+                    <View style={styles.emptyWrap}>
+                        <EmptyIllustrationState
+                            icon="receipt-text-outline"
+                            title="Belum ada transaksi yang cocok"
+                            description="Coba longgarkan filter atau tambahkan transaksi baru supaya ritme keuanganmu mulai terbaca."
+                            actionLabel="Tambah transaksi"
+                            onAction={() => navigation.navigate('AddTransaction')}
+                        />
+                    </View>
+                ) : (
+                    <FlashList
+                        data={rows}
+                        keyExtractor={(item) => item.id}
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={[styles.listContent, { paddingBottom: metrics.contentBottomInset }]}
+                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+                        renderItem={({ item }) => {
+                            if (item.kind === 'section') {
+                                return (
+                                    <View style={styles.sectionHeader}>
+                                        <Text style={styles.sectionTitle}>{item.title}</Text>
+                                        <View style={styles.sectionMeta}>
+                                            {item.totalIncome > 0 ? <Text style={styles.incomeText}>+{formatCurrency(item.totalIncome)}</Text> : null}
+                                            {item.totalExpense > 0 ? <Text style={styles.expenseText}>-{formatCurrency(item.totalExpense)}</Text> : null}
+                                        </View>
+                                    </View>
+                                );
+                            }
+
+                            if (item.kind === 'spacer') {
+                                return <View style={styles.sectionSpacer} />;
+                            }
+
+                            return (
+                                <View style={styles.itemBlock}>
+                                    {(() => {
+                                        const wallet = item.transaction.wallet_id
+                                            ? wallets.find((entry) => entry.id === item.transaction.wallet_id)
+                                            : null;
+                                        const walletCapabilities = getWalletCapabilities({
+                                            wallet,
+                                            activeProfileId,
+                                            membershipRole: wallet ? walletRoles[wallet.id] ?? null : null,
+                                        });
+
+                                        return (
+                                    <TransactionItem
+                                        transaction={item.transaction}
+                                        onDelete={removeTransaction}
+                                        onEdit={(id) => navigation.navigate('AddTransaction', { editId: id })}
+                                        onPress={(transaction) => navigation.navigate('TransactionDetail', { transactionId: transaction.id })}
+                                        canManage={!wallet || walletCapabilities.canManageTransactions}
+                                    />
+                                        );
+                                    })()}
+                                    {!item.isLastInSection ? <View style={styles.separator} /> : null}
+                                </View>
+                            );
+                        }}
+                    />
                 )}
             </View>
-
-            {/* Filter Tipe */}
-            <View style={styles.filterRow} accessibilityRole="tablist">
-                {typeFilters.map((f) => (
-                    <TouchableOpacity
-                        key={f.id}
-                        style={[styles.filterTab, filterType === f.id && styles.filterTabActive]}
-                        onPress={() => setFilterType(f.id)}
-                        accessible={true}
-                        accessibilityRole="tab"
-                        accessibilityLabel={f.label}
-                        accessibilityState={{ selected: filterType === f.id }}
-                    >
-                        <Text
-                            style={[styles.filterTabText, filterType === f.id && styles.filterTabTextActive]}
-                            allowFontScaling={true}
-                        >
-                            {f.label}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
-            </View>
-
-            {/* Filter Periode */}
-            <View style={styles.periodRow}>
-                {periodFilters.map((f) => (
-                    <TouchableOpacity
-                        key={f.id}
-                        style={[styles.periodChip, filterPeriod === f.id && styles.periodChipActive]}
-                        onPress={() => setFilterPeriod(f.id)}
-                        accessible={true}
-                        accessibilityRole="button"
-                        accessibilityLabel={f.label}
-                        accessibilityState={{ selected: filterPeriod === f.id }}
-                    >
-                        <Text
-                            style={[styles.periodChipText, filterPeriod === f.id && styles.periodChipTextActive]}
-                            allowFontScaling={true}
-                        >
-                            {f.label}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
-            </View>
-
-            {/* List */}
-            {isLoading ? (
-                <View>
-                    <TransactionItemSkeleton /><TransactionItemSkeleton /><TransactionItemSkeleton />
-                </View>
-            ) : grouped.length === 0 ? (
-                <EmptyState
-                    icon="receipt"
-                    title="Tidak ada transaksi"
-                    description="Coba ubah filter atau mulai catat transaksimu"
-                    actionLabel="Tambah Transaksi"
-                    onAction={() => navigation.navigate('AddTransaction')}
-                />
-            ) : (
-                <SectionList
-                    sections={grouped}
-                    keyExtractor={(item) => item.id}
-                    refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
-                    }
-                    contentContainerStyle={{ paddingBottom: 100 }}
-                    renderSectionHeader={({ section }) => (
-                        <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionDate} allowFontScaling={true}>{section.title}</Text>
-                            <View style={styles.sectionSummary}>
-                                {section.totalIncome > 0 && (
-                                    <Text style={styles.incomeSmall} allowFontScaling={true}>
-                                        +{formatRupiah(section.totalIncome)}
-                                    </Text>
-                                )}
-                                {section.totalExpense > 0 && (
-                                    <Text style={styles.expenseSmall} allowFontScaling={true}>
-                                        -{formatRupiah(section.totalExpense)}
-                                    </Text>
-                                )}
-                            </View>
-                        </View>
-                    )}
-                    renderItem={({ item, index, section }) => (
-                        <>
-                            <TransactionItem
-                                transaction={item}
-                                onDelete={removeTransaction}
-                                onEdit={(id) => navigation.navigate('AddTransaction', { editId: id })}
-                                onPress={(t) => navigation.navigate('TransactionDetail', { transactionId: t.id })}
-                            />
-                            {index < section.data.length - 1 && (
-                                <View style={{ height: 1, backgroundColor: Colors.divider, marginLeft: 72 }} />
-                            )}
-                        </>
-                    )}
-                    renderSectionFooter={() => <View style={{ height: 8, backgroundColor: Colors.background }} />}
-                />
-            )}
-
-            {/* FAB */}
-            <TouchableOpacity
-                style={styles.fab}
-                onPress={() => navigation.navigate('AddTransaction')}
-                accessible={true}
-                accessibilityRole="button"
-                accessibilityLabel="Tambah transaksi baru"
-                accessibilityHint="Ketuk dua kali untuk membuka form tambah transaksi"
-            >
-                <MaterialCommunityIcons name="plus" size={28} color={Colors.textInverse} accessibilityElementsHidden={true} />
-            </TouchableOpacity>
-        </SafeAreaView>
+        </ScreenShell>
     );
 }
 
-const styles = StyleSheet.create({
-    safe: { flex: 1, backgroundColor: Colors.background },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-    },
-    title: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: Colors.textPrimary },
-    addBtn: {
-        width: 44,
-        height: 44,
-        borderRadius: 12,
-        backgroundColor: Colors.primary,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    searchContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Colors.surface,
-        marginHorizontal: 20,
-        marginBottom: 12,
-        borderRadius: 12,
-        paddingHorizontal: 14,
-        height: 48,
-        gap: 10,
-        ...Shadow.sm,
-    },
-    searchInput: {
-        flex: 1,
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.body,
-        color: Colors.textPrimary,
-    },
-    filterRow: {
-        flexDirection: 'row',
-        marginHorizontal: 20,
-        gap: 0,
-        backgroundColor: Colors.surfaceElevated,
-        borderRadius: 12,
-        padding: 4,
-        marginBottom: 12,
-    },
-    filterTab: {
-        flex: 1,
-        paddingVertical: 10,
-        alignItems: 'center',
-        borderRadius: 9,
-        minHeight: 40,
-        justifyContent: 'center',
-    },
-    filterTabActive: { backgroundColor: Colors.surface, ...Shadow.sm },
-    filterTabText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.textSecondary },
-    filterTabTextActive: { fontFamily: FontFamily.bodyBold, color: Colors.primary },
-    periodRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, marginBottom: 8 },
-    periodChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, minHeight: 36, justifyContent: 'center' },
-    periodChipActive: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
-    periodChipText: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: Colors.textSecondary },
-    periodChipTextActive: { color: Colors.primaryDark, fontFamily: FontFamily.bodyMedium },
-    sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        backgroundColor: Colors.background,
-    },
-    sectionDate: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.caption, color: Colors.textSecondary, textTransform: 'uppercase' },
-    sectionSummary: { flexDirection: 'row', gap: 12 },
-    incomeSmall: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.caption, color: Colors.success },
-    expenseSmall: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.caption, color: Colors.danger },
-    fab: {
-        position: 'absolute',
-        bottom: 24,
-        right: 20,
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        backgroundColor: Colors.primary,
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...Shadow.lg,
-    },
-});
+const getStyles = (colors: ReturnType<typeof useTheme>['colors'], isCompact: boolean) =>
+    StyleSheet.create({
+        content: {
+            flex: 1,
+            gap: isCompact ? 10 : 14,
+        },
+        contentWide: {
+            maxWidth: 1240,
+            width: '100%',
+            alignSelf: 'center',
+            paddingTop: 10,
+        },
+        topGrid: {
+            gap: isCompact ? 10 : 14,
+        },
+        topGridWide: {
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+        },
+        topMain: {
+            flex: 1,
+        },
+        loadingList: {
+            gap: 12,
+            paddingTop: 6,
+        },
+        emptyWrap: {
+            flex: 1,
+            justifyContent: 'center',
+            paddingBottom: 80,
+        },
+        listContent: {
+            paddingBottom: isCompact ? 96 : 104,
+        },
+        sectionHeader: {
+            marginTop: isCompact ? 6 : 10,
+            marginBottom: isCompact ? 6 : 8,
+            paddingHorizontal: isCompact ? 12 : 14,
+            paddingVertical: isCompact ? 8 : 10,
+            borderRadius: BorderRadius['2xl'],
+            backgroundColor: colors.panelSurface,
+            borderWidth: 1,
+            borderColor: colors.cardBorder,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+        },
+        sectionTitle: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+            textTransform: 'uppercase',
+            letterSpacing: 0.4,
+        },
+        sectionMeta: {
+            flexDirection: 'row',
+            gap: 8,
+        },
+        incomeText: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.caption,
+            color: colors.success,
+        },
+        expenseText: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.caption,
+            color: colors.danger,
+        },
+        itemBlock: {
+            backgroundColor: colors.panelSurface,
+            borderWidth: 1,
+            borderColor: colors.cardBorder,
+            borderRadius: BorderRadius['4xl'],
+            overflow: 'hidden',
+        },
+        separator: {
+            height: 1,
+            backgroundColor: colors.divider,
+            marginLeft: 60,
+            marginRight: 12,
+        },
+        sectionSpacer: {
+            height: isCompact ? 12 : 16,
+        },
+    });

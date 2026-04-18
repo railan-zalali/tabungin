@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"]
+    },
+    "TestSprite": {
+      "command": "npx",
+      "args": ["testsprite-mcp-plugin"],
+      "env": {
+        "API_KEY": "sk-user-wMnXoujLEjqSdtXjpwmTj_fXzL3geRvk7YQO2sei1dFcd83QUQtsRCjZA8XBewqHX45W4iefjo_W8GsUDJZCo15Z_u9pgcKyGT5lEQQ7GR6QSF_VfhyFszXucg0sSBAwgww",
+        "APPDATA": "C:\\Railan\\New folder\\tabungin\\.testsprite"
+      }
+    }
+  }
+}

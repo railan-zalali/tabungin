@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(npm install:*)",
+      "Bash(npx expo:*)",
+      "Bash(netstat -ano)",
+      "Bash(findstr :8081)",
+      "Bash(curl:*)",
+      "Bash(dir:*)",
+      "Bash(npx supabase:*)",
+      "Bash(cd:*)",
+      "Bash(rm -rf .expo)",
+      "Bash(rm -rf node_modules/.cache)",
+      "Bash(./gradlew.bat assembleRelease)",
+      "Bash(find android/app/build/outputs -name *.apk)",
+      "Bash(./gradlew.bat clean:*)",
+      "Bash(./gradlew.bat assembleRelease --warning-mode all)",
+      "Bash(git restore:*)",
+      "Bash(./gradlew.bat assembleRelease --info)"
+    ]
+  }
+}

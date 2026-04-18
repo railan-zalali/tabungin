@@ -1,188 +1,267 @@
-// Saving List Screen — daftar semua saving goals
-import React, { useEffect, useState } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    SafeAreaView,
-    ScrollView,
-    TouchableOpacity,
-    RefreshControl,
-} from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { RefreshControl, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
-import { FontFamily, FontSize } from '../../constants/typography';
-import { Shadow } from '../../constants/theme';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { FlashList } from '@shopify/flash-list';
+import { BorderRadius } from '../../constants/theme';
+import { formatCurrency } from '../../utils/currency';
+import { getGoalComputedMeta } from '../../utils/goalSharing';
+import { useProfileStore } from '../../store/useProfileStore';
 import { useSavingStore } from '../../store/useSavingStore';
+import { useTheme } from '../../store/useThemeStore';
+import { useWalletStore } from '../../store/useWalletStore';
+import { AppScreenHeader } from '../../components/common/AppScreenHeader';
+import { ContextBadge } from '../../components/common/ContextBadge';
+import { EmptyIllustrationState } from '../../components/common/EmptyIllustrationState';
+import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
+import { ScreenShell } from '../../components/common/ScreenShell';
+import { SectionHeader } from '../../components/common/SectionHeader';
+import { SegmentedControl } from '../../components/common/SegmentedControl';
+import { StatStrip } from '../../components/common/StatStrip';
 import { SavingGoalCard } from '../../components/saving/SavingGoalCard';
 import { SavingGoalCardSkeleton } from '../../components/common/SkeletonLoader';
-import { EmptyState } from '../../components/common/EmptyState';
-import { formatRupiah } from '../../utils/currency';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useResponsiveMetrics } from '../../utils/responsive';
 
-type FilterTab = 'active' | 'completed' | 'all';
+type FilterTab = 'all' | 'personal' | 'shared' | 'completed';
 
 export function SavingListScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<any>>();
-    const { goals, activeGoals, completedGoals, isLoading, loadGoals } = useSavingStore();
-    const [filterTab, setFilterTab] = useState<FilterTab>('active');
+    const { colors } = useTheme();
+    const metrics = useResponsiveMetrics();
+    const compactLayout = metrics.density === 'compact';
+    const styles = React.useMemo(() => getStyles(colors, compactLayout), [colors, compactLayout]);
+    const { goals, isLoading, loadGoals } = useSavingStore();
+    const { wallets, loadWallets } = useWalletStore();
+    const activeProfileId = useProfileStore((state) => state.activeProfileId);
+    const currentUserId = useAuthStore((state) => state.user?.id);
+    const currentUserEmail = useAuthStore((state) => state.user?.email);
+    const [filterTab, setFilterTab] = useState<FilterTab>('all');
     const [refreshing, setRefreshing] = useState(false);
 
-    useEffect(() => { loadGoals(); }, []);
+    useEffect(() => {
+        loadGoals();
+        loadWallets();
+    }, [loadGoals, loadWallets]);
 
     const onRefresh = async () => {
         setRefreshing(true);
-        await loadGoals();
-        setRefreshing(false);
+        try {
+            await Promise.all([loadGoals(), loadWallets()]);
+        } finally {
+            setRefreshing(false);
+        }
     };
 
-    const displayGoals = filterTab === 'active' ? activeGoals
-        : filterTab === 'completed' ? completedGoals
-            : goals;
+    const goalsWithMeta = useMemo(
+        () =>
+            goals.map((goal) => {
+                const wallet = wallets.find((item) => item.id === goal.wallet_id);
+                return {
+                    goal,
+                    wallet,
+                    meta: getGoalComputedMeta(goal, wallet, activeProfileId, [], currentUserId, null, currentUserEmail),
+                };
+            }),
+        [activeProfileId, currentUserEmail, currentUserId, goals, wallets],
+    );
 
-    const totalSaved = goals.reduce((s, g) => s + g.current_amount, 0);
-    const totalTarget = goals.reduce((s, g) => s + g.target_amount, 0);
+    const filteredGoals = useMemo(() => {
+        switch (filterTab) {
+            case 'personal':
+                return goalsWithMeta.filter((item) => item.meta.scope === 'personal' && !item.goal.is_completed);
+            case 'shared':
+                return goalsWithMeta.filter((item) => item.meta.isSharedGoal && !item.goal.is_completed);
+            case 'completed':
+                return goalsWithMeta.filter((item) => item.goal.is_completed);
+            case 'all':
+            default:
+                return goalsWithMeta;
+        }
+    }, [filterTab, goalsWithMeta]);
 
-    const tabFilters: { id: FilterTab; label: string }[] = [
-        { id: 'active', label: `Aktif (${activeGoals.length})` },
-        { id: 'completed', label: `Selesai (${completedGoals.length})` },
-        { id: 'all', label: 'Semua' },
-    ];
+    const activeGoalsCount = goalsWithMeta.filter((item) => !item.goal.is_completed).length;
+    const personalGoalsCount = goalsWithMeta.filter((item) => item.meta.scope === 'personal' && !item.goal.is_completed).length;
+    const sharedGoalsCount = goalsWithMeta.filter((item) => item.meta.isSharedGoal && !item.goal.is_completed).length;
+    const completedGoalsCount = goalsWithMeta.filter((item) => item.goal.is_completed).length;
+    const totalSaved = goals.reduce((sum, goal) => sum + goal.current_amount, 0);
+    const totalTarget = goals.reduce((sum, goal) => sum + goal.target_amount, 0);
 
     return (
-        <SafeAreaView style={styles.safe}>
-            {/* Header */}
-            <View style={styles.header}>
-                <Text style={styles.title} allowFontScaling={true} accessibilityRole="header">Tabungan</Text>
-                <TouchableOpacity
-                    style={styles.addBtn}
-                    onPress={() => navigation.navigate('AddSavingGoal')}
-                    accessible={true}
-                    accessibilityRole="button"
-                    accessibilityLabel="Tambah target tabungan baru"
-                >
-                    <MaterialCommunityIcons name="plus" size={22} color={Colors.textInverse} />
-                </TouchableOpacity>
-            </View>
+        <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
+            <AppScreenHeader
+                eyebrow="Goal Portfolio"
+                title="Target tabungan"
+                subtitle="Pantau goal personal, shared, dan yang sudah selesai."
+                density={metrics.headerDensity}
+                showBack
+                onBackPress={() => navigation.goBack()}
+                rightAction={{
+                    icon: 'plus',
+                    label: 'Buat target',
+                    onPress: () => navigation.navigate('AddSavingGoal'),
+                }}
+                variant="transparent"
+            />
 
-            <ScrollView
+            <FlashList
+                data={isLoading && !refreshing ? [null, null] : filteredGoals}
+                keyExtractor={(item, index) => item?.goal?.id || `skeleton-${index}`}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 100 }}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
-            >
-                {/* Summary Card */}
-                <View style={[styles.summaryCard, Shadow.sm]}>
-                    <View accessible={true} accessibilityLabel={`Total terkumpul ${formatRupiah(totalSaved)} dari target ${formatRupiah(totalTarget)}`}>
-                        <Text style={styles.summaryLabel} allowFontScaling={true}>Total Terkumpul</Text>
-                        <Text style={styles.summaryAmount} allowFontScaling={true} accessibilityLiveRegion="polite">
-                            {formatRupiah(totalSaved)}
-                        </Text>
-                        <Text style={styles.summarySubtext} allowFontScaling={true}>
-                            dari {formatRupiah(totalTarget)} total target
-                        </Text>
+                contentContainerStyle={[
+                    styles.content,
+                    {
+                        paddingHorizontal: metrics.horizontalPadding,
+                        paddingBottom: metrics.contentBottomInset,
+                        gap: metrics.verticalGap,
+                    },
+                    metrics.isWide ? styles.contentWide : null,
+                ]}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+                ListHeaderComponent={
+                    <View style={[styles.heroGrid, metrics.isWide ? styles.heroGridWide : null]}>
+                        <Animated.View entering={FadeInDown.delay(60).springify()} style={styles.heroMain}>
+                            <HeroSummaryCard
+                                eyebrow="Ringkasan Progres"
+                                title="Total dana yang sudah terkumpul"
+                                value={formatCurrency(totalSaved)}
+                                layout="compact"
+                                description={`Dari target ${formatCurrency(totalTarget)} di semua goal yang kamu pantau.`}
+                                icon="piggy-bank-outline"
+                                badges={
+                                    <>
+                                        <ContextBadge icon="bullseye-arrow" label={`${activeGoalsCount} aktif`} inverse />
+                                        <ContextBadge icon="account-outline" label={`${personalGoalsCount} pribadi`} inverse />
+                                        {!compactLayout ? <ContextBadge icon="account-group-outline" label={`${sharedGoalsCount} bersama`} inverse /> : null}
+                                    </>
+                                }
+                            />
+                        </Animated.View>
+
+                        <Animated.View entering={FadeInDown.delay(120).springify()} style={styles.filterBlock}>
+                            <SectionHeader
+                                eyebrow="Scope Filter"
+                                title="Fokus tampilan"
+                                subtitle="Pilih dulu konteks yang ingin kamu evaluasi sekarang."
+                                hideSubtitleOnCompact
+                            />
+                            <SegmentedControl
+                                value={filterTab}
+                                onChange={setFilterTab}
+                                scrollable
+                                options={[
+                                    { id: 'all', label: 'Semua', count: goals.length },
+                                    { id: 'personal', label: 'Pribadi', count: personalGoalsCount },
+                                    { id: 'shared', label: 'Bersama', count: sharedGoalsCount },
+                                    { id: 'completed', label: 'Selesai', count: completedGoalsCount },
+                                ]}
+                            />
+                            {sharedGoalsCount > 0 || completedGoalsCount > 0 ? (
+                                <View style={styles.legendRow}>
+                                    <ContextBadge icon="account-outline" label="Pribadi" tone="primary" />
+                                    {sharedGoalsCount > 0 ? <ContextBadge icon="account-group-outline" label="Dompet bersama" tone="info" /> : null}
+                                    {completedGoalsCount > 0 ? <ContextBadge icon="check-circle-outline" label="Selesai" tone="success" /> : null}
+                                </View>
+                            ) : null}
+                        </Animated.View>
+
+                        {!compactLayout || metrics.isWide ? (
+                            <StatStrip
+                                items={[
+                                    { label: 'Aktif', value: `${activeGoalsCount}` },
+                                    { label: 'Shared', value: `${sharedGoalsCount}`, valueColor: sharedGoalsCount > 0 ? colors.info : colors.textSecondary },
+                                    { label: 'Selesai', value: `${completedGoalsCount}`, valueColor: completedGoalsCount > 0 ? colors.success : colors.textSecondary },
+                                ]}
+                                vertical={metrics.isWide}
+                            />
+                        ) : null}
                     </View>
-                </View>
-
-                {/* Filter Tabs */}
-                <View style={styles.filterRow} accessibilityRole="tablist">
-                    {tabFilters.map((f) => (
-                        <TouchableOpacity
-                            key={f.id}
-                            style={[styles.filterTab, filterTab === f.id && styles.filterTabActive]}
-                            onPress={() => setFilterTab(f.id)}
-                            accessible={true}
-                            accessibilityRole="tab"
-                            accessibilityLabel={f.label}
-                            accessibilityState={{ selected: filterTab === f.id }}
-                        >
-                            <Text style={[styles.filterTabText, filterTab === f.id && styles.filterTabTextActive]} allowFontScaling={true}>
-                                {f.label}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-
-                {/* Goal List */}
-                {isLoading ? (
-                    <>
-                        <SavingGoalCardSkeleton />
-                        <SavingGoalCardSkeleton />
-                    </>
-                ) : displayGoals.length === 0 ? (
-                    <EmptyState
-                        icon={filterTab === 'completed' ? 'check-circle-outline' : 'piggy-bank-outline'}
-                        title={filterTab === 'completed' ? 'Belum ada goal selesai' : 'Belum ada target aktif'}
-                        description={filterTab === 'active' ? 'Mulai buat target tabungan pertamamu!' : undefined}
-                        actionLabel={filterTab === 'active' ? 'Buat Target' : undefined}
-                        onAction={filterTab === 'active' ? () => navigation.navigate('AddSavingGoal') : undefined}
-                    />
-                ) : (
-                    displayGoals.map((goal, idx) => (
+                }
+                ListEmptyComponent={
+                    !isLoading ? (
+                        <Animated.View entering={FadeInUp.delay(180).springify()} style={styles.emptyWrap}>
+                            <EmptyIllustrationState
+                                icon={filterTab === 'completed' ? 'check-circle-outline' : 'piggy-bank-outline'}
+                                title={
+                                    filterTab === 'completed'
+                                        ? 'Belum ada target selesai'
+                                        : filterTab === 'shared'
+                                            ? 'Belum ada target bersama'
+                                            : filterTab === 'personal'
+                                                ? 'Belum ada target personal'
+                                                : 'Belum ada target'
+                                }
+                                description={
+                                    filterTab === 'shared'
+                                        ? 'Target dari dompet bersama akan muncul di sini dengan konteks ownership yang lebih jelas.'
+                                        : 'Buat satu target utama dulu supaya progres dan simulasi tabungan mulai terasa berguna.'
+                                }
+                                actionLabel={filterTab === 'completed' ? undefined : 'Buat target'}
+                                onAction={filterTab === 'completed' ? undefined : () => navigation.navigate('AddSavingGoal')}
+                            />
+                        </Animated.View>
+                    ) : null
+                }
+                ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+                renderItem={({ item, index }) =>
+                    item ? (
                         <SavingGoalCard
-                            key={goal.id}
-                            goal={goal}
-                            animationDelay={idx * 80}
-                            onPress={() => navigation.navigate('SavingDetail', { goalId: goal.id })}
-                            onAddSaving={() => navigation.navigate('SavingDetail', { goalId: goal.id })}
+                            goal={item.goal}
+                            animationDelay={index * 80}
+                            onPress={() => navigation.navigate('SavingDetail', { goalId: item.goal.id })}
+                            onAddSaving={() => navigation.navigate('SavingDetail', { goalId: item.goal.id })}
                         />
-                    ))
-                )}
-            </ScrollView>
-
-            {/* FAB */}
-            <TouchableOpacity
-                style={styles.fab}
-                onPress={() => navigation.navigate('AddSavingGoal')}
-                accessible={true}
-                accessibilityRole="button"
-                accessibilityLabel="Tambah target tabungan baru"
-                accessibilityHint="Ketuk dua kali untuk membuat target tabungan baru"
-            >
-                <MaterialCommunityIcons name="plus" size={28} color={Colors.textInverse} accessibilityElementsHidden={true} />
-            </TouchableOpacity>
-        </SafeAreaView>
+                    ) : (
+                        <SavingGoalCardSkeleton />
+                    )
+                }
+            />
+        </ScreenShell>
     );
 }
 
-const styles = StyleSheet.create({
-    safe: { flex: 1, backgroundColor: Colors.background },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 },
-    title: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: Colors.textPrimary },
-    addBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
-    summaryCard: {
-        backgroundColor: Colors.surface,
-        marginHorizontal: 20,
-        marginBottom: 16,
-        borderRadius: 16,
-        padding: 20,
-    },
-    summaryLabel: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: Colors.textSecondary },
-    summaryAmount: { fontFamily: FontFamily.heading, fontSize: FontSize.h1, color: Colors.primary, marginTop: 4 },
-    summarySubtext: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: Colors.textSecondary, marginTop: 4 },
-    filterRow: {
-        flexDirection: 'row',
-        marginHorizontal: 20,
-        gap: 0,
-        backgroundColor: Colors.surfaceElevated,
-        borderRadius: 12,
-        padding: 4,
-        marginBottom: 16,
-    },
-    filterTab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 9, minHeight: 40, justifyContent: 'center' },
-    filterTabActive: { backgroundColor: Colors.surface, ...Shadow.sm },
-    filterTabText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.textSecondary },
-    filterTabTextActive: { fontFamily: FontFamily.bodyBold, color: Colors.primary },
-    fab: {
-        position: 'absolute',
-        bottom: 24,
-        right: 20,
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        backgroundColor: Colors.secondary,
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...Shadow.lg,
-    },
-});
+const getStyles = (colors: ReturnType<typeof useTheme>['colors'], isCompact: boolean) =>
+    StyleSheet.create({
+        content: {
+            gap: isCompact ? 14 : 18,
+            maxWidth: 920,
+            width: '100%',
+            alignSelf: 'center',
+        },
+        contentWide: {
+            maxWidth: 1240,
+            paddingTop: 10,
+        },
+        heroGrid: {
+            gap: isCompact ? 14 : 18,
+        },
+        heroGridWide: {
+            flexDirection: 'row',
+            alignItems: 'stretch',
+        },
+        heroMain: {
+            flex: 1,
+        },
+        filterBlock: {
+            gap: isCompact ? 12 : 14,
+            backgroundColor: colors.panelSurface,
+            borderWidth: 1,
+            borderColor: colors.cardBorder,
+            borderRadius: BorderRadius['4xl'],
+            padding: isCompact ? 14 : 18,
+            flex: 0.82,
+        },
+        legendRow: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 8,
+        },
+        listWrap: {
+            gap: 12,
+        },
+        emptyWrap: {
+            paddingTop: 8,
+            paddingBottom: 48,
+        },
+    });

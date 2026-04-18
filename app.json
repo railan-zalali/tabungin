@@ -6,15 +6,16 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
+    "scheme": "tabungin",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1DB954"
+      "backgroundColor": "#1D7D53"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1DB954"
+        "backgroundColor": "#1D7D53"
       },
       "package": "com.tabungin.app"
     },
@@ -26,10 +27,17 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#1DB954"
+          "color": "#1D7D53"
         }
-      ]
+      ],
+      "expo-camera",
+      "expo-sharing",
+      "expo-build-properties"
     ],
-    "scheme": "tabungin"
+    "extra": {
+      "eas": {
+        "projectId": "43110849-f922-4680-a3ea-66eb86d8ee72"
+      }
+    }
   }
 }
