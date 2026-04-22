@@ -57,7 +57,7 @@
     "@testsprite/testsprite-mcp": "^0.0.36",
     "@types/jest": "^29.5.14",
     "jest": "^29.7.0",
-    "jest-expo": "~55.0.11",
+    "jest-expo": "~55.0.16",
     "tailwindcss": "^3.4.19",
     "typescript": "~5.9.2"
   }
