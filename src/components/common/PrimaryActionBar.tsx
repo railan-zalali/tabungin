@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from './Button';
 import { BorderRadius } from '../../constants/theme';
+import { Layout } from '../../constants/layout';
 import { useTheme } from '../../store/useThemeStore';
 
 interface PrimaryActionBarProps {
@@ -27,7 +28,7 @@ export function PrimaryActionBar({
     const styles = React.useMemo(() => getStyles(colors), [colors]);
 
     return (
-        <View style={[styles.wrap, { paddingBottom: insets.bottom + 12 + offset }]}>
+        <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, Layout.footerSpacing) + Layout.tabBarHeight + offset }]}>
             <View style={styles.bar}>
                 {secondaryLabel && onSecondaryPress ? (
                     <Button label={secondaryLabel} onPress={onSecondaryPress} variant="outline" style={{ flex: 1 }} />
@@ -65,6 +66,6 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             borderRadius: BorderRadius['4xl'],
             backgroundColor: colors.tabBarGlass,
             borderWidth: 1,
-            borderColor: colors.glassStroke,
+            borderColor: colors.energeticBorder,
         },
     });

@@ -8,6 +8,7 @@ import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import type { CategorySummary, MonthlySummary } from '../../types/transaction';
 import { formatCurrency } from '../../utils/currency';
 import { resolveCategoryByKey } from '../../utils/categoryResolver';
+import { useScreenLayout } from '../../hooks/useScreenLayout';
 import { useCategoryStore } from '../../store/useCategoryStore';
 import { useTheme } from '../../store/useThemeStore';
 import { useTransactionStore } from '../../store/useTransactionStore';
@@ -82,6 +83,7 @@ function generateHTMLReport(
 
 export function ReportScreen() {
     const { colors } = useTheme();
+    const { contentBottomSpacing } = useScreenLayout();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
     const { getCategorySummary, getMonthlyData } = useTransactionStore();
     const { categories, loadCategories } = useCategoryStore();
@@ -154,7 +156,10 @@ export function ReportScreen() {
                 variant="transparent"
             />
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[styles.content, { paddingBottom: contentBottomSpacing }]}
+            >
                 <HeroSummaryCard
                     eyebrow="Snapshot Periode"
                     title="Selisih kas pada periode terpilih"
@@ -295,7 +300,6 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         },
         content: {
             paddingHorizontal: 20,
-            paddingBottom: 108,
             gap: 18,
         },
         periodCard: {

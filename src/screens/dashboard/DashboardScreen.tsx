@@ -8,6 +8,7 @@ import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { formatCurrency } from '../../utils/currency';
 import { formatDateLong } from '../../utils/date';
 import { getGoalComputedMeta } from '../../utils/goalSharing';
+import { useScreenLayout } from '../../hooks/useScreenLayout';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useCategoryStore } from '../../store/useCategoryStore';
 import { useNotificationStore } from '../../store/useNotificationStore';
@@ -60,6 +61,7 @@ function QuickActionCard({ item }: { item: QuickAction }) {
 export function DashboardScreen() {
     const navigation = useNavigation<DashboardNavigationProp>();
     const { colors } = useTheme();
+    const { contentBottomSpacing } = useScreenLayout();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
     const user = useAuthStore((state) => state.user);
     const { profiles, activeProfileId, loadProfiles } = useProfileStore();
@@ -167,7 +169,7 @@ export function DashboardScreen() {
 
             <ScrollView
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.content}
+                contentContainerStyle={[styles.content, { paddingBottom: contentBottomSpacing }]}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
             >
                 <Animated.View entering={FadeInDown.delay(40).springify()} style={styles.sectionGap}>
@@ -283,7 +285,7 @@ export function DashboardScreen() {
                     )}
                 </Animated.View>
 
-                <Animated.View entering={FadeInUp.delay(220).springify()} style={[styles.sectionGap, styles.bottomSpacing]}>
+                <Animated.View entering={FadeInUp.delay(220).springify()} style={styles.sectionGap}>
                     <SectionHeader
                         title="Transaksi terbaru"
                         subtitle="Pantau apa yang baru berubah sebelum kamu pindah ke layar transaksi penuh."
@@ -332,7 +334,6 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     StyleSheet.create({
         content: {
             paddingHorizontal: 20,
-            paddingBottom: 36,
             gap: 20,
         },
         sectionGap: {
@@ -346,10 +347,12 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         },
         quickActionGrid: {
             flexDirection: 'row',
+            flexWrap: 'wrap',
             gap: 12,
         },
         quickActionCard: {
-            flex: 1,
+            flexGrow: 1,
+            flexBasis: '30%',
             backgroundColor: colors.panelSurface,
             borderWidth: 1,
             borderColor: colors.border,
@@ -391,8 +394,5 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             backgroundColor: colors.divider,
             marginLeft: 64,
             marginRight: 12,
-        },
-        bottomSpacing: {
-            paddingBottom: 92,
         },
     });

@@ -1,5 +1,5 @@
 import { getInitializedDatabase } from "./schema";
-import { supabase } from "../lib/supabase";
+import { isSupabaseConfigured, supabase, warnIfSupabaseUnavailable } from "../lib/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { NetInfoState, useNetInfo } from "@react-native-community/netinfo";
 import { v4 as uuidv4 } from "uuid";
@@ -289,6 +289,82 @@ async function reconcileLocalProfileWithSupabase(
   return remoteProfileId;
 }
 
+function buildRemotePayload(
+  table: SyncTable,
+  row: any,
+  validProfileId: string,
+  activeProfileId: string,
+  user: { id: string; email?: string | null },
+): Record<string, any> {
+  const record = mapRecordToSupabase(table.tableName, row);
+  const payload: Record<string, any> = {};
+
+  table.columns.forEach((col) => {
+    if (col in record) {
+      payload[col] = record[col];
+    }
+  });
+
+  if (table.tableName === 'profiles') {
+    payload.id = validProfileId;
+    payload.user_id = user.id;
+    payload.name = payload.name || user.email?.split('@')[0] || 'User';
+    payload.updated_at = Date.now();
+  }
+
+  if (table.columns.includes('profile_id')) {
+    if (!payload.profile_id && validProfileId) {
+      payload.profile_id = validProfileId;
+    } else if (payload.profile_id === activeProfileId && validProfileId) {
+      payload.profile_id = validProfileId;
+    }
+  }
+
+  return payload;
+}
+
+async function markRowsAsSynced(db: Awaited<ReturnType<typeof getInitializedDatabase>>, tableName: string, rows: any[]) {
+  if (rows.length === 0) {
+    return;
+  }
+
+  const ids = rows.map((row) => row.id);
+  await db.runAsync(
+    `UPDATE ${tableName} SET sync_status = 'synced' WHERE id IN (${ids.map(() => '?').join(',')})`,
+    ids,
+  );
+}
+
+async function fetchAccessibleRemoteWalletIds(walletIds: string[]): Promise<Set<string>> {
+  const uniqueWalletIds = [...new Set(walletIds.filter(Boolean))];
+  if (uniqueWalletIds.length === 0) {
+    return new Set<string>();
+  }
+
+  const { data, error } = await supabase
+    .from('wallets')
+    .select('id')
+    .in('id', uniqueWalletIds);
+
+  if (error) {
+    throw error;
+  }
+
+  return new Set((data ?? []).map((wallet: any) => wallet.id));
+}
+
+function tableRequiresRemoteWallet(tableName: string): boolean {
+  return ['transactions', 'budgets', 'saving_goals', 'wallet_members'].includes(tableName);
+}
+
+function isRowSyncableForRemoteWallet(payload: Record<string, any>, remoteWalletIdSet: Set<string>): boolean {
+  if (!payload.wallet_id) {
+    return true;
+  }
+
+  return remoteWalletIdSet.has(payload.wallet_id);
+}
+
 /**
  * PUSH: Kirim perubahan lokal ke Supabase
  * NOTE: Menggunakan profile_id untuk multi-user support, bukan user_id
@@ -326,111 +402,124 @@ async function pushChanges() {
       continue;
     }
 
-    // 1. Handle Pending Create & Update
-    let pendingUpserts: any[] = [];
+    let pendingRows: any[] = [];
 
     if (table.tableName === 'profiles') {
-      pendingUpserts = await db.getAllAsync<any>(
+      pendingRows = await db.getAllAsync<any>(
         `SELECT * FROM profiles WHERE id = ? AND sync_status IN ('pending_create', 'pending_update')`,
         [validProfileId],
       );
     } else {
-      pendingUpserts = await db.getAllAsync<any>(
+      pendingRows = await db.getAllAsync<any>(
         `SELECT * FROM ${table.tableName} WHERE sync_status IN ('pending_create', 'pending_update')`,
       );
     }
 
-    if (pendingUpserts.length > 0) {
-      let syncedRows = pendingUpserts;
-      let records = pendingUpserts.map((row) => {
-        const record = mapRecordToSupabase(table.tableName, row);
-        const payload: any = {};
+    if (pendingRows.length > 0) {
+      const pendingCreates = pendingRows.filter((row) => row.sync_status === 'pending_create');
+      const pendingUpdates = pendingRows.filter((row) => row.sync_status === 'pending_update');
 
-        table.columns.forEach((col) => {
-          if (col in record) {
-            payload[col] = record[col];
+      let createPairs = pendingCreates.map((row) => ({
+        row,
+        payload: buildRemotePayload(table, row, validProfileId, activeProfileId, user),
+      }));
+      let updatePairs = pendingUpdates.map((row) => ({
+        row,
+        payload: buildRemotePayload(table, row, validProfileId, activeProfileId, user),
+      }));
+
+      if (tableRequiresRemoteWallet(table.tableName)) {
+        try {
+          const remoteWalletIdSet = await fetchAccessibleRemoteWalletIds([
+            ...createPairs.map(({ payload }) => payload.wallet_id).filter(Boolean),
+            ...updatePairs.map(({ payload }) => payload.wallet_id).filter(Boolean),
+          ]);
+
+          const skippedCreates = createPairs.filter(
+            ({ payload }) => !isRowSyncableForRemoteWallet(payload, remoteWalletIdSet),
+          );
+          const skippedUpdates = updatePairs.filter(
+            ({ payload }) => !isRowSyncableForRemoteWallet(payload, remoteWalletIdSet),
+          );
+
+          createPairs = createPairs.filter(({ payload }) => isRowSyncableForRemoteWallet(payload, remoteWalletIdSet));
+          updatePairs = updatePairs.filter(({ payload }) => isRowSyncableForRemoteWallet(payload, remoteWalletIdSet));
+
+          if (skippedCreates.length > 0 || skippedUpdates.length > 0) {
+            console.log(
+              `[Sync] Skipping ${skippedCreates.length + skippedUpdates.length} ${table.tableName} row(s) because parent wallet is not accessible in Supabase yet.`,
+            );
           }
-        });
-
-        if (table.tableName === 'profiles') {
-          payload.id = validProfileId;
-          payload.user_id = user.id;
-          payload.name = payload.name || user.email?.split('@')[0] || 'User';
-          payload.updated_at = Date.now();
-        }
-
-        // CRITICAL: Set profile_id untuk wallet yang baru dibuat
-        // Jika profile_id tidak valid atau NULL, set NULL saja
-        // Supabase akan membuat foreign key NULL jika profile_id tidak valid
-        if (table.columns.includes('profile_id')) {
-          if (!payload.profile_id && validProfileId) {
-            payload.profile_id = validProfileId;
-            console.log(`[Sync] Assigning profile_id ${validProfileId} to new wallet`);
-          } else if (payload.profile_id === activeProfileId && validProfileId) {
-            payload.profile_id = validProfileId;
-          }
-        }
-
-        return payload;
-      });
-
-      if (table.tableName === 'wallet_members') {
-        const walletIds = [...new Set(records.map((record) => record.wallet_id).filter(Boolean))];
-
-        if (walletIds.length > 0) {
-          const { data: remoteWallets, error: remoteWalletsError } = await supabase
-            .from('wallets')
-            .select('id')
-            .in('id', walletIds);
-
-          if (remoteWalletsError) {
-            console.error('[Sync] Failed to validate wallet_members parent wallets:', remoteWalletsError);
-            continue;
-          }
-
-          const remoteWalletIdSet = new Set((remoteWallets || []).map((wallet: any) => wallet.id));
-          records = records.filter((record) => remoteWalletIdSet.has(record.wallet_id));
-          syncedRows = syncedRows.filter((row) => remoteWalletIdSet.has(row.wallet_id));
-
-          if (records.length === 0) {
-            console.log('[Sync] Skipping wallet_members push because parent wallets are not available in Supabase yet.');
-            continue;
-          }
+        } catch (error) {
+          console.error(`[Sync] Failed to validate parent wallets for ${table.tableName}:`, error);
+          continue;
         }
       }
 
       const remoteColumns = table.remoteColumns ?? table.columns;
-      const remoteRecords = records.map((record) => {
-        const payload: Record<string, any> = {};
+      const successfulCreates: any[] = [];
+      const successfulUpdates: any[] = [];
+
+      if (createPairs.length > 0) {
+        const remoteRecords = createPairs.map(({ payload }) => {
+          const createPayload: Record<string, any> = {};
+          remoteColumns.forEach((column) => {
+            if (column in payload) {
+              createPayload[column] = payload[column];
+            }
+          });
+          return createPayload;
+        });
+
+        const { error } = await supabase.from(table.tableName).insert(remoteRecords);
+
+        if (error) {
+          if (shouldSkipRemoteTable(table, error)) {
+            continue;
+          }
+          console.error(`Failed to push ${table.tableName}:`, error.message);
+        } else {
+          successfulCreates.push(...createPairs.map(({ row }) => row));
+          await markRowsAsSynced(db, table.tableName, successfulCreates);
+
+          if (table.tableName === 'wallets') {
+            await ensureWalletOwnerMembership(successfulCreates, user.email || '', validProfileId);
+          }
+        }
+      }
+
+      for (const { row, payload } of updatePairs) {
+        const updatePayload: Record<string, any> = {};
         remoteColumns.forEach((column) => {
-          if (column in record) {
-            payload[column] = record[column];
+          if (column !== 'id' && column in payload) {
+            updatePayload[column] = payload[column];
           }
         });
-        return payload;
-      });
 
-      const { error } = await supabase.from(table.tableName).upsert(remoteRecords);
+        const { data, error } = await supabase
+          .from(table.tableName)
+          .update(updatePayload)
+          .eq('id', row.id)
+          .select('id');
 
-      if (!error) {
-        const placeholders = syncedRows.map(() => "?").join(",");
-        const ids = syncedRows.map((r) => r.id);
-
-        if (ids.length > 0) {
-          await db.runAsync(
-            `UPDATE ${table.tableName} SET sync_status = 'synced' WHERE id IN (${placeholders})`,
-            ids,
-          );
-        }
-
-        if (table.tableName === 'wallets') {
-          await ensureWalletOwnerMembership(syncedRows, user.email || '', validProfileId);
-        }
-      } else {
-        if (shouldSkipRemoteTable(table, error)) {
+        if (error) {
+          if (shouldSkipRemoteTable(table, error)) {
+            continue;
+          }
+          console.error(`Failed to push ${table.tableName}:`, error.message);
           continue;
         }
-        console.error(`Failed to push ${table.tableName}:`, error.message);
+
+        if (!data || data.length === 0) {
+          console.warn(`[Sync] Update ${table.tableName} skipped because the remote row is not writable:`, row.id);
+          continue;
+        }
+
+        successfulUpdates.push(row);
+      }
+
+      if (successfulUpdates.length > 0) {
+        await markRowsAsSynced(db, table.tableName, successfulUpdates);
       }
     }
 
@@ -648,6 +737,11 @@ async function pullChanges() {
  * Fungsi utama Sync
  */
 export async function syncDatabase() {
+  if (!isSupabaseConfigured) {
+    warnIfSupabaseUnavailable("syncDatabase");
+    return;
+  }
+
   if (activeSyncPromise) {
     return activeSyncPromise;
   }

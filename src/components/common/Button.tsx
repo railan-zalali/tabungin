@@ -16,7 +16,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { FontFamily, FontSize, scaleFontSize } from '../../constants/typography';
-import { useAuthStore } from '../../store/useAuthStore';
 import { useTheme } from '../../store/useThemeStore';
 import { BorderRadius } from '../../constants/theme';
 
@@ -62,8 +61,7 @@ export function Button({
 }: ButtonProps) {
     const scale = useSharedValue(1);
     const glowOpacity = useSharedValue(variant === 'primary' ? 1 : 0);
-    const hapticEnabled = useAuthStore((s) => s.hapticEnabled);
-    const { colors, motion, textSize } = useTheme();
+    const { colors, motion, textSize, hapticEnabled } = useTheme();
     const styles = React.useMemo(() => getStyles(colors, textSize), [colors, textSize]);
 
     const animatedStyle = useAnimatedStyle(() => ({

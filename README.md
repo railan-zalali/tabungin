@@ -1,112 +1,114 @@
-<div align="center">
-  <img src="assets/splash-icon.png" alt="Tabungin Logo" width="120" />
+# Tabungin
 
-# 🐷 Tabungin
+Tabungin adalah aplikasi pencatatan keuangan berbasis Expo dan React Native dengan arsitektur local-first. Data utama disimpan di SQLite untuk pengalaman cepat dan tetap usable saat offline, lalu disinkronkan ke Supabase untuk backup dan multi-device support.
 
-**Catat, Kelola, Wujudkan**
+## Sorotan
 
-Sebuah aplikasi pencatatan keuangan yang modern, simpel, dan elegan untuk membantu Anda merencanakan, mengelola, dan mewujudkan tujuan finansial Anda.
+- Dashboard, transaksi, dompet, target tabungan, laporan, dan pengaturan dalam satu aplikasi.
+- Fokus Android Expo dengan UI yang lebih tegas, responsif, dan aman untuk layar kecil.
+- State management memakai Zustand, persistence lokal memakai Expo SQLite, dan backend sync memakai Supabase.
 
-[![React Native](https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactnative.dev/)
-[![Expo](https://img.shields.io/badge/expo-1C1E24?style=for-the-badge&logo=expo&logoColor=#D04A37)](https://expo.dev/)
-[![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+## Stack
 
-  <br />
-</div>
+- Expo 55
+- React Native 0.83
+- TypeScript
+- React Navigation
+- Zustand
+- Expo SQLite
+- Supabase
 
-## ✨ Key Features
+## Menjalankan proyek
 
-Tabungin is designed with a user-centric approach to provide a seamless financial management experience.
+```bash
+npm install
+npm run start
+```
 
-- 📊 **Dashboard Analytics:** Visual overview of your financial health with beautiful charts and summaries.
-- 🎯 **Saving Goals (Tabungan):** Create and track custom savings goals (e.g., buying a car, emergency fund).
-- 💸 **Transaction Management:** Easily log incomes and expenses with categorization.
-- 📉 **Comprehensive Reports:** Gain insights into your spending patterns over time.
-- 🔒 **Secure Authentication:** Protect your financial data with robust authentication.
-- ⚙️ **Customizable Settings:** Personalize the app experience to your needs.
+Sebelum login, register, sync, atau fitur berbasis cloud dipakai, isi environment Supabase terlebih dulu:
 
-## 🛠 Tech Stack
+```bash
+copy .env.example .env
+```
 
-Tabungin leverages modern and robust technologies to deliver a high-performance mobile application:
+Lalu isi:
 
-| Category             | Technology                                                                                                                  | Description                                            |
-| :------------------- | :-------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------- |
-| **Framework**        | [React Native](https://reactnative.dev/) & [Expo](https://expo.dev/)                                                        | Cross-platform mobile development framework.           |
-| **Language**         | [TypeScript](https://www.typescriptlang.org/)                                                                               | Strongly typed programming language.                   |
-| **Styling**          | [NativeWind](https://www.nativewind.dev/) (Tailwind CSS)                                                                    | Utility-first styling for React Native.                |
-| **Navigation**       | [React Navigation](https://reactnavigation.org/)                                                                            | Routing and navigation for Expo apps.                  |
-| **State Management** | [Zustand](https://zustand-demo.pmnd.rs/)                                                                                    | A small, fast, and scalable state-management solution. |
-| **Local Storage**    | [Expo SQLite](https://docs.expo.dev/versions/latest/sdk/sqlite/) & [MMKV](https://github.com/mrousavy/react-native-mmkv)    | Efficient local data persistence.                      |
-| **UI Components**    | [React Native Paper](https://callstack.github.io/react-native-paper/)                                                       | Material Design compliant components.                  |
-| **Charts/Graphics**  | [Victory Native](https://commerce.nearform.com/open-source/victory/) & [Skia](https://shopify.github.io/react-native-skia/) | High-performance 2D graphics and charting.             |
+```env
+EXPO_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-public-anon-key
+```
 
-## 🎨 UI/UX & Design
+`npm run start` hanya menjalankan Metro bundler. Kalau ingin langsung membuka app ke Android lewat `npm run android` atau `npx expo start -a`, mesin harus sudah punya Android SDK dan `adb`.
 
-Tabungin features a beautiful, clean, and modern user interface that is intuitive and a joy to use. The design emphasizes clarity and accessibility, making financial management stress-free.
+Script penting:
 
-- **Typography:** Uses elegant fonts like **Plus Jakarta Sans** and **DM Sans** for excellent readability and a polished look.
-- **Color Palette:** A vibrant and calming color scheme that focuses on financial well-being.
-- **Animations:** Smooth transitions and micro-interactions powered by `react-native-reanimated`.
+- `npm run start` untuk menjalankan Expo dev server
+- `npm run android` untuk membuka app di Android
+- `npm run typecheck` untuk verifikasi TypeScript
+- `npm run verify` untuk verifikasi statis cepat
 
-## 📂 Project Structure
+## Setup Android di Windows
 
-The codebase is organized into a scalable architecture within the `src/` directory:
+Error seperti `Failed to resolve the Android SDK path` dan `'adb' is not recognized` berarti Android SDK belum terpasang atau belum masuk ke environment variable.
+
+1. Install Android Studio.
+2. Buka Android Studio lalu install komponen SDK berikut dari `SDK Manager`:
+   - `Android SDK Platform`
+   - `Android SDK Platform-Tools`
+   - `Android SDK Command-line Tools`
+3. Pastikan folder SDK ada, biasanya di `C:\Users\USER\AppData\Local\Android\Sdk`.
+4. Set environment variable Windows:
+
+```powershell
+$Sdk = "$env:LOCALAPPDATA\Android\Sdk"
+[Environment]::SetEnvironmentVariable("ANDROID_HOME", $Sdk, "User")
+[Environment]::SetEnvironmentVariable("ANDROID_SDK_ROOT", $Sdk, "User")
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+$needed = @("$Sdk\platform-tools", "$Sdk\emulator") | Where-Object { $userPath -notlike "*$_*" }
+if ($needed) {
+  [Environment]::SetEnvironmentVariable(
+    "Path",
+    (($userPath.TrimEnd(';') + ';' + ($needed -join ';')).Trim(';')),
+    "User"
+  )
+}
+```
+
+5. Tutup terminal lama lalu buka terminal baru.
+6. Verifikasi dengan:
+
+```bash
+adb version
+```
+
+7. Jalankan ulang:
+
+```bash
+npm run start
+npm run android
+```
+
+Kalau belum ingin memasang Android Studio, jalankan `npm run start` saja lalu buka app dari Expo Go di perangkat fisik. Untuk jaringan yang rumit, pakai `npx expo start --tunnel`.
+
+Catatan Windows:
+
+- Di PowerShell dengan execution policy ketat, gunakan `npm.cmd` dan `npx.cmd` jika `npm` atau `npx` diblokir.
+
+## Struktur utama
 
 ```text
 src/
-├── components/   # Reusable UI components (buttons, inputs, cards)
-├── constants/    # Global constants (colors, layout, config)
-├── database/     # SQLite schema, queries, and database initialization
-├── hooks/        # Custom React hooks (e.g., useTheme, useTransactions)
-├── navigation/   # React Navigation setups (Tab, Stack navigators)
-├── screens/      # Full-screen views (Dashboard, Reports, Settings)
-├── store/        # Global state management using Zustand
-├── types/        # TypeScript type definitions and interfaces
-└── utils/        # Helper functions, formatters, and utilities
+  components/   reusable UI
+  constants/    tokens tema, warna, layout, tipografi
+  database/     schema SQLite, query, sync
+  navigation/   tab dan stack navigator
+  screens/      layar aplikasi
+  store/        Zustand stores
+  types/        tipe TypeScript
+  utils/        helper dan service
 ```
 
-## 🚀 Getting Started
+## Catatan
 
-Follow these instructions to set up the project locally on your machine.
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) (v18 or newer recommended)
-- [npm](https://npmjs.com/) or [Yarn](https://yarnpkg.com/)
-- Expo CLI
-- iOS Simulator or Android Emulator (or a physical device with the Expo Go app)
-
-### Installation
-
-1. **Clone the repository:**
-
-   ```bash
-   git clone https://github.com/yourusername/tabungin.git
-   cd tabungin
-   ```
-
-2. **Install dependencies:**
-
-   ```bash
-   npm install
-   # or
-   yarn install
-   ```
-
-3. **Start the development server:**
-   ```bash
-   npx expo start
-   ```
-   cd android
-   ./gradlew assembleRelease
-4. **Run the App:**
-   - Press `i` in the terminal to open the iOS simulator.
-   - Press `a` in the terminal to open the Android emulator.
-   - Or scan the QR code with the Expo Go app on your physical device.
-
----
-
-<div align="center">
-  <p>Built with ❤️ for a better financial future.</p>
-</div>
+- Artefak testing lama dan integrasi TestSprite yang usang sudah dibersihkan dari repo.
+- Simpan secret dan API key di environment yang aman, bukan di file project.

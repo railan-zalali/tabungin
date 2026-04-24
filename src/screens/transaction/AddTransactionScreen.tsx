@@ -13,38 +13,40 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { RouteProp } from "@react-navigation/native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../store/useThemeStore";
 import { FontFamily, FontSize, Typography } from "../../constants/typography";
+import { useScreenLayout } from "../../hooks/useScreenLayout";
 import { useTransactionStore } from "../../store/useTransactionStore";
 import { useWalletStore } from "../../store/useWalletStore";
 import { CategoryPicker } from "../../components/transaction/CategoryPicker";
-import { Button } from "../../components/common/Button";
+import { PrimaryActionBar } from "../../components/common/PrimaryActionBar";
 import { formatInputRupiah, parseRupiah } from "../../utils/currency";
 import { validateAmount } from "../../utils/validation";
 import type { TransactionType } from "../../types/transaction";
 import { BorderRadius } from "../../constants/theme";
+import type { TransactionNavigationProp, TransactionStackParamList } from "../../types/navigation";
 
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { formatDateLong } from "../../utils/date";
 
-const TAB_BAR_OVERLAY_OFFSET = 92;
+type AddTransactionRouteProp = RouteProp<TransactionStackParamList, "AddTransaction">;
 
 export function AddTransactionScreen() {
-    const navigation = useNavigation<NativeStackNavigationProp<any>>();
-  const route = useRoute<any>();
+    const navigation = useNavigation<TransactionNavigationProp<"AddTransaction">>();
+  const route = useRoute<AddTransactionRouteProp>();
   const insets = useSafeAreaInsets();
+  const { stickyFooterSpacing } = useScreenLayout();
   const { addTransaction, editTransaction, getTransactionById, isLoading } = useTransactionStore();
   const { wallets, loadWallets } = useWalletStore();
   const editId = route.params?.editId as string | undefined;
   const isEditMode = Boolean(editId);
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
-  const footerBottomInset = Math.max(insets.bottom, 16) + TAB_BAR_OVERLAY_OFFSET;
 
   const [txType, setTxType] = useState<TransactionType>(route.params?.type ?? "expense");
   const [amountInput, setAmountInput] = useState("");
@@ -198,7 +200,7 @@ export function AddTransactionScreen() {
           </View>
         ) : (
         <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: 24 }]}
+          contentContainerStyle={[styles.content, { paddingBottom: stickyFooterSpacing + 8 }]}
           keyboardShouldPersistTaps='handled'
           showsVerticalScrollIndicator={false}
         >
@@ -393,16 +395,11 @@ export function AddTransactionScreen() {
         )}
 
         {/* Footer Button */}
-        <View style={[styles.footer, { paddingBottom: footerBottomInset }]}>
-          <Button
-            label={isEditMode ? 'Simpan Perubahan' : 'Simpan Transaksi'}
-            onPress={handleSave}
-            variant='primary'
-            size='lg'
-            loading={isLoading}
-            fullWidth
-          />
-        </View>
+        <PrimaryActionBar
+          primaryLabel={isEditMode ? 'Simpan Perubahan' : 'Simpan Transaksi'}
+          onPrimaryPress={handleSave}
+          primaryLoading={isLoading}
+        />
       </KeyboardAvoidingView>
     </View>
   );
@@ -663,14 +660,6 @@ const getStyles = (colors: any) => StyleSheet.create({
     textAlignVertical: "top",
     borderWidth: 1,
     borderColor: colors.border,
-  },
-
-  footer: {
-    padding: 20,
-    paddingBottom: 32,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surfaceElevated,
   },
   loadingState: {
     flex: 1,

@@ -1,4 +1,3 @@
-// App.tsx - Entry point utama Tabungin
 import 'react-native-get-random-values';
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
@@ -6,13 +5,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
-import {
-    View,
-    Text,
-    StyleSheet,
-    ActivityIndicator,
-    TouchableOpacity,
-} from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import {
     useFonts,
     PlusJakartaSans_400Regular,
@@ -86,7 +80,7 @@ export default function App() {
                 notification: colors.danger,
             },
         }),
-        [colors, isDark]
+        [colors, isDark],
     );
 
     const handleRetryDatabase = () => {
@@ -113,13 +107,12 @@ export default function App() {
                             shadowColor: colors.shadowColor,
                         },
                     ]}
-                    accessible={true}
                     accessibilityLabel="Memuat aplikasi Tabungin"
                 >
                     <View style={styles.logoContainer}>
-                        <Text style={[styles.logoText, { color: colors.primary }]} accessibilityElementsHidden={true}>
-                            🐷
-                        </Text>
+                        <View style={[styles.logoIconWrap, { backgroundColor: colors.primaryBg }]}>
+                            <MaterialCommunityIcons name="piggy-bank-outline" size={44} color={colors.primary} />
+                        </View>
                         <Text style={[styles.appName, { color: colors.textPrimary }]} allowFontScaling={false}>
                             Tabungin
                         </Text>
@@ -130,7 +123,7 @@ export default function App() {
 
                     <ActivityIndicator size="large" color={colors.primary} accessibilityLabel="Sedang memuat" />
 
-                    {dbError && (
+                    {dbError ? (
                         <View style={styles.errorContainer}>
                             <Text style={[styles.errorText, { color: colors.danger }]} allowFontScaling={false}>
                                 {dbError}
@@ -146,13 +139,13 @@ export default function App() {
                                 </Text>
                             </TouchableOpacity>
                         </View>
-                    )}
+                    ) : null}
 
-                    {fontError && (
+                    {fontError ? (
                         <Text style={[styles.errorText, { color: colors.danger }]} allowFontScaling={false}>
                             Gagal memuat font.
                         </Text>
-                    )}
+                    ) : null}
                 </View>
             </LinearGradient>
         );
@@ -211,7 +204,15 @@ const styles = StyleSheet.create({
         elevation: 10,
     },
     logoContainer: { alignItems: 'center', gap: 10 },
-    logoText: { fontSize: 64 },
+    logoIconWrap: {
+        width: 88,
+        height: 88,
+        borderRadius: 28,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.16)',
+    },
     appName: {
         fontSize: 32,
         fontWeight: 'bold',

@@ -6,6 +6,7 @@ import type { SettingsNavigationProp } from '../../types/navigation';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { deleteUserAccount } from '../../database/authQueries';
+import { useScreenLayout } from '../../hooks/useScreenLayout';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useNotificationStore } from '../../store/useNotificationStore';
 import { useTheme, useThemeStore } from '../../store/useThemeStore';
@@ -63,10 +64,11 @@ function SettingSection({ title, children }: { title: string; children: React.Re
 export function SettingsScreen() {
     const navigation = useNavigation<SettingsNavigationProp>();
     const { colors } = useTheme();
+    const { contentBottomSpacing } = useScreenLayout();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
-    const { user, hapticEnabled, setHapticEnabled, logout } = useAuthStore();
+    const { user, logout } = useAuthStore();
     const { unreadCount } = useNotificationStore();
-    const { mode, setMode, textSize, setTextSize } = useThemeStore();
+    const { mode, setMode, textSize, setTextSize, hapticEnabled, setHapticEnabled } = useThemeStore();
 
     const handleLogout = () => {
         Alert.alert('Keluar', 'Yakin ingin keluar dari aplikasi?', [
@@ -103,7 +105,10 @@ export function SettingsScreen() {
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
             <AppScreenHeader title="Pengaturan" subtitle="Akun, tampilan, data, dan ruang kolaborasi ada di satu tempat." variant="transparent" />
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[styles.content, { paddingBottom: contentBottomSpacing }]}
+            >
                 <HeroSummaryCard
                     eyebrow="Akun Utama"
                     title={user?.name ?? 'Pengguna Tabungin'}
@@ -266,7 +271,6 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     StyleSheet.create({
         content: {
             paddingHorizontal: 20,
-            paddingBottom: 108,
             gap: 18,
         },
         profileCard: {

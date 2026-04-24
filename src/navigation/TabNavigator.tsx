@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontFamily, FontSize } from '../constants/typography';
 import { BorderRadius, Spacing } from '../constants/theme';
+import { Layout } from '../constants/layout';
 import type { TabParamList } from '../types/navigation';
 import { useTransactionStore } from '../store/useTransactionStore';
 import { useWalletStore } from '../store/useWalletStore';
@@ -87,7 +88,7 @@ function TabBarButton({
     isFocused: boolean;
     onPress: () => void;
 }) {
-    const { colors, motion } = useTheme();
+    const { colors, motion, hapticEnabled } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
     const meta = TAB_META[routeName];
     const accentColor = resolveAccentColor(colors, meta.accent);
@@ -114,7 +115,9 @@ function TabBarButton({
         <TouchableOpacity
             style={styles.pressable}
             onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                if (hapticEnabled) {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
                 onPress();
             }}
             activeOpacity={0.9}
@@ -154,16 +157,16 @@ function TabBarButton({
     );
 }
 
-function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+function CustomTabBar({ state, navigation }: BottomTabBarProps) {
     const insets = useSafeAreaInsets();
     const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
 
     return (
         <View pointerEvents="box-none" style={styles.tabBarOuter}>
-            <View style={[styles.tabBarShell, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+            <View style={[styles.tabBarShell, { paddingBottom: Math.max(insets.bottom, Layout.footerSpacing) }]}>
                 <LinearGradient
-                    colors={[colors.surfaceElevated, colors.surfaceGlass]}
+                    colors={[colors.tabBarGlass, colors.surfaceGlass]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.tabBar}
@@ -248,30 +251,31 @@ const getStyles = (colors: any) =>
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
-            paddingHorizontal: 10,
+            paddingHorizontal: 12,
             paddingTop: 12,
-            paddingBottom: 4,
+            paddingBottom: 6,
             borderRadius: BorderRadius['5xl'],
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.energeticBorder,
             shadowColor: colors.shadowColor,
             shadowOffset: { width: 0, height: 14 },
             shadowOpacity: Platform.OS === 'ios' ? 0.14 : 0.22,
             shadowRadius: 28,
             elevation: 16,
-            backgroundColor: colors.surfaceGlass,
+            backgroundColor: colors.tabBarGlass,
+            minHeight: Layout.tabBarHeight,
         },
         pressable: {
             flex: 1,
         },
         tabButton: {
-            minHeight: 64,
+            minHeight: 66,
             alignItems: 'center',
             justifyContent: 'center',
             gap: 6,
             borderRadius: BorderRadius['4xl'],
             overflow: 'hidden',
-            paddingHorizontal: 4,
+            paddingHorizontal: 6,
             paddingVertical: 10,
             position: 'relative',
         },

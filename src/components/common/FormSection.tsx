@@ -31,18 +31,18 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
         section: {
             backgroundColor: colors.panelSurface,
             borderRadius: BorderRadius['4xl'],
-            padding: 18,
+            padding: 20,
             borderWidth: 1,
-            borderColor: colors.border,
+            borderColor: colors.energeticBorder,
             shadowColor: colors.shadowColor,
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.08,
-            shadowRadius: 16,
-            elevation: 3,
-            gap: 14,
+            shadowOffset: { width: 0, height: 12 },
+            shadowOpacity: 0.1,
+            shadowRadius: 20,
+            elevation: 4,
+            gap: 16,
         },
         header: {
-            gap: 4,
+            gap: 6,
         },
         title: {
             fontFamily: FontFamily.headingMedium,
@@ -56,6 +56,6 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             color: colors.textSecondary,
         },
         content: {
-            gap: 14,
+            gap: 16,
         },
     });

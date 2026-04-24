@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { BorderRadius } from '../../constants/theme';
+import { useScreenLayout } from '../../hooks/useScreenLayout';
 import { formatCurrency } from '../../utils/currency';
 import { getGoalComputedMeta } from '../../utils/goalSharing';
 import { useProfileStore } from '../../store/useProfileStore';
@@ -19,12 +20,14 @@ import { SectionHeader } from '../../components/common/SectionHeader';
 import { SegmentedControl } from '../../components/common/SegmentedControl';
 import { SavingGoalCard } from '../../components/saving/SavingGoalCard';
 import { SavingGoalCardSkeleton } from '../../components/common/SkeletonLoader';
+import type { SavingNavigationProp } from '../../types/navigation';
 
 type FilterTab = 'all' | 'personal' | 'shared' | 'completed';
 
 export function SavingListScreen() {
-    const navigation = useNavigation<NativeStackNavigationProp<any>>();
+    const navigation = useNavigation<SavingNavigationProp<'SavingList'>>();
     const { colors } = useTheme();
+    const { contentBottomSpacing } = useScreenLayout();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
     const { goals, isLoading, loadGoals } = useSavingStore();
     const { wallets, loadWallets } = useWalletStore();
@@ -97,7 +100,7 @@ export function SavingListScreen() {
 
             <ScrollView
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.content}
+                contentContainerStyle={[styles.content, { paddingBottom: contentBottomSpacing }]}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
             >
                 <Animated.View entering={FadeInDown.delay(60).springify()}>
@@ -189,7 +192,6 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     StyleSheet.create({
         content: {
             paddingHorizontal: 20,
-            paddingBottom: 108,
             gap: 18,
         },
         filterBlock: {

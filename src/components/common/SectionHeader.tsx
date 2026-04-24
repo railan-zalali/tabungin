@@ -49,7 +49,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             fontFamily: FontFamily.body,
             fontSize: scaleFontSize(FontSize.caption, textSize),
             color: colors.textSecondary,
-            marginTop: 2,
+            marginTop: 4,
         },
         actionLabel: {
             fontFamily: FontFamily.bodyBold,

@@ -88,3 +88,24 @@ export type WalletFlowNavigationProp = CompositeNavigationProp<
     NativeStackNavigationProp<WalletStackParamList, 'WalletList'>,
     NativeStackNavigationProp<SettingsStackParamList>
 >;
+
+export type TransactionNavigationProp<Screen extends keyof TransactionStackParamList> = CompositeNavigationProp<
+    NativeStackNavigationProp<TransactionStackParamList, Screen>,
+    CompositeNavigationProp<
+        BottomTabNavigationProp<TabParamList, 'Transactions'>,
+        NativeStackNavigationProp<RootStackParamList>
+    >
+>;
+
+export type SavingNavigationProp<Screen extends keyof SavingStackParamList> = CompositeNavigationProp<
+    NativeStackNavigationProp<SavingStackParamList, Screen>,
+    NativeStackNavigationProp<RootStackParamList>
+>;
+
+export type WalletNavigationProp<Screen extends keyof WalletStackParamList> = CompositeNavigationProp<
+    NativeStackNavigationProp<WalletStackParamList, Screen>,
+    CompositeNavigationProp<
+        BottomTabNavigationProp<TabParamList, 'Wallet'>,
+        NativeStackNavigationProp<RootStackParamList>
+    >
+>;

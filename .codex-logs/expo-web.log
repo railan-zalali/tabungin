@@ -1,0 +1,13 @@
+env: load .env.local
+env: export EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_SUPABASE_URL
+Starting project at D:\Railan\apl\tabungin
+Starting Metro Bundler
+
+Waiting on http://localhost:19006
+Logs for your project will appear below.
+Web node_modules\expo\AppEntry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web node_modules\expo\AppEntry.js ▓▓▓▓▓▓▓▓░░░░░░░░ 54.1% (528/718)
+Web node_modules\expo\AppEntry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 84.1% (1177/1292)
+Web Bundled 8235ms node_modules\expo\AppEntry.js (1485 modules)
+Web node_modules\expo\AppEntry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 1142ms node_modules\expo\AppEntry.js (1 module)

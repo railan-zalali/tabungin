@@ -12,9 +12,11 @@ export type TextSize = 'normal' | 'large' | 'xlarge';
 interface ThemeState {
     mode: ThemeMode;
     textSize: TextSize;
-    
+    hapticEnabled: boolean;
+
     setMode: (mode: ThemeMode) => void;
     setTextSize: (size: TextSize) => void;
+    setHapticEnabled: (enabled: boolean) => void;
 }
 
 export const useThemeStore = create<ThemeState>()(
@@ -22,9 +24,11 @@ export const useThemeStore = create<ThemeState>()(
         (set) => ({
             mode: 'light',
             textSize: 'normal',
-            
+            hapticEnabled: true,
+
             setMode: (mode) => set({ mode }),
             setTextSize: (textSize) => set({ textSize }),
+            setHapticEnabled: (hapticEnabled) => set({ hapticEnabled }),
         }),
         {
             name: 'theme-storage',
@@ -72,16 +76,16 @@ function mix(hexA: string, hexB: string, weight: number) {
 }
 
 export function useTheme() {
-    const { mode, textSize } = useThemeStore();
+    const { mode, textSize, hapticEnabled } = useThemeStore();
     const { profiles, activeProfileId } = useProfileStore();
-    
-    const activeProfile = profiles.find(p => p.id === activeProfileId);
+
+    const activeProfile = profiles.find((profile) => profile.id === activeProfileId);
     const primaryColor = activeProfile?.color || BaseColors.primary;
     const isDark = mode === 'dark';
     const neutralBase = isDark ? BaseColors.dark : BaseColors;
-    const primaryDark = mix(primaryColor, isDark ? '#08110D' : '#173625', isDark ? 0.38 : 0.24);
-    const primarySoft = rgba(primaryColor, isDark ? 0.24 : 0.10);
-    const primaryStrong = rgba(primaryColor, isDark ? 0.32 : 0.16);
+    const primaryDark = mix(primaryColor, isDark ? '#08110D' : '#10231A', isDark ? 0.42 : 0.28);
+    const primarySoft = rgba(primaryColor, isDark ? 0.28 : 0.14);
+    const primaryStrong = rgba(primaryColor, isDark ? 0.4 : 0.2);
     const surfaceGlass = neutralBase.surfaceGlass;
     const shadowColor = isDark ? 'rgba(0, 0, 0, 0.58)' : 'rgba(15, 23, 20, 0.16)';
 
@@ -111,6 +115,11 @@ export function useTheme() {
         overlay: neutralBase.overlay,
         overlayLight: neutralBase.overlayLight,
         shadowColor,
+        textInverse: neutralBase.textInverse ?? BaseColors.textInverse,
+        success: BaseColors.success,
+        warning: BaseColors.warning,
+        danger: BaseColors.danger,
+        info: BaseColors.info,
         successBg: isDark ? BaseColors.dark.successBg : BaseColors.successBg,
         warningBg: isDark ? BaseColors.dark.warningBg : BaseColors.warningBg,
         dangerBg: isDark ? BaseColors.dark.dangerBg : BaseColors.dangerBg,
@@ -136,10 +145,13 @@ export function useTheme() {
         dangerSurface: isDark ? rgba(BaseColors.danger, 0.22) : mix(BaseColors.danger, neutralBase.surface, 0.1),
         focusRing: rgba(primaryColor, isDark ? 0.34 : 0.2),
         stickyHeader: rgba(neutralBase.background, isDark ? 0.92 : 0.88),
-        tabBarGlass: isDark ? rgba('#0F1916', 0.88) : rgba('#FFFFFF', 0.88),
+        tabBarGlass: isDark ? rgba('#08110D', 0.94) : rgba('#FFFFFF', 0.94),
         formFieldBg: isDark ? rgba('#FFFFFF', 0.04) : neutralBase.surface,
         formFieldError: isDark ? rgba(BaseColors.danger, 0.2) : mix(BaseColors.danger, neutralBase.surface, 0.08),
         listRowPressed: isDark ? rgba('#FFFFFF', 0.06) : rgba(primaryColor, 0.05),
+        actionTint: mix(primaryColor, isDark ? '#D8FFE8' : '#FFFFFF', isDark ? 0.22 : 0.18),
+        energeticHighlight: isDark ? rgba(BaseColors.warning, 0.18) : 'rgba(255, 149, 0, 0.12)',
+        energeticBorder: isDark ? rgba(BaseColors.warning, 0.3) : 'rgba(255, 149, 0, 0.26)',
     };
 
     const gradients = {
@@ -152,5 +164,14 @@ export function useTheme() {
         heroMuted: [colors.heroSurface, colors.surfaceElevated, colors.heroOverlay] as const,
     };
 
-    return { colors, gradients, motion: Motion, isDark, mode, textSize, textScale: getTextScale(textSize) };
+    return {
+        colors,
+        gradients,
+        motion: Motion,
+        isDark,
+        mode,
+        textSize,
+        textScale: getTextScale(textSize),
+        hapticEnabled,
+    };
 }

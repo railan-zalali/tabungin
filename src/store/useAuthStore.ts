@@ -1,11 +1,14 @@
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../lib/supabase';
+import {
+    getSupabaseUnavailableMessage,
+    isSupabaseConfigured,
+    isSupabaseNetworkError,
+    supabase,
+    warnIfSupabaseUnavailable,
+} from '../lib/supabase';
 import { clearAllData } from '../database/schema';
 import { syncDatabase } from '../database/sync';
 import { v4 as uuidv4 } from 'uuid';
-
-const SETTINGS_KEY = '@tabungin_settings_v2';
 
 async function ensureProfileExists(userId: string, name: string, email: string): Promise<void> {
     try {
@@ -36,29 +39,6 @@ async function ensureProfileExists(userId: string, name: string, email: string):
     }
 }
 
-let cachedSettings: Record<string, unknown> | null = null;
-
-async function loadSettingsCache(): Promise<void> {
-    try {
-        const raw = await AsyncStorage.getItem(SETTINGS_KEY);
-        cachedSettings = raw ? JSON.parse(raw) : {};
-    } catch {
-        cachedSettings = {};
-    }
-}
-
-async function persistSetting<T>(key: string, value: T): Promise<void> {
-    if (!cachedSettings) cachedSettings = {};
-    cachedSettings[key] = value;
-    await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(cachedSettings));
-}
-
-function readSettingSync<T>(key: string, fallback: T): T {
-    if (!cachedSettings) return fallback;
-    const value = cachedSettings[key];
-    return value !== undefined ? (value as T) : fallback;
-}
-
 export interface AuthUser {
     id: string;
     name: string;
@@ -81,13 +61,6 @@ interface AuthState {
     sendResetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
     loadSession: () => Promise<void>;
     clearError: () => void;
-
-    isDarkMode: boolean;
-    textSize: 'normal' | 'large' | 'xlarge';
-    hapticEnabled: boolean;
-    setDarkMode: (value: boolean) => void;
-    setTextSize: (size: 'normal' | 'large' | 'xlarge') => void;
-    setHapticEnabled: (value: boolean) => void;
 }
 
 function mapSessionUser(sessionUser: any): AuthUser {
@@ -110,14 +83,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     isLoading: true,
     authError: null,
 
-    isDarkMode: false,
-    textSize: 'normal',
-    hapticEnabled: true,
-
     loadSession: async () => {
-        try {
-            await loadSettingsCache();
+        if (!isSupabaseConfigured) {
+            warnIfSupabaseUnavailable('auth.loadSession');
+            set({
+                user: null,
+                isLoggedIn: false,
+                isLoading: false,
+                authError: null,
+            });
+            return;
+        }
 
+        try {
             const { data: { session } } = await supabase.auth.getSession();
 
             if (session?.user) {
@@ -126,14 +104,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                     isLoggedIn: true,
                 });
             }
-
-            set({
-                isDarkMode: readSettingSync('isDarkMode', false),
-                textSize: readSettingSync<'normal' | 'large' | 'xlarge'>('textSize', 'normal'),
-                hapticEnabled: readSettingSync('hapticEnabled', true),
-            });
         } catch (error) {
-            console.error('Gagal memuat sesi:', error);
+            if (isSupabaseNetworkError(error)) {
+                console.warn('[Auth] Tidak bisa memuat sesi dari jaringan saat ini:', error);
+            } else {
+                console.error('Gagal memuat sesi:', error);
+            }
         } finally {
             set({ isLoading: false });
         }
@@ -141,6 +117,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     login: async (email: string, password: string) => {
         set({ authError: null });
+
+        if (!isSupabaseConfigured) {
+            const message = getSupabaseUnavailableMessage('Login');
+            warnIfSupabaseUnavailable('auth.login');
+            set({ authError: message });
+            return false;
+        }
+
         try {
             const { data, error } = await supabase.auth.signInWithPassword({
                 email,
@@ -165,13 +149,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             return false;
         } catch (error) {
             console.error('Login gagal:', error);
-            set({ authError: 'Terjadi kesalahan saat login.' });
+            set({
+                authError: isSupabaseNetworkError(error)
+                    ? 'Tidak bisa terhubung ke server. Periksa koneksi internet atau konfigurasi Supabase.'
+                    : 'Terjadi kesalahan saat login.',
+            });
             return false;
         }
     },
 
     register: async (name: string, email: string, password: string) => {
         set({ authError: null });
+
+        if (!isSupabaseConfigured) {
+            const message = getSupabaseUnavailableMessage('Pendaftaran akun');
+            warnIfSupabaseUnavailable('auth.register');
+            set({ authError: message });
+            return false;
+        }
+
         try {
             const { data, error } = await supabase.auth.signUp({
                 email,
@@ -212,13 +208,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             return false;
         } catch (error) {
             console.error('Register gagal:', error);
-            set({ authError: 'Terjadi kesalahan saat mendaftar.' });
+            set({
+                authError: isSupabaseNetworkError(error)
+                    ? 'Tidak bisa terhubung ke server. Periksa koneksi internet atau konfigurasi Supabase.'
+                    : 'Terjadi kesalahan saat mendaftar.',
+            });
             return false;
         }
     },
 
     logout: async () => {
-        await supabase.auth.signOut();
+        if (isSupabaseConfigured) {
+            try {
+                await supabase.auth.signOut();
+            } catch (error) {
+                console.warn('[Auth] Sign out remote gagal, melanjutkan pembersihan lokal:', error);
+            }
+        }
+
         await clearAllData();
         set({ user: null, isLoggedIn: false, authError: null });
     },
@@ -229,6 +236,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
         set({ user: { ...current, ...data } });
 
+        if (!isSupabaseConfigured) {
+            warnIfSupabaseUnavailable('auth.updateProfile');
+            return;
+        }
+
         await supabase.auth.updateUser({
             data: {
                 name: data.name,
@@ -238,6 +250,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     },
 
     updatePassword: async (_oldPassword: string, newPassword: string) => {
+        if (!isSupabaseConfigured) {
+            warnIfSupabaseUnavailable('auth.updatePassword');
+            return false;
+        }
+
         try {
             const { error } = await supabase.auth.updateUser({
                 password: newPassword,
@@ -253,6 +270,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     },
 
     sendResetPassword: async (email: string) => {
+        if (!isSupabaseConfigured) {
+            const message = getSupabaseUnavailableMessage('Reset password');
+            warnIfSupabaseUnavailable('auth.sendResetPassword');
+            return { success: false, error: message };
+        }
+
         try {
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
                 redirectTo: 'tabungin://reset-password',
@@ -264,22 +287,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
             return { success: true };
         } catch (error: any) {
-            return { success: false, error: error.message || 'Terjadi kesalahan.' };
+            return {
+                success: false,
+                error: isSupabaseNetworkError(error)
+                    ? 'Tidak bisa terhubung ke server. Periksa koneksi internet atau konfigurasi Supabase.'
+                    : error.message || 'Terjadi kesalahan.',
+            };
         }
     },
 
     clearError: () => set({ authError: null }),
-
-    setDarkMode: (value) => {
-        set({ isDarkMode: value });
-        persistSetting('isDarkMode', value);
-    },
-    setTextSize: (size) => {
-        set({ textSize: size });
-        persistSetting('textSize', size);
-    },
-    setHapticEnabled: (value) => {
-        set({ hapticEnabled: value });
-        persistSetting('hapticEnabled', value);
-    },
 }));

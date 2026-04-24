@@ -1,20 +1,20 @@
-// Notification Service — Scheduling push notification untuk reminder tabungan
-import { setNotificationHandler } from 'expo-notifications/build/NotificationsHandler';
+import {
+    IosAuthorizationStatus,
+    type NotificationPermissionsStatus,
+} from 'expo-notifications/build/NotificationPermissions.types';
 import { getPermissionsAsync, requestPermissionsAsync } from 'expo-notifications/build/NotificationPermissions';
-import { scheduleNotificationAsync } from 'expo-notifications/build/scheduleNotificationAsync';
+import { setNotificationHandler } from 'expo-notifications/build/NotificationsHandler';
+import { SchedulableTriggerInputTypes } from 'expo-notifications/build/Notifications.types';
 import { cancelScheduledNotificationAsync } from 'expo-notifications/build/cancelScheduledNotificationAsync';
 import { getAllScheduledNotificationsAsync } from 'expo-notifications/build/getAllScheduledNotificationsAsync';
-import { SchedulableTriggerInputTypes } from 'expo-notifications/build/Notifications.types';
+import { scheduleNotificationAsync } from 'expo-notifications/build/scheduleNotificationAsync';
 import { v4 as uuidv4 } from 'uuid';
-
 import type { SavingGoal } from '../types/saving';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/useAuthStore';
 
-// Konfigurasi bagaimana notifikasi ditampilkan saat app foreground
 setNotificationHandler({
     handleNotification: async () => ({
-        shouldShowAlert: true,
         shouldPlaySound: true,
         shouldSetBadge: false,
         shouldShowBanner: true,
@@ -22,166 +22,178 @@ setNotificationHandler({
     }),
 });
 
-/**
- * Minta izin notifikasi dari pengguna
- * Returns true jika izin diberikan
- */
+function hasGrantedPermission(response: NotificationPermissionsStatus): boolean {
+    const normalized = response as NotificationPermissionsStatus & {
+        status?: string;
+        granted?: boolean;
+    };
+
+    return (
+        normalized.granted === true ||
+        normalized.status === 'granted' ||
+        response.ios?.status === IosAuthorizationStatus.AUTHORIZED ||
+        response.ios?.status === IosAuthorizationStatus.PROVISIONAL ||
+        response.ios?.status === IosAuthorizationStatus.EPHEMERAL
+    );
+}
+
 export async function requestNotificationPermission(): Promise<boolean> {
     try {
-        const { status: existingStatus } = await getPermissionsAsync();
-        if (existingStatus === 'granted') return true;
-        const { status } = await requestPermissionsAsync();
-        return status === 'granted';
+        const existing = await getPermissionsAsync();
+        if (hasGrantedPermission(existing)) return true;
+
+        const requested = await requestPermissionsAsync();
+        return hasGrantedPermission(requested);
     } catch {
         return false;
     }
 }
 
-/**
- * Schedule reminder harian untuk satu saving goal
- * Gunakan identifier = goal.id agar mudah di-cancel
- */
 export async function scheduleGoalReminder(goal: SavingGoal): Promise<void> {
     if (!goal.reminder_enabled || !goal.reminder_time) return;
 
     const [hourStr, minuteStr] = goal.reminder_time.split(':');
     const hour = parseInt(hourStr, 10);
     const minute = parseInt(minuteStr, 10);
-    if (isNaN(hour) || isNaN(minute)) return;
+    if (Number.isNaN(hour) || Number.isNaN(minute)) return;
 
     await cancelGoalReminder(goal.id);
 
     const granted = await requestNotificationPermission();
     if (!granted) return;
 
-    const progressPercent = goal.target_amount > 0
-        ? Math.round((goal.current_amount / goal.target_amount) * 100)
-        : 0;
+    const progressPercent =
+        goal.target_amount > 0
+            ? Math.round((goal.current_amount / goal.target_amount) * 100)
+            : 0;
 
-    await scheduleNotificationAsync({
-        identifier: `goal_reminder_${goal.id}`,
-        content: {
-            title: `💰 Waktunya menabung!`,
-            body: `${goal.emoji} ${goal.name} — ${progressPercent}% tercapai. Yuk nabung hari ini!`,
-            data: { goalId: goal.id },
-            sound: true,
-        },
-        trigger: {
-            type: SchedulableTriggerInputTypes.DAILY,
-            hour,
-            minute,
-        },
-    });
-}
-
-/**
- * Cancel reminder untuk satu goal
- */
-export async function cancelGoalReminder(goalId: string): Promise<void> {
     try {
-        await cancelScheduledNotificationAsync(`goal_reminder_${goalId}`);
-    } catch {
-        // Ignore jika tidak ada
+        await scheduleNotificationAsync({
+            content: {
+                title: 'Waktunya menabung',
+                body: `${goal.name} sudah ${progressPercent}% tercapai. Yuk lanjutkan progress hari ini.`,
+                data: { goalId: goal.id },
+                sound: true,
+            },
+            trigger: {
+                type: SchedulableTriggerInputTypes.DAILY,
+                hour,
+                minute,
+            },
+        });
+    } catch (error) {
+        console.warn('[Notifikasi] Gagal menjadwalkan reminder goal:', error);
     }
 }
 
-/**
- * Re-schedule semua goal aktif yang memiliki reminder (dipanggil saat app start)
- */
+export async function cancelGoalReminder(goalId: string): Promise<void> {
+    try {
+        const scheduled = await getAllScheduledNotificationsAsync();
+        for (const notification of scheduled) {
+            if (notification.content.data?.goalId === goalId) {
+                await cancelScheduledNotificationAsync(notification.identifier);
+            }
+        }
+    } catch {
+        // Ignore if there is no scheduled reminder for this goal.
+    }
+}
+
 export async function rescheduleAllReminders(goals: SavingGoal[]): Promise<void> {
     try {
         const scheduled = await getAllScheduledNotificationsAsync();
-        for (const notif of scheduled) {
-            if (notif.identifier.startsWith('goal_reminder_')) {
-                await cancelScheduledNotificationAsync(notif.identifier);
+        for (const notification of scheduled) {
+            if (notification.content.data?.goalId) {
+                await cancelScheduledNotificationAsync(notification.identifier);
             }
         }
-        const activeWithReminder = goals.filter((g) => !g.is_completed && g.reminder_enabled);
+
+        const activeWithReminder = goals.filter((goal) => !goal.is_completed && goal.reminder_enabled);
         for (const goal of activeWithReminder) {
             await scheduleGoalReminder(goal);
         }
-    } catch (e) {
-        console.warn('[Notifikasi] Gagal re-schedule reminder:', e);
+    } catch (error) {
+        console.warn('[Notifikasi] Gagal me-reset reminder:', error);
     }
 }
 
-/**
- * Kirim notifikasi langsung (untuk konfirmasi goal tercapai)
- */
 export async function sendGoalCompletedNotification(goal: SavingGoal): Promise<void> {
     const granted = await requestNotificationPermission();
-    if (!granted) return;
 
-    await scheduleNotificationAsync({
-        identifier: `goal_completed_${goal.id}_${Date.now()}`,
-        content: {
-            title: `🎉 Target Tercapai!`,
-            body: `Selamat! Kamu berhasil mencapai target ${goal.emoji} ${goal.name}!`,
-            data: { goalId: goal.id },
-            sound: true,
-        },
-        trigger: null,
-    });
+    const title = 'Target tercapai';
+    const body = `Selamat, target ${goal.name} berhasil dicapai.`;
 
-    // Save to database
-    await saveNotificationToDatabase('goal_completed', `🎉 Target Tercapai!`, `Selamat! Kamu berhasil mencapai target ${goal.emoji} ${goal.name}!`, { goalId: goal.id });
+    if (granted) {
+        try {
+            await scheduleNotificationAsync({
+                content: {
+                    title,
+                    body,
+                    data: { goalId: goal.id },
+                    sound: true,
+                },
+                trigger: null,
+            });
+        } catch (error) {
+            console.warn('[Notifikasi] Gagal menampilkan notifikasi target tercapai:', error);
+        }
+    }
+
+    await saveNotificationToDatabase('goal_completed', title, body, { goalId: goal.id });
 }
 
-/**
- * Kirim notifikasi peringatan budget (ketika >80% budget habis)
- */
 export async function sendBudgetWarningNotification(
     category: string,
     categoryName: string,
-    percentage: number
+    percentage: number,
 ): Promise<void> {
     const granted = await requestNotificationPermission();
-    if (!granted) return;
 
-    const emoji = percentage >= 100 ? '🚨' : '⚠️';
-    const title = percentage >= 100 ? `${emoji} Budget Melebihi Batas!` : `${emoji} Budget Hampir Habis`;
-    const body = percentage >= 100
-        ? `Budget kategori ${categoryName} sudah terlampaui (${Math.round(percentage)}%)`
-        : `Budget kategori ${categoryName} sudah ${Math.round(percentage)}% terpakai`;
+    const title = percentage >= 100 ? 'Budget melebihi batas' : 'Budget hampir habis';
+    const body =
+        percentage >= 100
+            ? `Budget kategori ${categoryName} sudah terlampaui (${Math.round(percentage)}%).`
+            : `Budget kategori ${categoryName} sudah ${Math.round(percentage)}% terpakai.`;
 
-    await scheduleNotificationAsync({
-        identifier: `budget_warning_${category}_${Date.now()}`,
-        content: { title, body, sound: true },
-        trigger: null,
-    });
+    if (granted) {
+        try {
+            await scheduleNotificationAsync({
+                content: { title, body, sound: true },
+                trigger: null,
+            });
+        } catch (error) {
+            console.warn('[Notifikasi] Gagal menampilkan notifikasi budget:', error);
+        }
+    }
 
-    // Save to database
     await saveNotificationToDatabase('budget_warning', title, body, { category, categoryName, percentage });
 }
 
-/**
- * Kirim notifikasi undangan dompet
- */
 export async function sendWalletInviteNotification(walletName: string, sharedBy: string): Promise<void> {
     const granted = await requestNotificationPermission();
-    if (!granted) return;
 
-    const title = '📥 Undangan Dompet Baru';
-    const body = `${sharedBy} mengundang kamu untuk bergabung ke dompet "${walletName}"`;
+    const title = 'Undangan dompet baru';
+    const body = `${sharedBy} mengundang kamu untuk bergabung ke dompet "${walletName}".`;
 
-    await scheduleNotificationAsync({
-        identifier: `wallet_invite_${Date.now()}`,
-        content: { title, body, sound: true },
-        trigger: null,
-    });
+    if (granted) {
+        try {
+            await scheduleNotificationAsync({
+                content: { title, body, sound: true },
+                trigger: null,
+            });
+        } catch (error) {
+            console.warn('[Notifikasi] Gagal menampilkan notifikasi undangan dompet:', error);
+        }
+    }
 
-    // Save to database
     await saveNotificationToDatabase('wallet_invite', title, body, { walletName, sharedBy });
 }
 
-/**
- * Helper untuk menyimpan notifikasi ke database
- */
 async function saveNotificationToDatabase(
     type: 'goal_reminder' | 'goal_completed' | 'budget_warning' | 'wallet_invite',
     title: string,
     body: string,
-    data?: any
+    data?: Record<string, unknown>,
 ): Promise<void> {
     const userId = useAuthStore.getState().user?.id;
     if (!userId) return;
@@ -192,7 +204,7 @@ async function saveNotificationToDatabase(
         type,
         title,
         body,
-        data: data || {},
+        data: data ?? {},
         is_read: false,
         created_at: Date.now(),
     });

@@ -21,8 +21,6 @@ import { FontFamily, FontSize } from '../../constants/typography';
 import type { Transaction } from '../../types/transaction';
 import { formatRupiah } from '../../utils/currency';
 import { BorderRadius } from '../../constants/theme';
-
-import { useAuthStore } from '../../store/useAuthStore';
 import { useCategoryStore } from '../../store/useCategoryStore';
 import { useTheme } from '../../store/useThemeStore';
 import { resolveCategoryByKey } from '../../utils/categoryResolver';
@@ -37,10 +35,9 @@ interface TransactionItemProps {
 const DELETE_THRESHOLD = -80;
 
 export function TransactionItem({ transaction, onDelete, onEdit, onPress }: TransactionItemProps) {
-    const { colors } = useTheme();
+    const { colors, hapticEnabled } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
     const translateX = useSharedValue(0);
-    const hapticEnabled = useAuthStore((s) => s.hapticEnabled);
     const categories = useCategoryStore((s) => s.categories);
 
     const category = resolveCategoryByKey(transaction.category, categories);

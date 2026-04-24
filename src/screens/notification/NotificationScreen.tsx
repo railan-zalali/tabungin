@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
+import { useScreenLayout } from '../../hooks/useScreenLayout';
 import { useNotificationStore } from '../../store/useNotificationStore';
 import { useTheme } from '../../store/useThemeStore';
 import type { Notification as NotificationType } from '../../types/notification';
@@ -90,6 +91,7 @@ function NotificationCard({
 export function NotificationScreen() {
     const navigation = useNavigation<SettingsChildNavigationProp<'Notifications'>>();
     const { colors } = useTheme();
+    const { contentBottomSpacing } = useScreenLayout();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
     const {
         notifications,
@@ -142,7 +144,7 @@ export function NotificationScreen() {
                 data={notifications}
                 keyExtractor={(item) => item.id}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.content}
+                contentContainerStyle={[styles.content, { paddingBottom: contentBottomSpacing }]}
                 refreshControl={<RefreshControl refreshing={isLoading} onRefresh={handleRefresh} tintColor={colors.primary} />}
                 ListHeaderComponent={
                     <View style={styles.headerBlock}>
@@ -188,7 +190,6 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     StyleSheet.create({
         content: {
             paddingHorizontal: 20,
-            paddingBottom: 108,
         },
         headerBlock: {
             marginBottom: 16,

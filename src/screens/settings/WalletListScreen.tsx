@@ -13,6 +13,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { formatCurrency } from '../../utils/currency';
+import { useScreenLayout } from '../../hooks/useScreenLayout';
 import type { Wallet } from '../../database/walletQueries';
 import type { WalletFlowNavigationProp } from '../../types/navigation';
 import { useProfileStore } from '../../store/useProfileStore';
@@ -77,6 +78,7 @@ function WalletCard({ item, activeProfileId, onEdit, onDelete }: {
 export function WalletListScreen() {
     const navigation = useNavigation<WalletFlowNavigationProp>();
     const { colors } = useTheme();
+    const { contentBottomSpacing } = useScreenLayout();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
     const { wallets, loadWallets, removeWallet, error } = useWalletStore();
     const activeProfileId = useProfileStore((state) => state.activeProfileId);
@@ -146,7 +148,7 @@ export function WalletListScreen() {
                 data={wallets}
                 keyExtractor={(item) => item.id}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.listContent}
+                contentContainerStyle={[styles.listContent, { paddingBottom: contentBottomSpacing }]}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
                 ListHeaderComponent={
                     <View style={styles.headerBlock}>
@@ -224,7 +226,6 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         },
         listContent: {
             paddingHorizontal: 20,
-            paddingBottom: 100,
         },
         headerBlock: {
             gap: 14,

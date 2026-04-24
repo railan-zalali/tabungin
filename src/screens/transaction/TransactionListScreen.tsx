@@ -4,9 +4,11 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize } from '../../constants/typography';
+import { useScreenLayout } from '../../hooks/useScreenLayout';
 import { formatCurrency } from '../../utils/currency';
 import { formatDateGroup } from '../../utils/date';
 import type { Transaction } from '../../types/transaction';
+import type { TransactionNavigationProp } from '../../types/navigation';
 import { useCategoryStore } from '../../store/useCategoryStore';
 import { useTheme } from '../../store/useThemeStore';
 import { useTransactionStore } from '../../store/useTransactionStore';
@@ -21,8 +23,9 @@ type FilterType = 'all' | 'income' | 'expense';
 type PeriodType = 'today' | 'week' | 'month' | 'all';
 
 export function TransactionListScreen() {
-    const navigation = useNavigation<NativeStackNavigationProp<any>>();
+    const navigation = useNavigation<TransactionNavigationProp<'TransactionList'>>();
     const { colors } = useTheme();
+    const { contentBottomSpacing } = useScreenLayout();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
     const { transactions, isLoading, loadTransactions, removeTransaction } = useTransactionStore();
     const loadCategories = useCategoryStore((state) => state.loadCategories);
@@ -171,7 +174,7 @@ export function TransactionListScreen() {
                         keyExtractor={(item) => item.id}
                         showsVerticalScrollIndicator={false}
                         stickySectionHeadersEnabled={false}
-                        contentContainerStyle={styles.listContent}
+                        contentContainerStyle={[styles.listContent, { paddingBottom: contentBottomSpacing }]}
                         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
                         renderSectionHeader={({ section }) => (
                             <View style={styles.sectionHeader}>
@@ -247,9 +250,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             justifyContent: 'center',
             paddingBottom: 80,
         },
-        listContent: {
-            paddingBottom: 104,
-        },
+        listContent: {},
         sectionHeader: {
             marginTop: 10,
             marginBottom: 8,

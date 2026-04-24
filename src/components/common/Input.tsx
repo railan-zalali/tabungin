@@ -1,4 +1,3 @@
-// Komponen Input yang accessible dengan label selalu terlihat
 import React, { useState } from 'react';
 import {
     View,
@@ -6,8 +5,8 @@ import {
     TextInput,
     TouchableOpacity,
     StyleSheet,
-    TextInputProps,
-    ViewStyle,
+    type TextInputProps,
+    type ViewStyle,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { FontFamily, FontSize } from '../../constants/typography';
@@ -42,64 +41,59 @@ export function Input({
 
     const isPassword = textInputProps.secureTextEntry;
     const effectiveSecure = isPassword && !isPasswordVisible;
-
     const inputId = `input-${label.replace(/\s/g, '-').toLowerCase()}`;
 
     return (
         <View style={[styles.container, containerStyle]}>
-            {/* Label selalu terlihat — WCAG Understandable */}
             <Text
                 style={styles.label}
-                allowFontScaling={true}
+                allowFontScaling
                 accessibilityRole="text"
                 nativeID={inputId}
             >
                 {label}
-                {required && <Text style={styles.required}> *</Text>}
+                {required ? <Text style={styles.required}> *</Text> : null}
             </Text>
 
             <View
                 style={[
                     styles.inputContainer,
-                    focused && styles.inputContainerFocused,
-                    !!error && styles.inputContainerError,
+                    focused ? styles.inputContainerFocused : null,
+                    error ? styles.inputContainerError : null,
                 ]}
             >
-                {leftIcon && (
+                {leftIcon ? (
                     <MaterialCommunityIcons
                         name={leftIcon as any}
                         size={20}
                         color={error ? colors.danger : focused ? colors.primary : colors.textSecondary}
                         style={styles.leftIcon}
-                        accessibilityElementsHidden={true}
+                        accessibilityElementsHidden
                     />
-                )}
+                ) : null}
 
                 <TextInput
                     style={[
                         styles.input,
-                        leftIcon ? styles.inputWithLeft : undefined,
-                        (rightIcon || isPassword) ? styles.inputWithRight : undefined,
+                        leftIcon ? styles.inputWithLeft : null,
+                        rightIcon || isPassword ? styles.inputWithRight : null,
                     ]}
                     placeholderTextColor={colors.textDisabled}
                     onFocus={() => setFocused(true)}
                     onBlur={() => setFocused(false)}
-                    accessible={true}
                     accessibilityLabel={label}
                     accessibilityLabelledBy={inputId}
                     accessibilityHint={hint}
                     accessibilityState={{ disabled: textInputProps.editable === false }}
-                    allowFontScaling={true}
+                    allowFontScaling
                     secureTextEntry={effectiveSecure}
                     {...textInputProps}
                 />
 
-                {/* Tombol show/hide password */}
-                {isPassword && (
+                {isPassword ? (
                     <TouchableOpacity
-                        onPress={() => setIsPasswordVisible((v) => !v)}
+                        onPress={() => setIsPasswordVisible((value) => !value)}
                         style={styles.rightIconBtn}
-                        accessible={true}
                         accessibilityRole="button"
                         accessibilityLabel={isPasswordVisible ? 'Sembunyikan password' : 'Tampilkan password'}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -108,16 +102,15 @@ export function Input({
                             name={isPasswordVisible ? 'eye-off' : 'eye'}
                             size={20}
                             color={colors.textSecondary}
-                            accessibilityElementsHidden={true}
+                            accessibilityElementsHidden
                         />
                     </TouchableOpacity>
-                )}
+                ) : null}
 
-                {rightIcon && !isPassword && (
+                {rightIcon && !isPassword ? (
                     <TouchableOpacity
                         onPress={onRightIconPress}
                         style={styles.rightIconBtn}
-                        accessible={!!onRightIconPress}
                         accessibilityRole="button"
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
@@ -125,76 +118,82 @@ export function Input({
                             name={rightIcon as any}
                             size={20}
                             color={colors.textSecondary}
-                            accessibilityElementsHidden={true}
+                            accessibilityElementsHidden
                         />
                     </TouchableOpacity>
-                )}
+                ) : null}
             </View>
 
-            {/* Pesan error spesifik — WCAG Understandable */}
-            {error && (
-                <View style={styles.errorRow} accessible={true} accessibilityLiveRegion="polite">
-                    <MaterialCommunityIcons name="alert-circle" size={14} color={colors.danger} accessibilityElementsHidden={true} />
-                    <Text style={styles.errorText} allowFontScaling={true} accessibilityRole="alert">
+            {error ? (
+                <View style={styles.errorRow} accessibilityLiveRegion="polite">
+                    <MaterialCommunityIcons name="alert-circle" size={14} color={colors.danger} accessibilityElementsHidden />
+                    <Text style={styles.errorText} allowFontScaling accessibilityRole="alert">
                         {error}
                     </Text>
                 </View>
-            )}
+            ) : null}
 
-            {/* Hint tanpa error */}
-            {hint && !error && (
-                <Text style={styles.hintText} allowFontScaling={true}>
+            {hint && !error ? (
+                <Text style={styles.hintText} allowFontScaling>
                     {hint}
                 </Text>
-            )}
+            ) : null}
         </View>
     );
 }
 
-const getStyles = (colors: any) =>
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     StyleSheet.create({
         container: { gap: 6 },
         label: {
             fontFamily: FontFamily.bodyMedium,
             fontSize: FontSize.caption,
             color: colors.textSecondary,
-            letterSpacing: 0.3,
+            letterSpacing: 0.45,
             textTransform: 'uppercase',
         },
         required: { color: colors.danger },
         inputContainer: {
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: colors.surfaceElevated,
-            borderRadius: 16,
+            backgroundColor: colors.formFieldBg,
+            borderRadius: 20,
             borderWidth: 1,
             borderColor: colors.border,
-            minHeight: 54,
+            minHeight: 58,
             shadowColor: colors.shadowColor,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.04,
-            shadowRadius: 10,
-            elevation: 1,
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.06,
+            shadowRadius: 12,
+            elevation: 2,
         },
         inputContainerFocused: {
             borderColor: colors.primary,
-            backgroundColor: colors.surface,
-            shadowOpacity: 0.08,
-            elevation: 2,
+            backgroundColor: colors.actionTint,
+            shadowOpacity: 0.12,
+            elevation: 3,
         },
-        inputContainerError: { borderColor: colors.danger },
-        leftIcon: { paddingLeft: 14 },
-        rightIconBtn: { paddingRight: 14, paddingLeft: 8, minHeight: 48, justifyContent: 'center' },
+        inputContainerError: {
+            borderColor: colors.danger,
+            backgroundColor: colors.formFieldError,
+        },
+        leftIcon: { paddingLeft: 16 },
+        rightIconBtn: {
+            paddingRight: 16,
+            paddingLeft: 8,
+            minHeight: 52,
+            justifyContent: 'center',
+        },
         input: {
             flex: 1,
-            paddingHorizontal: 16,
-            paddingVertical: 14,
+            paddingHorizontal: 18,
+            paddingVertical: 16,
             fontFamily: FontFamily.body,
             fontSize: FontSize.body,
             color: colors.textPrimary,
-            minHeight: 54,
+            minHeight: 58,
         },
-        inputWithLeft: { paddingLeft: 10 },
+        inputWithLeft: { paddingLeft: 12 },
         inputWithRight: { paddingRight: 0 },
         errorRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
         errorText: {
