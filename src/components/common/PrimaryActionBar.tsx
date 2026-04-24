@@ -10,6 +10,7 @@ interface PrimaryActionBarProps {
     primaryLabel: string;
     onPrimaryPress: () => void;
     primaryLoading?: boolean;
+    primaryDisabled?: boolean;
     secondaryLabel?: string;
     onSecondaryPress?: () => void;
     offset?: number;
@@ -19,6 +20,7 @@ export function PrimaryActionBar({
     primaryLabel,
     onPrimaryPress,
     primaryLoading = false,
+    primaryDisabled = false,
     secondaryLabel,
     onSecondaryPress,
     offset = 0,
@@ -37,6 +39,7 @@ export function PrimaryActionBar({
                     label={primaryLabel}
                     onPress={onPrimaryPress}
                     loading={primaryLoading}
+                    disabled={primaryDisabled}
                     variant="primary"
                     fullWidth={!secondaryLabel}
                     style={secondaryLabel ? { flex: 1 } : undefined}

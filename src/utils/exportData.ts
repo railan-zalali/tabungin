@@ -205,6 +205,41 @@ export async function exportTransactionsOnly(
 }
 
 /**
+ * Export saving goals only (filtered)
+ */
+export async function exportGoalsOnly(
+  goals: SavingGoal[],
+  format: ExportFormat = 'csv'
+): Promise<void> {
+  try {
+    if (goals.length === 0) {
+      Alert.alert('Info', 'Tidak ada target tabungan untuk diekspor');
+      return;
+    }
+
+    switch (format) {
+      case 'json':
+        await exportToJSON({
+          version: 1,
+          exportedAt: Date.now(),
+          transactions: [],
+          goals,
+        });
+        break;
+      case 'csv':
+        await exportGoalsToCSV(goals);
+        break;
+      case 'txt':
+        await exportGoalsToTXT(goals);
+        break;
+    }
+  } catch (error) {
+    console.error('Failed to export goals:', error);
+    Alert.alert('Error', 'Gagal mengekspor target tabungan');
+  }
+}
+
+/**
  * Export transactions to CSV
  */
 async function exportTransactionsToCSV(transactions: Transaction[]): Promise<void> {
@@ -273,6 +308,67 @@ async function exportTransactionsToTXT(transactions: Transaction[]): Promise<voi
   await Sharing.shareAsync(fileUri, {
     mimeType: 'text/plain',
     dialogTitle: 'Export Transaksi Tabungin (TXT)',
+    UTI: 'public.plain-text',
+  });
+}
+
+async function exportGoalsToCSV(goals: SavingGoal[]): Promise<void> {
+  let csv = 'ID,Nama,Target,Saat Ini,Progress,Periode,Warna,Tanggal Mulai,Estimasi Selesai,Status\n';
+
+  for (const goal of goals) {
+    const progress = goal.target_amount > 0 ? Math.round((goal.current_amount / goal.target_amount) * 100) : 0;
+    const startDate = new Date(goal.start_date).toISOString().split('T')[0];
+    const estimatedDate = new Date(goal.estimated_date).toISOString().split('T')[0];
+    csv += `"${goal.id}","${goal.name}","${goal.target_amount}","${goal.current_amount}","${progress}%","${goal.period_type}","${goal.color}","${startDate}","${estimatedDate}","${goal.is_completed ? 'Selesai' : 'Berjalan'}"\n`;
+  }
+
+  const fileName = `tabungin_target_${new Date().toISOString().split('T')[0]}.csv`;
+  const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+
+  await FileSystem.writeAsStringAsync(fileUri, csv);
+  await Sharing.shareAsync(fileUri, {
+    mimeType: 'text/csv',
+    dialogTitle: 'Export Target Tabungan Tabungin (CSV)',
+    UTI: 'public.comma-separated-values-text',
+  });
+}
+
+async function exportGoalsToTXT(goals: SavingGoal[]): Promise<void> {
+  let txt = 'Laporan Target Tabungan Tabungin\n';
+  txt += `Tanggal: ${formatDateLong(Date.now())}\n`;
+  txt += `Jumlah Target: ${goals.length}\n`;
+  txt += `${'='.repeat(40)}\n\n`;
+
+  const totalTarget = goals.reduce((sum, goal) => sum + goal.target_amount, 0);
+  const totalSaved = goals.reduce((sum, goal) => sum + goal.current_amount, 0);
+
+  txt += 'Ringkasan:\n';
+  txt += `Total target: ${formatCurrency(totalTarget)}\n`;
+  txt += `Total terkumpul: ${formatCurrency(totalSaved)}\n`;
+  txt += `Target selesai: ${goals.filter((goal) => goal.is_completed).length}\n\n`;
+
+  txt += 'Detail:\n';
+  txt += `${'-'.repeat(40)}\n\n`;
+
+  for (const goal of goals) {
+    const progress = goal.target_amount > 0 ? Math.round((goal.current_amount / goal.target_amount) * 100) : 0;
+    txt += `${goal.emoji} ${goal.name}\n`;
+    txt += `  Target: ${formatCurrency(goal.target_amount)}\n`;
+    txt += `  Terkumpul: ${formatCurrency(goal.current_amount)}\n`;
+    txt += `  Progress: ${progress}%\n`;
+    txt += `  Periode: ${goal.period_type}\n`;
+    txt += `  Status: ${goal.is_completed ? 'Selesai' : 'Berjalan'}\n`;
+    txt += `  Mulai: ${formatDateLong(goal.start_date)}\n`;
+    txt += `  Estimasi selesai: ${formatDateLong(goal.estimated_date)}\n\n`;
+  }
+
+  const fileName = `tabungin_target_${new Date().toISOString().split('T')[0]}.txt`;
+  const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+
+  await FileSystem.writeAsStringAsync(fileUri, txt);
+  await Sharing.shareAsync(fileUri, {
+    mimeType: 'text/plain',
+    dialogTitle: 'Export Target Tabungan Tabungin (TXT)',
     UTI: 'public.plain-text',
   });
 }

@@ -19,6 +19,7 @@ import type { WalletFlowNavigationProp } from '../../types/navigation';
 import { useProfileStore } from '../../store/useProfileStore';
 import { useTheme } from '../../store/useThemeStore';
 import { useWalletStore } from '../../store/useWalletStore';
+import { resolveWalletContextMeta } from '../../utils/walletContext';
 import { AppScreenHeader } from '../../components/common/AppScreenHeader';
 import { ContextBadge } from '../../components/common/ContextBadge';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -43,6 +44,7 @@ function WalletCard({ item, activeProfileId, onEdit, onDelete }: {
     const iconName = resolveWalletIcon(item.type);
     const itemColor = item.color || colors.primary;
     const isSharedWallet = Boolean(item.profile_id && item.profile_id !== activeProfileId);
+    const contextMeta = resolveWalletContextMeta(item, activeProfileId);
 
     return (
         <TouchableOpacity style={styles.walletCard} onPress={() => onEdit(item)} activeOpacity={0.92}>
@@ -65,11 +67,18 @@ function WalletCard({ item, activeProfileId, onEdit, onDelete }: {
 
                 <View style={styles.walletBadgeRow}>
                     {item.is_default ? <ContextBadge icon="star-outline" label="Utama" tone="warning" /> : null}
-                    {isSharedWallet ? <ContextBadge icon="account-group-outline" label="Dompet bersama" tone="info" /> : null}
+                    <ContextBadge icon={contextMeta.icon} label={contextMeta.label} tone={contextMeta.tone} />
                 </View>
 
                 <Text style={styles.walletBalanceLabel}>Saldo saat ini</Text>
                 <Text style={styles.walletBalance}>{formatCurrency(item.balance || 0)}</Text>
+                <Text style={styles.walletContextText}>
+                    {isSharedWallet
+                        ? 'Dipakai dalam konteks kolaboratif dan bisa memengaruhi aktivitas bersama.'
+                        : item.is_default
+                          ? 'Dompet ini menjadi konteks default untuk pencatatan harian.'
+                          : 'Dompet ini berada di konteks personal profil aktif.'}
+                </Text>
             </View>
         </TouchableOpacity>
     );
@@ -293,5 +302,11 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             fontFamily: FontFamily.headingMedium,
             fontSize: FontSize.h2,
             color: colors.textPrimary,
+        },
+        walletContextText: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+            lineHeight: 18,
         },
     });

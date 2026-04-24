@@ -1,620 +1,371 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Modal,
-  Alert,
-  ActivityIndicator,
-  StatusBar,
-} from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
-
+import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
+import { useScreenLayout } from '../../hooks/useScreenLayout';
+import { useSavingStore } from '../../store/useSavingStore';
 import { useTheme } from '../../store/useThemeStore';
 import { useTransactionStore } from '../../store/useTransactionStore';
-import { useSavingStore } from '../../store/useSavingStore';
-import { Button } from '../../components/common/Button';
-import { EmptyState } from '../../components/common/EmptyState';
-import { BorderRadius } from '../../constants/theme';
-import {
-  exportToJSON,
-  exportToCSV,
-  exportToTXT,
-  exportTransactionsOnly,
-  type ExportFormat,
-} from '../../utils/exportData';
+import { exportGoalsOnly, exportToCSV, exportToJSON, exportToTXT, exportTransactionsOnly, type ExportFormat } from '../../utils/exportData';
+import { AppScreenHeader } from '../../components/common/AppScreenHeader';
+import { ContentPanel } from '../../components/common/ContentPanel';
+import { ContextBadge } from '../../components/common/ContextBadge';
+import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
+import { ScreenShell } from '../../components/common/ScreenShell';
+import { SectionHeader } from '../../components/common/SectionHeader';
 
 type ExportScope = 'all' | 'transactions' | 'goals';
 
+const SCOPE_OPTIONS: Array<{
+    id: ExportScope;
+    title: string;
+    description: string;
+    icon: string;
+}> = [
+    {
+        id: 'all',
+        title: 'Semua data',
+        description: 'Transaksi dan target tabungan dalam satu paket backup.',
+        icon: 'database-export-outline',
+    },
+    {
+        id: 'transactions',
+        title: 'Hanya transaksi',
+        description: 'Cocok untuk audit arus kas atau analisis kategori.',
+        icon: 'swap-horizontal',
+    },
+    {
+        id: 'goals',
+        title: 'Hanya target',
+        description: 'Fokus pada progres tabungan, target, dan status penyelesaian.',
+        icon: 'bullseye-arrow',
+    },
+];
+
+const FORMAT_OPTIONS: Array<{
+    id: ExportFormat;
+    title: string;
+    description: string;
+    icon: string;
+    tone: 'primary' | 'success' | 'info';
+}> = [
+    {
+        id: 'json',
+        title: 'JSON',
+        description: 'Backup paling lengkap untuk restore atau migrasi data.',
+        icon: 'code-json',
+        tone: 'primary',
+    },
+    {
+        id: 'csv',
+        title: 'CSV',
+        description: 'Siap dibaca di Excel, Sheets, atau alat analisis lain.',
+        icon: 'file-delimited-outline',
+        tone: 'success',
+    },
+    {
+        id: 'txt',
+        title: 'TXT',
+        description: 'Ringkas dan mudah dibaca untuk arsip atau laporan cepat.',
+        icon: 'file-document-outline',
+        tone: 'info',
+    },
+];
+
 export function ExportDataScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<any>>();
-  const insets = useSafeAreaInsets();
-  const { colors, mode } = useTheme();
-  const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const navigation = useNavigation();
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const { contentBottomSpacing } = useScreenLayout();
+    const { transactions } = useTransactionStore();
+    const { goals } = useSavingStore();
+    const [selectedScope, setSelectedScope] = useState<ExportScope>('all');
+    const [activeFormat, setActiveFormat] = useState<ExportFormat | null>(null);
 
-  const { transactions } = useTransactionStore();
-  const { goals } = useSavingStore();
+    const selectedScopeLabel = useMemo(
+        () => SCOPE_OPTIONS.find((option) => option.id === selectedScope)?.title ?? 'Semua data',
+        [selectedScope],
+    );
 
-  const [showFormatModal, setShowFormatModal] = useState(false);
-  const [selectedScope, setSelectedScope] = useState<ExportScope>('all');
-  const [isExporting, setIsExporting] = useState(false);
+    const handleExport = async (format: ExportFormat) => {
+        if (activeFormat) return;
 
-  const exportOptions = [
-    {
-      id: 'json' as ExportFormat,
-      title: 'JSON',
-      description: 'Format terstruktur, cocok untuk backup lengkap',
-      icon: 'code-json',
-      color: colors.primary,
-    },
-    {
-      id: 'csv' as ExportFormat,
-      title: 'CSV',
-      description: 'Kompatibel dengan Excel, Google Sheets, dll',
-      icon: 'file-excel',
-      color: colors.success,
-    },
-    {
-      id: 'txt' as ExportFormat,
-      title: 'TXT',
-      description: 'Format teks mudah dibaca untuk laporan',
-      icon: 'file-document',
-      color: colors.info,
-    },
-  ];
+        setActiveFormat(format);
+        try {
+            const exportData = {
+                version: 1,
+                exportedAt: Date.now(),
+                transactions,
+                goals,
+            };
 
-  const scopeOptions = [
-    {
-      id: 'all' as ExportScope,
-      title: 'Semua Data',
-      description: 'Transaksi dan target tabungan',
-      icon: 'database-export',
-    },
-    {
-      id: 'transactions' as ExportScope,
-      title: 'Hanya Transaksi',
-      description: 'Data transaksi saja',
-      icon: 'swap-horizontal',
-    },
-    {
-      id: 'goals' as ExportScope,
-      title: 'Hanya Target',
-      description: 'Data target tabungan saja',
-      icon: 'target',
-    },
-  ];
+            if (selectedScope === 'all') {
+                if (format === 'json') await exportToJSON(exportData);
+                if (format === 'csv') await exportToCSV(exportData);
+                if (format === 'txt') await exportToTXT(exportData);
+            } else if (selectedScope === 'transactions') {
+                await exportTransactionsOnly(transactions, format);
+            } else {
+                await exportGoalsOnly(goals, format);
+            }
+        } finally {
+            setActiveFormat(null);
+        }
+    };
 
-  const handleExport = async (format: ExportFormat) => {
-    if (isExporting) return;
-
-    setIsExporting(true);
-    try {
-      const exportData = {
-        version: 1,
-        exportedAt: Date.now(),
-        transactions,
-        goals,
-      };
-
-      switch (selectedScope) {
-        case 'all':
-          switch (format) {
-            case 'json':
-              await exportToJSON(exportData);
-              break;
-            case 'csv':
-              await exportToCSV(exportData);
-              break;
-            case 'txt':
-              await exportToTXT(exportData);
-              break;
-          }
-          break;
-
-        case 'transactions':
-          await exportTransactionsOnly(transactions, format);
-          break;
-
-        case 'goals':
-          Alert.alert('Info', 'Export target tabungan akan segera hadir di update mendatang!');
-          break;
-      }
-
-      setShowFormatModal(false);
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Gagal mengekspor data');
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const selectedScopeLabel = selectedScope === 'all' ? 'Semua data' : selectedScope === 'transactions' ? 'Transaksi' : 'Target tabungan';
-
-  return (
-    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
-      <StatusBar
-        barStyle={mode === 'dark' ? 'light-content' : 'dark-content'}
-        backgroundColor="transparent"
-        translucent
-      />
-      <View style={styles.bgAuraTop} pointerEvents="none" />
-
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>Ekspor Data</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Animated.View entering={FadeInDown.delay(60).springify()}>
-          <LinearGradient
-            colors={[colors.primary, colors.primaryDark, colors.primary]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroCard}
-          >
-            <View style={styles.heroGlow} />
-            <View style={styles.heroTopRow}>
-              <View style={styles.heroIcon}>
-                <MaterialCommunityIcons name="database-export" size={24} color={colors.textInverse} />
-              </View>
-              <View style={styles.heroCopy}>
-                <Text style={styles.heroTitle}>Ekspor yang cepat dipahami</Text>
-                <Text style={styles.heroSubtitle}>
-                  Pilih cakupan data lalu tentukan format yang paling cocok untuk backup atau analisis.
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.heroStats}>
-              <View style={styles.heroStat}>
-                <Text style={styles.heroStatValue}>{transactions.length}</Text>
-                <Text style={styles.heroStatLabel}>Transaksi</Text>
-              </View>
-              <View style={styles.heroStat}>
-                <Text style={styles.heroStatValue}>{goals.length}</Text>
-                <Text style={styles.heroStatLabel}>Target</Text>
-              </View>
-              <View style={styles.heroStat}>
-                <Text style={styles.heroStatValue}>{selectedScopeLabel}</Text>
-                <Text style={styles.heroStatLabel}>Cakupan</Text>
-              </View>
-            </View>
-          </LinearGradient>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(120).springify()} style={styles.sectionBlock}>
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Pilih Data yang Diekspor</Text>
-          <View style={styles.optionList}>
-            {scopeOptions.map((option, index) => (
-              <Animated.View key={option.id} entering={FadeInUp.delay(index * 70).springify()}>
-                <TouchableOpacity
-                  style={[
-                    styles.scopeOption,
-                    { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-                    selectedScope === option.id && [styles.scopeOptionActive, { backgroundColor: colors.primaryBg, borderColor: colors.primary }],
-                  ]}
-                  onPress={() => setSelectedScope(option.id)}
-                >
-                  <View style={[styles.scopeIcon, { backgroundColor: colors.primaryBg }]}>
-                    <MaterialCommunityIcons name={option.icon as any} size={24} color={colors.primary} />
-                  </View>
-                  <View style={styles.scopeInfo}>
-                    <Text style={[styles.scopeTitle, { color: colors.textPrimary }]}>{option.title}</Text>
-                    <Text style={[styles.scopeDescription, { color: colors.textSecondary }]}>
-                      {option.description}
-                    </Text>
-                  </View>
-                  {selectedScope === option.id && (
-                    <MaterialCommunityIcons name="check-circle" size={24} color={colors.primary} />
-                  )}
-                </TouchableOpacity>
-              </Animated.View>
-            ))}
-          </View>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.sectionBlock}>
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Pilih Format Ekspor</Text>
-          <View style={styles.formatGrid}>
-            {exportOptions.map((option, index) => (
-              <Animated.View key={option.id} entering={FadeInUp.delay(index * 80).springify()} style={{ flex: 1, minWidth: '45%' }}>
-                <TouchableOpacity
-                  style={[styles.formatOption, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
-                  onPress={() => setShowFormatModal(true)}
-                >
-                  <View style={[styles.formatIcon, { backgroundColor: option.color + '20' }]}>
-                    <MaterialCommunityIcons name={option.icon as any} size={32} color={option.color} />
-                  </View>
-                  <Text style={[styles.formatTitle, { color: colors.textPrimary }]}>{option.title}</Text>
-                  <Text style={[styles.formatDescription, { color: colors.textSecondary }]}>
-                    {option.description}
-                  </Text>
-                </TouchableOpacity>
-              </Animated.View>
-            ))}
-          </View>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(280).springify()} style={styles.sectionBlock}>
-          <View style={[styles.summaryCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-            <View style={styles.summaryRow}>
-              <MaterialCommunityIcons name="swap-horizontal" size={20} color={colors.primary} />
-              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Total Transaksi</Text>
-              <Text style={[styles.summaryValue, { color: colors.textPrimary }]}>{transactions.length}</Text>
-            </View>
-            <View style={[styles.summaryDivider, { backgroundColor: colors.divider }]} />
-            <View style={styles.summaryRow}>
-              <MaterialCommunityIcons name="target" size={20} color={colors.success} />
-              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Total Target</Text>
-              <Text style={[styles.summaryValue, { color: colors.textPrimary }]}>{goals.length}</Text>
-            </View>
-          </View>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(340).springify()} style={styles.sectionBlock}>
-          <View style={[styles.tipsCard, { backgroundColor: colors.primaryBg, borderColor: `${colors.primary}22` }]}>
-            <MaterialCommunityIcons name="lightbulb-outline" size={24} color={colors.primary} />
-            <View style={styles.tipsContent}>
-              <Text style={[styles.tipsTitle, { color: colors.primary }]}>Tips Ekspor Data</Text>
-              <Text style={[styles.tipsText, { color: colors.textSecondary }]}>• JSON untuk backup lengkap dan restore</Text>
-              <Text style={[styles.tipsText, { color: colors.textSecondary }]}>• CSV untuk analisis di Excel/Google Sheets</Text>
-              <Text style={[styles.tipsText, { color: colors.textSecondary }]}>• TXT untuk laporan mudah dibaca</Text>
-            </View>
-          </View>
-        </Animated.View>
-      </ScrollView>
-
-      <Modal
-        visible={showFormatModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowFormatModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Pilih Format Ekspor</Text>
-
-            <View style={styles.formatList}>
-              {exportOptions.map((option) => (
-                <TouchableOpacity
-                  key={option.id}
-                  style={[styles.formatListItem, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
-                  onPress={() => handleExport(option.id)}
-                  disabled={isExporting}
-                >
-                  <View style={[styles.listFormatIcon, { backgroundColor: option.color + '20' }]}>
-                    <MaterialCommunityIcons name={option.icon as any} size={28} color={option.color} />
-                  </View>
-                  <View style={styles.listFormatInfo}>
-                    <Text style={[styles.listFormatTitle, { color: colors.textPrimary }]}>{option.title}</Text>
-                    <Text style={[styles.listFormatDescription, { color: colors.textSecondary }]}>
-                      {option.description}
-                    </Text>
-                  </View>
-                  {isExporting && <ActivityIndicator color={option.color} size="small" />}
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Button
-              label="Batal"
-              onPress={() => setShowFormatModal(false)}
-              variant="secondary"
-              fullWidth
-              style={{ marginTop: 16 }}
+    return (
+        <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
+            <AppScreenHeader
+                title="Ekspor data"
+                subtitle="Pilih cakupan yang tepat lalu ekspor langsung ke format yang paling berguna."
+                showBack
+                onBackPress={() => navigation.goBack()}
+                variant="transparent"
             />
-          </View>
-        </View>
-      </Modal>
-    </View>
-  );
+
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[styles.content, { paddingBottom: contentBottomSpacing }]}
+            >
+                <HeroSummaryCard
+                    eyebrow="Backup dan analisis"
+                    title="Semua data siap dibawa keluar"
+                    value={`${transactions.length + goals.length} item`}
+                    description="Pilih satu cakupan yang paling relevan, lalu ekspor tanpa langkah tambahan yang membingungkan."
+                    icon="database-export-outline"
+                    badges={
+                        <>
+                            <ContextBadge icon="swap-horizontal" label={`${transactions.length} transaksi`} inverse />
+                            <ContextBadge icon="bullseye-arrow" label={`${goals.length} target`} inverse />
+                        </>
+                    }
+                />
+
+                <ContentPanel>
+                    <SectionHeader
+                        title="Cakupan ekspor"
+                        subtitle="Tentukan dulu data apa yang ingin kamu bawa keluar dari aplikasi."
+                    />
+
+                    <View style={styles.scopeList}>
+                        {SCOPE_OPTIONS.map((option) => {
+                            const active = selectedScope === option.id;
+                            return (
+                                <TouchableOpacity
+                                    key={option.id}
+                                    style={[
+                                        styles.scopeOption,
+                                        active ? styles.scopeOptionActive : null,
+                                    ]}
+                                    onPress={() => setSelectedScope(option.id)}
+                                >
+                                    <View style={[styles.scopeIcon, active ? styles.scopeIconActive : null]}>
+                                        <MaterialCommunityIcons
+                                            name={option.icon as any}
+                                            size={22}
+                                            color={active ? colors.primary : colors.textSecondary}
+                                        />
+                                    </View>
+                                    <View style={styles.scopeCopy}>
+                                        <Text style={styles.scopeTitle}>{option.title}</Text>
+                                        <Text style={styles.scopeDescription}>{option.description}</Text>
+                                    </View>
+                                    {active ? <MaterialCommunityIcons name="check-circle" size={22} color={colors.primary} /> : null}
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+                </ContentPanel>
+
+                <ContentPanel>
+                    <SectionHeader
+                        title="Format siap ekspor"
+                        subtitle="Setiap kartu di bawah ini langsung menjalankan ekspor untuk cakupan yang sedang aktif."
+                    />
+
+                    <View style={styles.badgeRow}>
+                        <ContextBadge icon="database-outline" label={selectedScopeLabel} tone="primary" />
+                        <ContextBadge icon="gesture-tap-button" label="Satu tap per format" tone="neutral" />
+                    </View>
+
+                    <View style={styles.formatList}>
+                        {FORMAT_OPTIONS.map((option) => {
+                            const isBusy = activeFormat === option.id;
+                            const toneColor =
+                                option.tone === 'success'
+                                    ? colors.success
+                                    : option.tone === 'info'
+                                      ? colors.info
+                                      : colors.primary;
+                            const toneBg =
+                                option.tone === 'success'
+                                    ? colors.successBg
+                                    : option.tone === 'info'
+                                      ? colors.infoBg
+                                      : colors.primaryBg;
+
+                            return (
+                                <TouchableOpacity
+                                    key={option.id}
+                                    style={styles.formatOption}
+                                    onPress={() => handleExport(option.id)}
+                                    disabled={Boolean(activeFormat)}
+                                >
+                                    <View style={[styles.formatIcon, { backgroundColor: toneBg }]}>
+                                        {isBusy ? (
+                                            <ActivityIndicator size="small" color={toneColor} />
+                                        ) : (
+                                            <MaterialCommunityIcons name={option.icon as any} size={24} color={toneColor} />
+                                        )}
+                                    </View>
+                                    <View style={styles.formatCopy}>
+                                        <Text style={styles.formatTitle}>{option.title}</Text>
+                                        <Text style={styles.formatDescription}>{option.description}</Text>
+                                    </View>
+                                    <MaterialCommunityIcons name="arrow-top-right" size={18} color={colors.textSecondary} />
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+                </ContentPanel>
+
+                <ContentPanel compact>
+                    <View style={styles.summaryRow}>
+                        <View style={styles.summaryItem}>
+                            <Text style={styles.summaryLabel}>Cakupan aktif</Text>
+                            <Text style={styles.summaryValue}>{selectedScopeLabel}</Text>
+                        </View>
+                        <View style={styles.summaryDivider} />
+                        <View style={styles.summaryItem}>
+                            <Text style={styles.summaryLabel}>Siap diekspor</Text>
+                            <Text style={styles.summaryValue}>
+                                {selectedScope === 'all'
+                                    ? transactions.length + goals.length
+                                    : selectedScope === 'transactions'
+                                      ? transactions.length
+                                      : goals.length}
+                            </Text>
+                        </View>
+                    </View>
+                </ContentPanel>
+            </ScrollView>
+        </ScreenShell>
+    );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  bgAuraTop: {
-    position: 'absolute',
-    top: -100,
-    right: -30,
-    width: 220,
-    height: 220,
-    borderRadius: BorderRadius.full,
-    backgroundColor: colors.primaryLight,
-    opacity: 0.4,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: BorderRadius.xl,
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  title: {
-    ...Typography.h2,
-    flex: 1,
-    textAlign: 'center',
-  },
-  headerSpacer: {
-    width: 44,
-  },
-  scrollContent: {
-    paddingVertical: 16,
-    paddingBottom: 32,
-  },
-  heroCard: {
-    borderRadius: 30,
-    padding: 20,
-    marginHorizontal: 16,
-    overflow: 'hidden',
-    shadowColor: colors.shadowColor,
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 3,
-  },
-  heroGlow: {
-    position: 'absolute',
-    top: -58,
-    right: -22,
-    width: 150,
-    height: 150,
-    borderRadius: BorderRadius.full,
-    backgroundColor: `${colors.textInverse}24`,
-  },
-  heroTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  heroIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primaryBg,
-  },
-  heroCopy: {
-    flex: 1,
-  },
-  heroTitle: {
-    fontFamily: FontFamily.heading,
-    fontSize: FontSize.h3,
-    color: colors.textInverse,
-  },
-  heroSubtitle: {
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.caption,
-    color: colors.textInverse,
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  heroStats: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 16,
-  },
-  heroStat: {
-    flex: 1,
-    borderRadius: 18,
-    paddingVertical: 12,
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
-  },
-  heroStatValue: {
-    fontFamily: FontFamily.heading,
-    fontSize: FontSize.h3,
-    color: colors.textInverse,
-  },
-  heroStatLabel: {
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.caption,
-    marginTop: 2,
-    color: 'rgba(255,255,255,0.82)',
-  },
-  sectionBlock: {
-    paddingHorizontal: 16,
-    marginTop: 16,
-  },
-  sectionTitle: {
-    ...Typography.caption,
-    fontFamily: FontFamily.bodyBold,
-    marginBottom: 12,
-    paddingLeft: 4,
-  },
-  optionList: {
-    gap: 12,
-  },
-  scopeOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 20,
-    borderWidth: 1,
-    gap: 12,
-    backgroundColor: colors.surfaceElevated,
-  },
-  scopeOptionActive: {},
-  scopeIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scopeInfo: {
-    flex: 1,
-  },
-  scopeTitle: {
-    fontFamily: FontFamily.bodyBold,
-    fontSize: FontSize.body,
-  },
-  scopeDescription: {
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.caption,
-    marginTop: 2,
-    lineHeight: 18,
-  },
-  formatGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  formatOption: {
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    alignItems: 'center',
-    height: '100%',
-    backgroundColor: colors.surfaceElevated,
-  },
-  formatIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  formatTitle: {
-    fontFamily: FontFamily.bodyBold,
-    fontSize: FontSize.body,
-    marginBottom: 4,
-  },
-  formatDescription: {
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.caption,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  summaryCard: {
-    borderRadius: 22,
-    padding: 18,
-    borderWidth: 1,
-    shadowColor: colors.shadowColor,
-    shadowOpacity: 0.06,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 1,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  summaryDivider: {
-    height: 1,
-    marginVertical: 12,
-  },
-  summaryLabel: {
-    flex: 1,
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.body,
-  },
-  summaryValue: {
-    fontFamily: FontFamily.headingMedium,
-    fontSize: FontSize.h3,
-  },
-  tipsCard: {
-    flexDirection: 'row',
-    borderRadius: 22,
-    padding: 16,
-    borderWidth: 1,
-    gap: 12,
-  },
-  tipsContent: {
-    flex: 1,
-  },
-  tipsTitle: {
-    fontFamily: FontFamily.bodyBold,
-    fontSize: FontSize.body,
-    marginBottom: 8,
-  },
-  tipsText: {
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.caption,
-    lineHeight: 20,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-  },
-  modalContent: {
-    borderRadius: 28,
-    padding: 24,
-    marginHorizontal: 16,
-    borderWidth: 1,
-    shadowColor: colors.shadowColor,
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 4,
-  },
-  modalTitle: {
-    fontFamily: FontFamily.heading,
-    fontSize: FontSize.h3,
-    marginBottom: 18,
-  },
-  formatList: {
-    gap: 12,
-  },
-  formatListItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 18,
-    borderWidth: 1,
-    gap: 12,
-    backgroundColor: colors.surfaceElevated,
-  },
-  listFormatIcon: {
-    width: 54,
-    height: 54,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  listFormatInfo: {
-    flex: 1,
-  },
-  listFormatTitle: {
-    fontFamily: FontFamily.bodyBold,
-    fontSize: FontSize.body,
-  },
-  listFormatDescription: {
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.caption,
-    marginTop: 2,
-    lineHeight: 18,
-  },
-});
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+    StyleSheet.create({
+        content: {
+            paddingHorizontal: 20,
+            gap: 18,
+        },
+        scopeList: {
+            gap: 10,
+        },
+        scopeOption: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            borderRadius: BorderRadius['3xl'],
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: colors.surface,
+            paddingHorizontal: 14,
+            paddingVertical: 14,
+        },
+        scopeOptionActive: {
+            borderColor: colors.primary,
+            backgroundColor: colors.primaryBg,
+        },
+        scopeIcon: {
+            width: 44,
+            height: 44,
+            borderRadius: BorderRadius.xl,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.surfaceAlt,
+        },
+        scopeIconActive: {
+            backgroundColor: colors.surface,
+        },
+        scopeCopy: {
+            flex: 1,
+        },
+        scopeTitle: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.body,
+            color: colors.textPrimary,
+        },
+        scopeDescription: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            lineHeight: 18,
+            color: colors.textSecondary,
+            marginTop: 2,
+        },
+        badgeRow: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 8,
+        },
+        formatList: {
+            gap: 10,
+        },
+        formatOption: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            borderRadius: BorderRadius['3xl'],
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: colors.surface,
+            paddingHorizontal: 14,
+            paddingVertical: 14,
+        },
+        formatIcon: {
+            width: 44,
+            height: 44,
+            borderRadius: BorderRadius.xl,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        formatCopy: {
+            flex: 1,
+        },
+        formatTitle: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.body,
+            color: colors.textPrimary,
+        },
+        formatDescription: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            lineHeight: 18,
+            color: colors.textSecondary,
+            marginTop: 2,
+        },
+        summaryRow: {
+            flexDirection: 'row',
+            alignItems: 'stretch',
+        },
+        summaryItem: {
+            flex: 1,
+            gap: 4,
+        },
+        summaryDivider: {
+            width: 1,
+            marginHorizontal: 14,
+            backgroundColor: colors.divider,
+        },
+        summaryLabel: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+        },
+        summaryValue: {
+            ...Typography.h4,
+            color: colors.textPrimary,
+        },
+    });

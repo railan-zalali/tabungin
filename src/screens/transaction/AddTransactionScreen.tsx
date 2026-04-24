@@ -1,676 +1,688 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-  StatusBar,
-  ActivityIndicator,
-} from "react-native";
-import { useNavigation, useRoute } from "@react-navigation/native";
-import type { RouteProp } from "@react-navigation/native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
-import { LinearGradient } from "expo-linear-gradient";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useTheme } from "../../store/useThemeStore";
-import { FontFamily, FontSize, Typography } from "../../constants/typography";
-import { useScreenLayout } from "../../hooks/useScreenLayout";
-import { useTransactionStore } from "../../store/useTransactionStore";
-import { useWalletStore } from "../../store/useWalletStore";
-import { CategoryPicker } from "../../components/transaction/CategoryPicker";
-import { PrimaryActionBar } from "../../components/common/PrimaryActionBar";
-import { formatInputRupiah, parseRupiah } from "../../utils/currency";
-import { validateAmount } from "../../utils/validation";
-import type { TransactionType } from "../../types/transaction";
-import { BorderRadius } from "../../constants/theme";
-import type { TransactionNavigationProp, TransactionStackParamList } from "../../types/navigation";
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { BorderRadius } from '../../constants/theme';
+import { FontFamily, FontSize, Typography } from '../../constants/typography';
+import { useScreenLayout } from '../../hooks/useScreenLayout';
+import { useCategoryStore } from '../../store/useCategoryStore';
+import { useProfileStore } from '../../store/useProfileStore';
+import { useTheme } from '../../store/useThemeStore';
+import { useTransactionStore } from '../../store/useTransactionStore';
+import { useWalletStore } from '../../store/useWalletStore';
+import type { TransactionNavigationProp, TransactionStackParamList } from '../../types/navigation';
+import type { TransactionType } from '../../types/transaction';
+import { formatInputRupiah, formatRupiah, parseRupiah } from '../../utils/currency';
+import { formatDateLong } from '../../utils/date';
+import { validateAmount } from '../../utils/validation';
+import { resolveWalletContextMeta } from '../../utils/walletContext';
+import { AppScreenHeader } from '../../components/common/AppScreenHeader';
+import { ContentPanel } from '../../components/common/ContentPanel';
+import { ContextBadge } from '../../components/common/ContextBadge';
+import { EmptyState } from '../../components/common/EmptyState';
+import { PrimaryActionBar } from '../../components/common/PrimaryActionBar';
+import { ScreenShell } from '../../components/common/ScreenShell';
+import { SectionHeader } from '../../components/common/SectionHeader';
+import { StatePanel } from '../../components/common/StatePanel';
+import { CategoryPicker } from '../../components/transaction/CategoryPicker';
 
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { formatDateLong } from "../../utils/date";
+type AddTransactionRouteProp = RouteProp<TransactionStackParamList, 'AddTransaction'>;
 
-type AddTransactionRouteProp = RouteProp<TransactionStackParamList, "AddTransaction">;
+const TYPE_OPTIONS: Array<{
+    id: TransactionType;
+    label: string;
+    icon: string;
+}> = [
+    { id: 'income', label: 'Pemasukan', icon: 'arrow-up-circle-outline' },
+    { id: 'expense', label: 'Pengeluaran', icon: 'arrow-down-circle-outline' },
+];
 
-export function AddTransactionScreen() {
-    const navigation = useNavigation<TransactionNavigationProp<"AddTransaction">>();
-  const route = useRoute<AddTransactionRouteProp>();
-  const insets = useSafeAreaInsets();
-  const { stickyFooterSpacing } = useScreenLayout();
-  const { addTransaction, editTransaction, getTransactionById, isLoading } = useTransactionStore();
-  const { wallets, loadWallets } = useWalletStore();
-  const editId = route.params?.editId as string | undefined;
-  const isEditMode = Boolean(editId);
-  const { colors, isDark } = useTheme();
-  const styles = useMemo(() => getStyles(colors), [colors]);
-
-  const [txType, setTxType] = useState<TransactionType>(route.params?.type ?? "expense");
-  const [amountInput, setAmountInput] = useState("");
-  const [category, setCategory] = useState("");
-  const [note, setNote] = useState("");
-  const [date, setDate] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [selectedWalletId, setSelectedWalletId] = useState<string>("");
-  const [isPrefilling, setIsPrefilling] = useState(false);
-
-  const [amountError, setAmountError] = useState<string | null>(null);
-  const [categoryError, setCategoryError] = useState<string | null>(null);
-
-  // Load wallets and set default
-  useEffect(() => {
-    loadWallets();
-  }, [loadWallets]);
-
-  useEffect(() => {
-    if (!selectedWalletId && wallets.length > 0) {
-      const defaultWallet = wallets.find((w) => w.is_default);
-      setSelectedWalletId(defaultWallet?.id || wallets[0].id);
-    }
-  }, [wallets]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadTransactionForEdit = async () => {
-      if (!editId) return;
-
-      setIsPrefilling(true);
-      try {
-        const transaction = await getTransactionById(editId);
-        if (!transaction) {
-          Alert.alert("Transaksi tidak ditemukan", "Data transaksi sudah tidak tersedia.");
-          navigation.goBack();
-          return;
-        }
-
-        if (!isMounted) return;
-
-        setTxType(transaction.type);
-        setAmountInput(formatInputRupiah(String(transaction.amount)));
-        setCategory(transaction.category);
-        setNote(transaction.note ?? "");
-        setDate(new Date(transaction.date));
-        setSelectedWalletId(transaction.wallet_id ?? "");
-      } finally {
-        if (isMounted) {
-          setIsPrefilling(false);
-        }
-      }
-    };
-
-    loadTransactionForEdit();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [editId, getTransactionById, navigation]);
-
-  const amount = parseRupiah(amountInput);
-  const selectedWallet = wallets.find((wallet) => wallet.id === selectedWalletId);
-
-  const handleDateChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(false);
-    if (selectedDate) {
-      setDate(selectedDate);
-    }
-  };
-
-  const handleSave = async () => {
-    let valid = true;
-    const amtErr = validateAmount(amount);
-    if (amtErr) {
-      setAmountError(amtErr);
-      valid = false;
-    }
-    if (!category) {
-      setCategoryError("Pilih kategori terlebih dahulu");
-      valid = false;
-    }
-    if (!selectedWalletId) {
-      Alert.alert("Error", "Pilih dompet terlebih dahulu");
-      valid = false;
-    }
-
-    if (!valid) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      return;
-    }
-
-    if (isEditMode && editId) {
-      await editTransaction(editId, {
-        type: txType,
-        amount,
-        category,
-        note: note.trim() || null,
-        date: date.getTime(),
-        wallet_id: selectedWalletId,
-      });
-    } else {
-      await addTransaction({
-        type: txType,
-        amount,
-        category,
-        note: note.trim() || null,
-        date: date.getTime(),
-        wallet_id: selectedWalletId,
-      });
-    }
-
-    loadWallets(); // Refresh balance
-
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    navigation.goBack();
-  };
-
-  const handleAmountChange = (text: string) => {
-    setAmountInput(formatInputRupiah(text));
-    setAmountError(null);
-  };
-
-  return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.bgOrbTop} />
-      <View style={styles.bgOrbBottom} />
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor='transparent' translucent />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.flex}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.closeBtn}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <MaterialCommunityIcons name='close' size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>{isEditMode ? "Edit Transaksi" : "Tambah Transaksi"}</Text>
-          <View style={{ width: 44 }} />
+function InlineError({ message, color }: { message: string; color: string }) {
+    return (
+        <View style={stylesStatic.inlineErrorRow}>
+            <MaterialCommunityIcons name="alert-circle" size={14} color={color} />
+            <Text style={[stylesStatic.inlineErrorText, { color }]}>{message}</Text>
         </View>
-
-        {isPrefilling ? (
-          <View style={styles.loadingState}>
-            <ActivityIndicator size='large' color={colors.primary} />
-            <Text style={styles.loadingText}>Memuat transaksi...</Text>
-          </View>
-        ) : (
-        <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: stickyFooterSpacing + 8 }]}
-          keyboardShouldPersistTaps='handled'
-          showsVerticalScrollIndicator={false}
-        >
-          <LinearGradient
-            colors={[
-              colors.surface,
-              `${colors.primaryLight}`,
-              colors.surface,
-            ]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroCard}
-          >
-            <View style={styles.heroShine} />
-            <View style={styles.heroTopRow}>
-              <View>
-                <Text style={styles.heroLabel}>Ringkasan Transaksi</Text>
-                <Text style={styles.heroTitle}>
-                  {txType === "income" ? "Catat pemasukan baru" : "Catat pengeluaran baru"}
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.heroIconWrap,
-                  { backgroundColor: txType === "income" ? colors.success : colors.danger },
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name={txType === "income" ? "arrow-up-circle-outline" : "arrow-down-circle-outline"}
-                  size={26}
-                  color={colors.textInverse}
-                />
-              </View>
-            </View>
-
-            <View style={styles.typeToggleContainer}>
-              {(["income", "expense"] as TransactionType[]).map((t) => (
-                <TouchableOpacity
-                  key={t}
-                  style={[
-                    styles.typeBtn,
-                    txType === t && (t === "income" ? styles.typeBtnIncome : styles.typeBtnExpense),
-                  ]}
-                  onPress={() => {
-                    setTxType(t);
-                    setCategory("");
-                    setAmountError(null);
-                  }}
-                >
-                  <MaterialCommunityIcons
-                    name={t === "income" ? "arrow-up-circle" : "arrow-down-circle"}
-                    size={20}
-                    color={txType === t ? colors.textInverse : colors.textSecondary}
-                  />
-                  <Text style={[styles.typeBtnText, txType === t && { color: colors.textInverse }]}>
-                    {t === "income" ? "Pemasukan" : "Pengeluaran"}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.amountSection}>
-              <Text style={styles.fieldLabel}>Nominal</Text>
-              <View style={[styles.amountContainer, amountError ? styles.amountError : null]}>
-                <Text style={styles.currencyPrefix}>Rp</Text>
-                <TextInput
-                  style={[styles.amountInput, { fontSize: amountInput.length > 10 ? 24 : 32 }]}
-                  value={amountInput}
-                  onChangeText={handleAmountChange}
-                  keyboardType='numeric'
-                  placeholder='0'
-                  placeholderTextColor={colors.textDisabled}
-                  autoFocus={true}
-                />
-              </View>
-              <View style={styles.heroMetaRow}>
-                <View style={styles.heroMetaChip}>
-                  <MaterialCommunityIcons name="wallet-outline" size={14} color={colors.textSecondary} />
-                  <Text style={styles.heroMetaText}>{selectedWallet?.name ?? "Pilih dompet"}</Text>
-                </View>
-                <View style={styles.heroMetaChip}>
-                  <MaterialCommunityIcons name="calendar-blank-outline" size={14} color={colors.textSecondary} />
-                  <Text style={styles.heroMetaText}>{formatDateLong(date.getTime())}</Text>
-                </View>
-              </View>
-            </View>
-          </LinearGradient>
-
-          {amountError && (
-            <View style={styles.errorRow}>
-              <MaterialCommunityIcons name='alert-circle' size={14} color={colors.danger} />
-              <Text style={styles.errorText}>{amountError}</Text>
-            </View>
-          )}
-
-          {/* Date Picker */}
-          <View style={styles.glassSection}>
-            <Text style={styles.fieldLabel}>Tanggal</Text>
-            <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
-              <MaterialCommunityIcons name='calendar' size={20} color={colors.textPrimary} />
-              <Text style={styles.dateText}>{formatDateLong(date.getTime())}</Text>
-            </TouchableOpacity>
-            {showDatePicker && (
-              <DateTimePicker
-                value={date}
-                mode='date'
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                onChange={handleDateChange}
-                maximumDate={new Date()} // Prevent future dates? Usually good for transactions.
-              />
-            )}
-          </View>
-
-          {/* Wallet Picker */}
-          <View style={styles.glassSection}>
-            <Text style={styles.fieldLabel}>Dompet</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.walletList}
-            >
-              {wallets.map((w) => (
-                <TouchableOpacity
-                  key={w.id}
-                    style={[
-                      styles.walletBtn,
-                      selectedWalletId === w.id && styles.walletBtnActive,
-                      { borderColor: selectedWalletId === w.id ? w.color : colors.border },
-                    ]}
-                  onPress={() => setSelectedWalletId(w.id)}
-                >
-                  <View
-                    style={[
-                      styles.walletIconBg,
-                      { backgroundColor: selectedWalletId === w.id ? w.color : colors.surfaceAlt },
-                    ]}
-                  >
-                    <MaterialCommunityIcons
-                      name={
-                        w.type === "bank" ? "bank" : w.type === "e-wallet" ? "cellphone" : "wallet"
-                      }
-                      size={16}
-                      color={selectedWalletId === w.id ? colors.textInverse : colors.textSecondary}
-                    />
-                  </View>
-                  <Text
-                    style={[
-                      styles.walletBtnText,
-                      selectedWalletId === w.id && {
-                        color: colors.textPrimary,
-                        fontFamily: FontFamily.bodyBold,
-                      },
-                    ]}
-                  >
-                    {w.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-
-          {/* Category Picker */}
-          <View style={styles.glassSection}>
-            <View style={styles.labelRow}>
-              <Text style={styles.fieldLabel}>Kategori</Text>
-              {categoryError && <Text style={styles.errorTextInline}>{categoryError}</Text>}
-            </View>
-            <CategoryPicker
-              type={txType}
-              selectedCategory={category}
-              onSelect={(c) => {
-                setCategory(c);
-                setCategoryError(null);
-              }}
-            />
-          </View>
-
-          {/* Catatan */}
-          <View style={styles.glassSection}>
-            <Text style={styles.fieldLabel}>Catatan (opsional)</Text>
-            <TextInput
-              style={styles.noteInput}
-              value={note}
-              onChangeText={setNote}
-              placeholder='Tulis catatan...'
-              placeholderTextColor={colors.textDisabled}
-              multiline
-              numberOfLines={3}
-            />
-          </View>
-        </ScrollView>
-        )}
-
-        {/* Footer Button */}
-        <PrimaryActionBar
-          primaryLabel={isEditMode ? 'Simpan Perubahan' : 'Simpan Transaksi'}
-          onPrimaryPress={handleSave}
-          primaryLoading={isLoading}
-        />
-      </KeyboardAvoidingView>
-    </View>
-  );
+    );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  flex: { flex: 1 },
-  bgOrbTop: {
-    position: "absolute",
-    top: -80,
-    right: -20,
-    width: 220,
-    height: 220,
-    borderRadius: BorderRadius.full,
-    backgroundColor: `${colors.primary}1A`,
-  },
-  bgOrbBottom: {
-    position: "absolute",
-    bottom: 140,
-    left: -50,
-    width: 180,
-    height: 180,
-    borderRadius: BorderRadius.full,
-    backgroundColor: `${colors.info}14`,
-  },
+export function AddTransactionScreen() {
+    const navigation = useNavigation<TransactionNavigationProp<'AddTransaction'>>();
+    const route = useRoute<AddTransactionRouteProp>();
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const { stickyFooterSpacing, contentBottomSpacing } = useScreenLayout();
+    const activeProfileId = useProfileStore((state) => state.activeProfileId);
+    const { addTransaction, editTransaction, getTransactionById, isLoading } = useTransactionStore();
+    const { wallets, loadWallets } = useWalletStore();
+    const loadCategories = useCategoryStore((state) => state.loadCategories);
+    const categoryCount = useCategoryStore((state) => state.categories.length);
+    const editId = route.params?.editId;
+    const isEditMode = Boolean(editId);
 
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-  },
-  closeBtn: { padding: 4 },
-  headerTitle: { ...Typography.h3, color: colors.textPrimary },
+    const [txType, setTxType] = useState<TransactionType>(route.params?.type ?? 'expense');
+    const [amountInput, setAmountInput] = useState('');
+    const [category, setCategory] = useState('');
+    const [note, setNote] = useState('');
+    const [date, setDate] = useState(new Date());
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [selectedWalletId, setSelectedWalletId] = useState('');
+    const [isPrefilling, setIsPrefilling] = useState(false);
+    const [amountError, setAmountError] = useState<string | null>(null);
+    const [categoryError, setCategoryError] = useState<string | null>(null);
+    const [walletError, setWalletError] = useState<string | null>(null);
 
-  content: { padding: 20, gap: 18, paddingBottom: 40 },
-    heroCard: {
-    borderRadius: BorderRadius['4xl'],
-    padding: 20,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.12,
-    shadowRadius: 22,
-    elevation: 5,
-  },
-    heroShine: {
-    position: "absolute",
-    top: -36,
-    right: -18,
-    width: 130,
-    height: 130,
-    borderRadius: BorderRadius.full,
-    backgroundColor: colors.primaryLight,
-  },
-  heroTopRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 16,
-    marginBottom: 18,
-  },
-  heroLabel: {
-    fontFamily: FontFamily.bodyMedium,
-    fontSize: FontSize.caption,
-    color: colors.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  heroTitle: {
-    fontFamily: FontFamily.headingMedium,
-    fontSize: FontSize.h3,
-    color: colors.textPrimary,
-    marginTop: 6,
-  },
-    heroIconWrap: {
-        width: 54,
-        height: 54,
-        borderRadius: 18,
-        alignItems: "center",
-        justifyContent: "center",
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
-        elevation: 2,
+    useEffect(() => {
+        loadWallets().catch((error) => console.error('Failed to load wallets:', error));
+    }, [loadWallets]);
+
+    useEffect(() => {
+        if (categoryCount === 0) {
+            loadCategories().catch((error) => console.error('Failed to load categories:', error));
+        }
+    }, [categoryCount, loadCategories]);
+
+    useEffect(() => {
+        if (!selectedWalletId && wallets.length > 0) {
+            const defaultWallet = wallets.find((wallet) => wallet.is_default);
+            setSelectedWalletId(defaultWallet?.id || wallets[0].id);
+        }
+    }, [selectedWalletId, wallets]);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        async function loadTransactionForEdit() {
+            if (!editId) return;
+
+            setIsPrefilling(true);
+            try {
+                const transaction = await getTransactionById(editId);
+                if (!transaction) {
+                    Alert.alert('Transaksi tidak ditemukan', 'Data transaksi sudah tidak tersedia.');
+                    navigation.goBack();
+                    return;
+                }
+
+                if (!isMounted) return;
+
+                setTxType(transaction.type);
+                setAmountInput(formatInputRupiah(String(transaction.amount)));
+                setCategory(transaction.category);
+                setNote(transaction.note ?? '');
+                setDate(new Date(transaction.date));
+                setSelectedWalletId(transaction.wallet_id ?? '');
+            } finally {
+                if (isMounted) {
+                    setIsPrefilling(false);
+                }
+            }
+        }
+
+        loadTransactionForEdit().catch((error) => {
+            console.error('Failed to prefill transaction:', error);
+            setIsPrefilling(false);
+        });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [editId, getTransactionById, navigation]);
+
+    const amount = parseRupiah(amountInput);
+    const selectedWallet = wallets.find((wallet) => wallet.id === selectedWalletId);
+    const walletContext = resolveWalletContextMeta(selectedWallet, activeProfileId);
+    const accentColor = txType === 'income' ? colors.success : colors.danger;
+    const accentBg = txType === 'income' ? colors.successBg : colors.dangerBg;
+    const isFormReady = amount > 0 && Boolean(category) && Boolean(selectedWalletId);
+
+    const handleDateChange = (_event: unknown, selectedDate?: Date) => {
+        setShowDatePicker(false);
+        if (selectedDate) {
+            setDate(selectedDate);
+        }
+    };
+
+    const handleSave = async () => {
+        let valid = true;
+        const nextAmountError = validateAmount(amount);
+
+        if (nextAmountError) {
+            setAmountError(nextAmountError);
+            valid = false;
+        }
+
+        if (!selectedWalletId) {
+            setWalletError('Pilih dompet dulu supaya transaksi masuk ke konteks yang benar.');
+            valid = false;
+        }
+
+        if (!category) {
+            setCategoryError('Pilih kategori dulu supaya ringkasan dan laporan tetap presisi.');
+            valid = false;
+        }
+
+        if (!valid) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            return;
+        }
+
+        const payload = {
+            type: txType,
+            amount,
+            category,
+            note: note.trim() || null,
+            date: date.getTime(),
+            wallet_id: selectedWalletId,
+        };
+
+        if (isEditMode && editId) {
+            await editTransaction(editId, payload);
+        } else {
+            await addTransaction(payload);
+        }
+
+        loadWallets().catch(console.error);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        navigation.goBack();
+    };
+
+    return (
+        <ScreenShell topInset={false} bottomInset={false} surfaceVariant="alt">
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
+                <AppScreenHeader
+                    title={isEditMode ? 'Edit transaksi' : 'Tambah transaksi'}
+                    subtitle={
+                        isEditMode
+                            ? 'Rapikan nominal, kategori, dan konteks dompet tanpa keluar dari flow utama.'
+                            : 'Catat arus uang harian dengan urutan yang cepat dan tetap jelas.'
+                    }
+                    showClose
+                    onClosePress={() => navigation.goBack()}
+                    variant="transparent"
+                />
+
+                {isPrefilling ? (
+                    <View style={styles.centerState}>
+                        <StatePanel
+                            icon="progress-clock"
+                            title="Menyiapkan data transaksi"
+                            description="Detail transaksi sedang dimuat supaya kamu bisa langsung mengoreksi bagian yang perlu."
+                            loading
+                        />
+                    </View>
+                ) : wallets.length === 0 ? (
+                    <View style={styles.centerState}>
+                        <EmptyState
+                            icon="wallet-outline"
+                            title="Belum ada dompet aktif"
+                            description="Tambahkan dompet dulu agar transaksi bisa dicatat ke konteks personal atau bersama yang tepat."
+                            actionLabel="Atur dompet"
+                            onAction={() => navigation.navigate('Wallet', { screen: 'AddWallet' })}
+                        />
+                    </View>
+                ) : (
+                    <>
+                        <ScrollView
+                            showsVerticalScrollIndicator={false}
+                            keyboardShouldPersistTaps="handled"
+                            contentContainerStyle={[styles.content, { paddingBottom: stickyFooterSpacing + contentBottomSpacing }]}
+                        >
+                            <ContentPanel style={styles.heroPanel}>
+                                <View style={styles.heroTopRow}>
+                                    <View style={styles.heroCopy}>
+                                        <Text style={styles.eyebrow}>Flow cepat harian</Text>
+                                        <Text style={styles.heroTitle}>
+                                            {txType === 'income' ? 'Pemasukan masuk lebih rapi' : 'Pengeluaran tercatat tanpa ribet'}
+                                        </Text>
+                                    </View>
+                                    <View style={[styles.heroIconWrap, { backgroundColor: accentBg }]}>
+                                        <MaterialCommunityIcons
+                                            name={txType === 'income' ? 'arrow-up-circle-outline' : 'arrow-down-circle-outline'}
+                                            size={24}
+                                            color={accentColor}
+                                        />
+                                    </View>
+                                </View>
+
+                                <View style={styles.typeToggleContainer}>
+                                    {TYPE_OPTIONS.map((option) => {
+                                        const active = option.id === txType;
+                                        const optionAccent = option.id === 'income' ? colors.success : colors.danger;
+                                        const optionBg = option.id === 'income' ? colors.successBg : colors.dangerBg;
+
+                                        return (
+                                            <TouchableOpacity
+                                                key={option.id}
+                                                style={[
+                                                    styles.typeBtn,
+                                                    active
+                                                        ? {
+                                                              backgroundColor: optionAccent,
+                                                              borderColor: optionAccent,
+                                                          }
+                                                        : null,
+                                                ]}
+                                                onPress={() => {
+                                                    setTxType(option.id);
+                                                    setCategory('');
+                                                    setCategoryError(null);
+                                                    setAmountError(null);
+                                                }}
+                                            >
+                                                <View style={[styles.typeIconWrap, !active ? { backgroundColor: optionBg } : null]}>
+                                                    <MaterialCommunityIcons
+                                                        name={option.icon as any}
+                                                        size={18}
+                                                        color={active ? colors.textInverse : optionAccent}
+                                                    />
+                                                </View>
+                                                <Text style={[styles.typeBtnText, active ? styles.typeBtnTextActive : null]}>
+                                                    {option.label}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </View>
+
+                                <View style={styles.amountSection}>
+                                    <Text style={styles.fieldLabel}>Nominal</Text>
+                                    <View
+                                        style={[
+                                            styles.amountContainer,
+                                            { borderColor: amountError ? colors.danger : colors.border },
+                                        ]}
+                                    >
+                                        <Text style={styles.currencyPrefix}>Rp</Text>
+                                        <TextInput
+                                            style={[styles.amountInput, amountInput.length > 11 ? styles.amountInputCompact : null]}
+                                            value={amountInput}
+                                            onChangeText={(text) => {
+                                                setAmountInput(formatInputRupiah(text));
+                                                setAmountError(null);
+                                            }}
+                                            keyboardType="numeric"
+                                            placeholder="0"
+                                            placeholderTextColor={colors.textDisabled}
+                                            autoFocus={!isEditMode}
+                                        />
+                                    </View>
+                                    {amountError ? <InlineError message={amountError} color={colors.danger} /> : null}
+                                </View>
+
+                                <View style={styles.heroBadgeRow}>
+                                    <ContextBadge icon="calendar-blank-outline" label={formatDateLong(date.getTime())} tone="neutral" />
+                                    <ContextBadge icon={walletContext.icon} label={walletContext.label} tone={walletContext.tone} />
+                                </View>
+                            </ContentPanel>
+
+                            <ContentPanel>
+                                <SectionHeader
+                                    title="Konteks transaksi"
+                                    subtitle="Pastikan transaksi masuk ke dompet yang tepat sebelum memilih kategori."
+                                />
+
+                                <View style={styles.walletList}>
+                                    {wallets.map((wallet) => {
+                                        const active = wallet.id === selectedWalletId;
+                                        const contextMeta = resolveWalletContextMeta(wallet, activeProfileId);
+                                        return (
+                                            <TouchableOpacity
+                                                key={wallet.id}
+                                                style={[
+                                                    styles.walletBtn,
+                                                    active
+                                                        ? {
+                                                              borderColor: wallet.color,
+                                                              backgroundColor: colors.primaryBg,
+                                                          }
+                                                        : null,
+                                                ]}
+                                                onPress={() => {
+                                                    setSelectedWalletId(wallet.id);
+                                                    setWalletError(null);
+                                                }}
+                                            >
+                                                <View
+                                                    style={[
+                                                        styles.walletIconBg,
+                                                        { backgroundColor: active ? wallet.color : colors.surfaceAlt },
+                                                    ]}
+                                                >
+                                                    <MaterialCommunityIcons
+                                                        name={
+                                                            wallet.type === 'bank'
+                                                                ? 'bank-outline'
+                                                                : wallet.type === 'e-wallet'
+                                                                  ? 'cellphone'
+                                                                  : wallet.type === 'cash'
+                                                                    ? 'cash'
+                                                                    : 'wallet-outline'
+                                                        }
+                                                        size={18}
+                                                        color={active ? colors.textInverse : colors.textSecondary}
+                                                    />
+                                                </View>
+                                                <View style={styles.walletCopy}>
+                                                    <Text style={styles.walletName}>{wallet.name}</Text>
+                                                    <Text style={styles.walletMeta}>
+                                                        {contextMeta.label} · {formatRupiah(wallet.balance || 0)}
+                                                    </Text>
+                                                </View>
+                                                {wallet.is_default ? (
+                                                    <MaterialCommunityIcons name="star-outline" size={16} color={colors.warning} />
+                                                ) : null}
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </View>
+                                {walletError ? <InlineError message={walletError} color={colors.danger} /> : null}
+                                {selectedWallet ? (
+                                    <ContextBadge
+                                        icon={walletContext.icon}
+                                        label={walletContext.description}
+                                        tone={walletContext.tone}
+                                    />
+                                ) : null}
+                            </ContentPanel>
+
+                            <ContentPanel>
+                                <SectionHeader
+                                    title="Kategori dan waktu"
+                                    subtitle="Tambahkan penanda yang membuat laporan dan evaluasi bulanan tetap presisi."
+                                />
+
+                                <View style={styles.dateRow}>
+                                    <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
+                                        <MaterialCommunityIcons name="calendar-outline" size={20} color={colors.primary} />
+                                        <View style={styles.dateCopy}>
+                                            <Text style={styles.dateLabel}>Tanggal transaksi</Text>
+                                            <Text style={styles.dateText}>{formatDateLong(date.getTime())}</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                </View>
+                                {showDatePicker ? (
+                                    <DateTimePicker
+                                        value={date}
+                                        mode="date"
+                                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                        onChange={handleDateChange}
+                                        maximumDate={new Date()}
+                                    />
+                                ) : null}
+
+                                <View style={styles.labelRow}>
+                                    <Text style={styles.fieldLabel}>Kategori</Text>
+                                    {categoryError ? <Text style={styles.errorTextInline}>{categoryError}</Text> : null}
+                                </View>
+                                <CategoryPicker
+                                    type={txType}
+                                    selectedCategory={category}
+                                    onSelect={(categoryId) => {
+                                        setCategory(categoryId);
+                                        setCategoryError(null);
+                                    }}
+                                />
+                            </ContentPanel>
+
+                            <ContentPanel>
+                                <SectionHeader
+                                    title="Catatan tambahan"
+                                    subtitle="Opsional, tetapi berguna saat kamu meninjau transaksi ini lagi nanti."
+                                />
+                                <TextInput
+                                    style={styles.noteInput}
+                                    value={note}
+                                    onChangeText={setNote}
+                                    placeholder="Contoh: makan siang tim, transfer klien, atau top up darurat."
+                                    placeholderTextColor={colors.textDisabled}
+                                    multiline
+                                    numberOfLines={4}
+                                    textAlignVertical="top"
+                                />
+                            </ContentPanel>
+                        </ScrollView>
+
+                        <PrimaryActionBar
+                            primaryLabel={isEditMode ? 'Simpan perubahan' : 'Simpan transaksi'}
+                            onPrimaryPress={handleSave}
+                            primaryLoading={isLoading}
+                            primaryDisabled={isLoading || !isFormReady}
+                        />
+                    </>
+                )}
+            </KeyboardAvoidingView>
+        </ScreenShell>
+    );
+}
+
+const stylesStatic = StyleSheet.create({
+    inlineErrorRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
     },
-
-  typeToggleContainer: {
-    flexDirection: "row",
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: BorderRadius['3xl'],
-    padding: 4,
-    gap: 4,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  typeBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: BorderRadius.lg,
-  },
-  typeBtnIncome: { backgroundColor: colors.success },
-  typeBtnExpense: { backgroundColor: colors.danger },
-  typeBtnText: {
-    fontFamily: FontFamily.bodyBold,
-    fontSize: FontSize.body,
-    color: colors.textSecondary,
-  },
-
-  amountSection: { gap: 8 },
-  fieldSection: { gap: 12 },
-  glassSection: {
-    gap: 12,
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: BorderRadius['3xl'],
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 18,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 3,
-  },
-  fieldLabel: {
-    fontFamily: FontFamily.bodyBold,
-    fontSize: FontSize.caption,
-    color: colors.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-
-  amountContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderRadius: BorderRadius['2xl'],
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 12,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 2,
-  },
-  heroMetaRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginTop: 8,
-  },
-  heroMetaChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: BorderRadius.full,
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  heroMetaText: {
-    fontFamily: FontFamily.bodyMedium,
-    fontSize: FontSize.caption,
-    color: colors.textSecondary,
-  },
-  amountError: { borderColor: colors.danger, borderWidth: 1 },
-  currencyPrefix: {
-    fontFamily: FontFamily.headingMedium,
-    fontSize: FontSize.h3,
-    color: colors.textSecondary,
-  },
-  amountInput: {
-    flex: 1,
-    fontFamily: FontFamily.heading,
-    fontSize: 32,
-    color: colors.textPrimary,
-    padding: 0,
-    height: 40,
-  },
-
-  walletList: { flexDirection: "row", gap: 12 },
-  walletBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingRight: 16,
-    paddingLeft: 6,
-    paddingVertical: 6,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-    backgroundColor: colors.surfaceElevated,
-    borderColor: colors.border,
-  },
-  walletBtnActive: { backgroundColor: colors.primaryBg, borderWidth: 1.5 },
-  walletIconBg: {
-    width: 32,
-    height: 32,
-    borderRadius: BorderRadius.xl,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  walletBtnText: {
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.caption,
-    color: colors.textSecondary,
-  },
-
-  labelRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  errorTextInline: {
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.caption,
-    color: colors.danger,
-  },
-
-  errorRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
-  errorText: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.danger },
-
-  dateBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    padding: 16,
-    borderRadius: BorderRadius['3xl'],
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 12,
-  },
-  dateText: {
-    fontFamily: FontFamily.bodyMedium,
-    fontSize: FontSize.body,
-    color: colors.textPrimary,
-  },
-
-  noteInput: {
-    backgroundColor: colors.surface,
-    borderRadius: BorderRadius['3xl'],
-    padding: 16,
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.body,
-    color: colors.textPrimary,
-    minHeight: 100,
-    textAlignVertical: "top",
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  loadingState: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
-    padding: 24,
-  },
-  loadingText: {
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.body,
-    color: colors.textSecondary,
-  },
+    inlineErrorText: {
+        fontFamily: FontFamily.body,
+        fontSize: FontSize.caption,
+        flex: 1,
+    },
 });
+
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+    StyleSheet.create({
+        flex: { flex: 1 },
+        centerState: {
+            flex: 1,
+            justifyContent: 'center',
+            paddingHorizontal: 20,
+            paddingBottom: 80,
+        },
+        content: {
+            paddingHorizontal: 20,
+            gap: 18,
+        },
+        heroPanel: {
+            gap: 18,
+        },
+        heroTopRow: {
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 12,
+        },
+        heroCopy: { flex: 1 },
+        eyebrow: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.caption,
+            textTransform: 'uppercase',
+            letterSpacing: 0.5,
+            color: colors.primary,
+        },
+        heroTitle: {
+            ...Typography.h3,
+            color: colors.textPrimary,
+            marginTop: 6,
+        },
+        heroIconWrap: {
+            width: 48,
+            height: 48,
+            borderRadius: BorderRadius['2xl'],
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        typeToggleContainer: {
+            flexDirection: 'row',
+            gap: 10,
+        },
+        typeBtn: {
+            flex: 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            minHeight: 54,
+            borderRadius: BorderRadius['2xl'],
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: colors.surface,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+        },
+        typeIconWrap: {
+            width: 28,
+            height: 28,
+            borderRadius: BorderRadius.full,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        typeBtnText: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.body,
+            color: colors.textSecondary,
+        },
+        typeBtnTextActive: {
+            color: colors.textInverse,
+        },
+        amountSection: {
+            gap: 8,
+        },
+        fieldLabel: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+            textTransform: 'uppercase',
+            letterSpacing: 0.45,
+        },
+        amountContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            minHeight: 84,
+            backgroundColor: colors.surface,
+            borderRadius: BorderRadius['3xl'],
+            borderWidth: 1,
+            paddingHorizontal: 18,
+            gap: 12,
+        },
+        currencyPrefix: {
+            fontFamily: FontFamily.headingMedium,
+            fontSize: FontSize.h2,
+            color: colors.textSecondary,
+        },
+        amountInput: {
+            flex: 1,
+            fontFamily: FontFamily.heading,
+            fontSize: 34,
+            color: colors.textPrimary,
+            paddingVertical: 0,
+        },
+        amountInputCompact: {
+            fontSize: 28,
+        },
+        heroBadgeRow: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 8,
+        },
+        walletList: {
+            gap: 10,
+        },
+        walletBtn: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            borderRadius: BorderRadius['3xl'],
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: colors.surface,
+            paddingHorizontal: 14,
+            paddingVertical: 14,
+        },
+        walletIconBg: {
+            width: 40,
+            height: 40,
+            borderRadius: BorderRadius.xl,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        walletCopy: {
+            flex: 1,
+        },
+        walletName: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.body,
+            color: colors.textPrimary,
+        },
+        walletMeta: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+            marginTop: 2,
+        },
+        dateRow: {
+            gap: 10,
+        },
+        dateBtn: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            borderRadius: BorderRadius['3xl'],
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: colors.surface,
+            paddingHorizontal: 16,
+            paddingVertical: 14,
+        },
+        dateCopy: {
+            flex: 1,
+        },
+        dateLabel: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+        },
+        dateText: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.body,
+            color: colors.textPrimary,
+            marginTop: 2,
+        },
+        labelRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+        },
+        errorTextInline: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.danger,
+            flex: 1,
+            textAlign: 'right',
+        },
+        noteInput: {
+            minHeight: 112,
+            borderRadius: BorderRadius['3xl'],
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: colors.surface,
+            paddingHorizontal: 16,
+            paddingVertical: 16,
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.body,
+            color: colors.textPrimary,
+        },
+    });

@@ -1,28 +1,28 @@
 import React, { useState } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TouchableOpacity,
-    StatusBar,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTheme } from '../../store/useThemeStore';
-import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { BorderRadius } from '../../constants/theme';
+import { FontFamily, FontSize, Typography } from '../../constants/typography';
+import { useScreenLayout } from '../../hooks/useScreenLayout';
 import { useAuthStore } from '../../store/useAuthStore';
-import { Input } from '../../components/common/Input';
-import { Button } from '../../components/common/Button';
+import { useTheme } from '../../store/useThemeStore';
 import { validateName } from '../../utils/validation';
+import { AppScreenHeader } from '../../components/common/AppScreenHeader';
+import { Button } from '../../components/common/Button';
+import { ContentPanel } from '../../components/common/ContentPanel';
+import { ContextBadge } from '../../components/common/ContextBadge';
+import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
+import { Input } from '../../components/common/Input';
+import { ScreenShell } from '../../components/common/ScreenShell';
+import { SectionHeader } from '../../components/common/SectionHeader';
 
 export function ProfileScreen() {
     const navigation = useNavigation();
-    const { user, updateProfile } = useAuthStore();
-    const { colors, isDark } = useTheme();
+    const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const { contentBottomSpacing } = useScreenLayout();
+    const { user, updateProfile } = useAuthStore();
     const [name, setName] = useState(user?.name ?? '');
     const [nameError, setNameError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
@@ -30,9 +30,9 @@ export function ProfileScreen() {
     const userInitial = name?.charAt(0)?.toUpperCase() ?? '?';
 
     const handleSave = async () => {
-        const err = validateName(name);
-        if (err) {
-            setNameError(err);
+        const error = validateName(name);
+        if (error) {
+            setNameError(error);
             return;
         }
 
@@ -46,168 +46,167 @@ export function ProfileScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.safe}>
-            <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
-            <View style={styles.bgAuraTop} pointerEvents="none" />
+        <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
+            <AppScreenHeader
+                title="Profil utama"
+                subtitle="Rapikan identitas akun agar konteks personal dan kolaboratif tetap terbaca jelas."
+                showBack
+                onBackPress={() => navigation.goBack()}
+                variant="transparent"
+            />
 
-            <View style={styles.header}>
-                <TouchableOpacity
-                    onPress={() => navigation.goBack()}
-                    style={styles.backBtn}
-                    accessible
-                    accessibilityRole="button"
-                    accessibilityLabel="Kembali ke pengaturan"
-                >
-                    <MaterialCommunityIcons name="arrow-left" size={22} color={colors.textPrimary} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle} allowFontScaling accessibilityRole="header">Edit Profil</Text>
-                <View style={{ width: 44 }} />
-            </View>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[styles.content, { paddingBottom: contentBottomSpacing }]}
+            >
+                <HeroSummaryCard
+                    eyebrow="Identitas akun"
+                    title={user?.name ?? 'Pengguna Tabungin'}
+                    value={user?.email ?? '-'}
+                    description="Profil ini menjadi identitas utama untuk sinkronisasi, dompet bersama, dan histori aktivitas akun."
+                    icon="account-circle-outline"
+                    badges={
+                        <>
+                            <ContextBadge icon="shield-check-outline" label="Akun utama" inverse />
+                            <ContextBadge icon="account-group-outline" label="Dipakai lintas konteks" inverse />
+                        </>
+                    }
+                />
 
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <View style={styles.heroCard}>
-                    <View style={[styles.avatar, { backgroundColor: user?.avatarColor ?? colors.primary }]}>
-                        <Text style={styles.avatarText} allowFontScaling={false}>{userInitial}</Text>
+                <ContentPanel>
+                    <View style={styles.identityRow}>
+                        <View style={[styles.avatar, { backgroundColor: user?.avatarColor ?? colors.primary }]}>
+                            <Text style={styles.avatarText}>{userInitial}</Text>
+                        </View>
+                        <View style={styles.identityCopy}>
+                            <Text style={styles.identityTitle}>Nama tampilan aktif</Text>
+                            <Text style={styles.identitySubtitle}>
+                                Gunakan nama yang mudah dikenali saat muncul di shared wallet dan alur kolaborasi lain.
+                            </Text>
+                        </View>
                     </View>
-                    <Text style={styles.heroTitle}>{user?.name ?? 'Pengguna'}</Text>
-                    <Text style={styles.heroSubtitle}>{user?.email || 'Akun utama yang digunakan untuk sinkronisasi data.'}</Text>
-                </View>
+                </ContentPanel>
 
-                <View style={styles.formCard}>
+                <ContentPanel>
+                    <SectionHeader
+                        title="Informasi profil"
+                        subtitle="Edit bagian yang memang perlu berubah, tanpa menyentuh identitas akun yang sensitif."
+                    />
+
                     <Input
                         label="Nama Lengkap"
                         value={name}
-                        onChangeText={(v) => { setName(v); setNameError(null); }}
+                        onChangeText={(value) => {
+                            setName(value);
+                            setNameError(null);
+                        }}
                         error={nameError}
-                        leftIcon="account"
+                        leftIcon="account-outline"
                         placeholder="Masukkan nama lengkap"
                         required
                     />
 
-                    {user?.email && (
+                    {user?.email ? (
                         <Input
                             label="Email"
                             value={user.email}
                             editable={false}
-                            leftIcon="email"
-                            hint="Email tidak dapat diubah"
+                            leftIcon="email-outline"
+                            hint="Email dipakai sebagai identitas login dan tidak diubah dari layar ini."
                         />
-                    )}
-                </View>
+                    ) : null}
+                </ContentPanel>
 
-                <View style={styles.infoCard}>
+                <ContentPanel compact>
                     <View style={styles.infoRow}>
-                        <MaterialCommunityIcons name="shield-check-outline" size={18} color={colors.primary} />
-                        <Text style={styles.infoText}>Nama profil dipakai untuk konteks shared wallet dan identitas utama aplikasi.</Text>
+                        <View style={styles.infoIcon}>
+                            <MaterialCommunityIcons name="lightbulb-outline" size={18} color={colors.primary} />
+                        </View>
+                        <View style={styles.infoCopy}>
+                            <Text style={styles.infoTitle}>Kenapa ini penting?</Text>
+                            <Text style={styles.infoText}>
+                                Nama profil yang konsisten membantu orang lain mengenali pemilik transaksi, dompet bersama, dan aktivitas berbagi target.
+                            </Text>
+                        </View>
                     </View>
-                </View>
+                </ContentPanel>
 
                 <Button
-                    label="Simpan Perubahan"
+                    label="Simpan perubahan"
                     onPress={handleSave}
                     variant="primary"
                     size="lg"
-                    loading={isSaving}
                     fullWidth
-                    style={{ marginTop: 8 }}
-                    accessibilityHint="Ketuk dua kali untuk menyimpan perubahan profil"
+                    loading={isSaving}
                 />
             </ScrollView>
-        </SafeAreaView>
+        </ScreenShell>
     );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-    safe: { flex: 1, backgroundColor: colors.background },
-    bgAuraTop: {
-        position: 'absolute',
-        top: -100,
-        right: -30,
-        width: 220,
-        height: 220,
-        borderRadius: BorderRadius.full,
-        backgroundColor: colors.primaryLight,
-        opacity: 0.4,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-    },
-    backBtn: {
-        width: 44,
-        height: 44,
-        borderRadius: BorderRadius.xl,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.surfaceElevated,
-        borderWidth: 1,
-        borderColor: colors.border,
-    },
-    headerTitle: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h4, color: colors.textPrimary },
-    content: { padding: 20, gap: 16, paddingBottom: 32 },
-    heroCard: {
-        backgroundColor: colors.surfaceElevated,
-        borderRadius: BorderRadius['4xl'],
-        padding: 22,
-        alignItems: 'center',
-        gap: 10,
-        borderWidth: 1,
-        borderColor: colors.border,
-        shadowColor: colors.shadowColor,
-        shadowOpacity: 0.08,
-        shadowRadius: 18,
-        shadowOffset: { width: 0, height: 10 },
-        elevation: 2,
-    },
-    avatar: {
-        width: 92,
-        height: 92,
-        borderRadius: 46,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    avatarText: { fontFamily: FontFamily.heading, fontSize: 40, color: colors.textInverse },
-    heroTitle: { fontFamily: FontFamily.heading, fontSize: FontSize.h3, color: colors.textPrimary, textAlign: 'center' },
-    heroSubtitle: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.body,
-        color: colors.textSecondary,
-        textAlign: 'center',
-        lineHeight: 22,
-    },
-    formCard: {
-        backgroundColor: colors.surfaceElevated,
-        borderRadius: BorderRadius['3xl'],
-        padding: 18,
-        gap: 14,
-        borderWidth: 1,
-        borderColor: colors.border,
-        shadowColor: colors.shadowColor,
-        shadowOpacity: 0.06,
-        shadowRadius: 14,
-        shadowOffset: { width: 0, height: 8 },
-        elevation: 1,
-    },
-    infoCard: {
-        backgroundColor: colors.primaryBg,
-        borderRadius: BorderRadius['3xl'],
-        padding: 16,
-        borderWidth: 1,
-        borderColor: `${colors.primary}22`,
-    },
-    infoRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        gap: 10,
-    },
-    infoText: {
-        flex: 1,
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.body,
-        color: colors.textSecondary,
-        lineHeight: 22,
-    },
-});
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+    StyleSheet.create({
+        content: {
+            paddingHorizontal: 20,
+            gap: 18,
+        },
+        identityRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 14,
+        },
+        avatar: {
+            width: 72,
+            height: 72,
+            borderRadius: BorderRadius.full,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        avatarText: {
+            fontFamily: FontFamily.heading,
+            fontSize: 32,
+            color: colors.textInverse,
+        },
+        identityCopy: {
+            flex: 1,
+        },
+        identityTitle: {
+            ...Typography.h4,
+            color: colors.textPrimary,
+        },
+        identitySubtitle: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            lineHeight: 18,
+            color: colors.textSecondary,
+            marginTop: 3,
+        },
+        infoRow: {
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            gap: 12,
+        },
+        infoIcon: {
+            width: 36,
+            height: 36,
+            borderRadius: BorderRadius.xl,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.primaryBg,
+        },
+        infoCopy: {
+            flex: 1,
+        },
+        infoTitle: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.body,
+            color: colors.textPrimary,
+        },
+        infoText: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            lineHeight: 18,
+            color: colors.textSecondary,
+            marginTop: 3,
+        },
+    });

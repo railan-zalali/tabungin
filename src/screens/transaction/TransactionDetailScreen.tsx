@@ -1,52 +1,61 @@
 import React, { useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, StatusBar } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { useTheme } from '../../store/useThemeStore';
-import { useCategoryStore } from '../../store/useCategoryStore';
-import { useTransactionStore } from '../../store/useTransactionStore';
-import { useWalletStore } from '../../store/useWalletStore';
-import { useProfileStore } from '../../store/useProfileStore';
-import { resolveCategoryByKey } from '../../utils/categoryResolver';
-import { formatRupiah } from '../../utils/currency';
-import { formatDateLong, formatDateShort } from '../../utils/date';
-import { Button } from '../../components/common/Button';
-import { EmptyState } from '../../components/common/EmptyState';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
+import { useScreenLayout } from '../../hooks/useScreenLayout';
+import { useCategoryStore } from '../../store/useCategoryStore';
+import { useProfileStore } from '../../store/useProfileStore';
+import { useTheme } from '../../store/useThemeStore';
+import { useTransactionStore } from '../../store/useTransactionStore';
+import { useWalletStore } from '../../store/useWalletStore';
+import { formatRupiah } from '../../utils/currency';
+import { formatDateLong, formatDateShort } from '../../utils/date';
+import { resolveCategoryByKey } from '../../utils/categoryResolver';
+import { resolveWalletContextMeta } from '../../utils/walletContext';
+import { AppScreenHeader } from '../../components/common/AppScreenHeader';
+import { ContentPanel } from '../../components/common/ContentPanel';
+import { ContextBadge } from '../../components/common/ContextBadge';
+import { EmptyState } from '../../components/common/EmptyState';
+import { PrimaryActionBar } from '../../components/common/PrimaryActionBar';
+import { ScreenShell } from '../../components/common/ScreenShell';
+import { SectionHeader } from '../../components/common/SectionHeader';
+import type { TransactionNavigationProp, TransactionStackParamList } from '../../types/navigation';
+import type { RouteProp } from '@react-navigation/native';
+
+type DetailRouteProp = RouteProp<TransactionStackParamList, 'TransactionDetail'>;
 
 export function TransactionDetailScreen() {
-    const navigation = useNavigation<NativeStackNavigationProp<any>>();
-    const route = useRoute<any>();
-    const { colors, isDark } = useTheme();
+    const navigation = useNavigation<TransactionNavigationProp<'TransactionDetail'>>();
+    const route = useRoute<DetailRouteProp>();
+    const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const { stickyFooterSpacing } = useScreenLayout();
     const { transactions, recentTransactions, removeTransaction } = useTransactionStore();
     const wallets = useWalletStore((state) => state.wallets);
     const loadWallets = useWalletStore((state) => state.loadWallets);
     const activeProfileId = useProfileStore((state) => state.activeProfileId);
     const categories = useCategoryStore((state) => state.categories);
     const loadCategories = useCategoryStore((state) => state.loadCategories);
-    const transactionId = route.params?.transactionId;
+    const transactionId = route.params.transactionId;
 
-    const transaction = transactions.find((t) => t.id === transactionId)
-        ?? recentTransactions.find((t) => t.id === transactionId);
+    const transaction =
+        transactions.find((item) => item.id === transactionId) ??
+        recentTransactions.find((item) => item.id === transactionId);
     const category = transaction ? resolveCategoryByKey(transaction.category, categories) : null;
     const wallet = transaction?.wallet_id ? wallets.find((item) => item.id === transaction.wallet_id) : null;
-    const isSharedWallet = Boolean(wallet?.profile_id && wallet.profile_id !== activeProfileId);
+    const walletContext = resolveWalletContextMeta(wallet, activeProfileId);
 
     useEffect(() => {
         if (categories.length === 0) {
-            loadCategories();
+            loadCategories().catch((error) => console.error('Failed to load categories:', error));
         }
     }, [categories.length, loadCategories]);
 
     useEffect(() => {
         if (wallets.length === 0) {
-            loadWallets();
+            loadWallets().catch((error) => console.error('Failed to load wallets:', error));
         }
     }, [loadWallets, wallets.length]);
 
@@ -58,48 +67,58 @@ export function TransactionDetailScreen() {
                 label: 'Kategori',
                 value: category?.name ?? transaction.category,
                 icon: category?.icon ?? 'tag-outline',
+                tone: 'primary' as const,
             },
             {
                 label: 'Tanggal',
                 value: formatDateLong(transaction.date),
                 icon: 'calendar-outline',
+                tone: 'info' as const,
             },
             {
                 label: 'Dompet',
-                value: wallet ? wallet.name : 'Tidak terhubung',
-                icon: wallet?.profile_id && wallet.profile_id !== activeProfileId ? 'account-group-outline' : 'wallet-outline',
-                meta: wallet ? (isSharedWallet ? 'Shared wallet' : 'Personal wallet') : 'Opsional',
+                value: wallet?.name ?? 'Tidak terhubung',
+                icon: walletContext.icon,
+                tone: walletContext.tone,
+                meta: walletContext.description,
             },
             {
                 label: 'Catatan',
                 value: transaction.note?.trim() ? transaction.note : 'Tidak ada catatan tambahan',
                 icon: 'note-text-outline',
+                tone: 'neutral' as const,
             },
         ];
-    }, [activeProfileId, category?.icon, category?.name, isSharedWallet, transaction, wallet]);
+    }, [category?.icon, category?.name, transaction, wallet?.name, walletContext.description, walletContext.icon, walletContext.tone]);
 
     if (!transaction) {
         return (
-            <SafeAreaView style={[styles.safe, { justifyContent: 'center' }]}>
-                <EmptyState
-                    icon="file-search-outline"
-                    title="Transaksi tidak ditemukan"
-                    description="Data transaksi yang kamu cari sudah tidak tersedia atau belum tersinkron."
-                    actionLabel="Kembali"
-                    onAction={() => navigation.goBack()}
-                    style={styles.emptyState}
+            <ScreenShell topInset={false} bottomInset={false} surfaceVariant="alt">
+                <AppScreenHeader
+                    title="Detail transaksi"
+                    subtitle="Transaksi ini sudah tidak tersedia atau belum ikut tersinkron."
+                    showBack
+                    onBackPress={() => navigation.goBack()}
+                    variant="transparent"
                 />
-            </SafeAreaView>
+                <View style={styles.emptyWrap}>
+                    <EmptyState
+                        icon="file-search-outline"
+                        title="Transaksi tidak ditemukan"
+                        description="Kembali ke daftar transaksi lalu pilih item lain yang masih tersedia."
+                        actionLabel="Kembali"
+                        onAction={() => navigation.goBack()}
+                    />
+                </View>
+            </ScreenShell>
         );
     }
 
     const isIncome = transaction.type === 'income';
     const amountColor = isIncome ? colors.success : colors.danger;
 
-    const handleEdit = () => navigation.navigate('AddTransaction', { editId: transaction.id });
-
     const handleDelete = () => {
-        Alert.alert('Hapus Transaksi', 'Yakin ingin menghapus transaksi ini?', [
+        Alert.alert('Hapus transaksi', 'Yakin ingin menghapus transaksi ini?', [
             { text: 'Batal', style: 'cancel' },
             {
                 text: 'Hapus',
@@ -113,399 +132,247 @@ export function TransactionDetailScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.safe}>
-            <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
-            <View style={styles.bgAuraTop} pointerEvents="none" />
-            <View style={styles.bgAuraBottom} pointerEvents="none" />
+        <ScreenShell topInset={false} bottomInset={false} surfaceVariant="alt">
+            <AppScreenHeader
+                title="Detail transaksi"
+                subtitle="Tinjau konteks transaksi ini sebelum mengubah atau menghapusnya."
+                showBack
+                onBackPress={() => navigation.goBack()}
+                rightAction={{
+                    icon: 'pencil-outline',
+                    label: 'Edit transaksi',
+                    onPress: () => navigation.navigate('AddTransaction', { editId: transaction.id }),
+                }}
+                variant="transparent"
+            />
 
-            <View style={styles.header}>
-                <TouchableOpacity
-                    onPress={() => navigation.goBack()}
-                    style={styles.iconBtn}
-                    accessible
-                    accessibilityRole="button"
-                    accessibilityLabel="Kembali"
-                >
-                    <MaterialCommunityIcons name="arrow-left" size={22} color={colors.textPrimary} />
-                </TouchableOpacity>
-                <View style={styles.headerCenter}>
-                    <Text style={styles.headerTitle} allowFontScaling accessibilityRole="header">
-                        Detail Transaksi
-                    </Text>
-                    <Text style={styles.headerSubtitle} allowFontScaling>
-                        Ringkasan cepat untuk membaca konteks dan aksi berikutnya
-                    </Text>
-                </View>
-                <TouchableOpacity
-                    onPress={handleEdit}
-                    style={styles.iconBtn}
-                    accessible
-                    accessibilityRole="button"
-                    accessibilityLabel="Edit transaksi"
-                >
-                    <MaterialCommunityIcons name="pencil-outline" size={20} color={colors.textPrimary} />
-                </TouchableOpacity>
-            </View>
-
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <Animated.View entering={FadeInDown.delay(40).springify()}>
-                    <LinearGradient
-                        colors={isIncome ? [colors.success, colors.primaryDark, colors.success] : [colors.danger, colors.primaryDark, colors.danger]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.heroCard}
-                    >
-                        <View style={styles.heroGlow} />
-                        <View style={styles.heroTopRow}>
-                            <View style={[styles.heroIcon, { backgroundColor: 'rgba(255,255,255,0.16)' }]}>
-                                <MaterialCommunityIcons
-                                    name={(category?.icon ?? 'cash') as any}
-                                    size={34}
-                                    color={colors.textInverse}
-                                    accessibilityElementsHidden
-                                />
-                            </View>
-                            <View style={styles.heroMeta}>
-                                <Text style={styles.heroCategory}>{category?.name ?? transaction.category}</Text>
-                                <Text style={styles.heroDate}>{formatDateShort(transaction.date)}</Text>
-                            </View>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[styles.content, { paddingBottom: stickyFooterSpacing + 28 }]}
+            >
+                <ContentPanel style={styles.heroPanel}>
+                    <View style={styles.heroTopRow}>
+                        <View style={styles.heroCopy}>
+                            <Text style={styles.eyebrow}>{isIncome ? 'Pemasukan tercatat' : 'Pengeluaran tercatat'}</Text>
+                            <Text style={styles.heroTitle}>{category?.name ?? transaction.category}</Text>
+                            <Text style={styles.heroDate}>{formatDateShort(transaction.date)}</Text>
                         </View>
-
-                        <Text style={styles.heroAmount} accessibilityLiveRegion="polite">
-                            {isIncome ? '+' : '-'} {formatRupiah(transaction.amount)}
-                        </Text>
-
-                        <View style={styles.chipRow}>
-                            <View style={styles.typeChip}>
-                                <MaterialCommunityIcons
-                                    name={isIncome ? 'trending-up' : 'trending-down'}
-                                    size={14}
-                                    color={colors.textInverse}
-                                    accessibilityElementsHidden
-                                />
-                                <Text style={styles.typeChipText}>{isIncome ? 'Pemasukan' : 'Pengeluaran'}</Text>
-                            </View>
-                            {wallet && (
-                                <View style={styles.typeChip}>
-                                    <MaterialCommunityIcons
-                                        name={isSharedWallet ? 'account-group-outline' : 'wallet-outline'}
-                                        size={14}
-                                        color={colors.textInverse}
-                                        accessibilityElementsHidden
-                                    />
-                                    <Text style={styles.typeChipText}>{wallet.name}</Text>
-                                </View>
-                            )}
+                        <View style={[styles.heroIconWrap, { backgroundColor: isIncome ? colors.successBg : colors.dangerBg }]}>
+                            <MaterialCommunityIcons
+                                name={(category?.icon ?? 'cash') as any}
+                                size={26}
+                                color={amountColor}
+                            />
                         </View>
-                    </LinearGradient>
-                </Animated.View>
+                    </View>
 
-                <Animated.View entering={FadeInUp.delay(100).springify()} style={styles.summaryCard}>
-                    <View style={styles.summaryItem}>
-                        <MaterialCommunityIcons name="cash" size={18} color={amountColor} />
-                        <View style={styles.summaryTextWrap}>
+                    <Text style={[styles.heroAmount, { color: amountColor }]}>
+                        {isIncome ? '+' : '-'} {formatRupiah(transaction.amount)}
+                    </Text>
+
+                    <View style={styles.badgeRow}>
+                        <ContextBadge
+                            icon={isIncome ? 'trending-up' : 'trending-down'}
+                            label={isIncome ? 'Pemasukan' : 'Pengeluaran'}
+                            tone={isIncome ? 'success' : 'warning'}
+                        />
+                        <ContextBadge icon={walletContext.icon} label={walletContext.label} tone={walletContext.tone} />
+                    </View>
+                </ContentPanel>
+
+                <ContentPanel compact>
+                    <View style={styles.summaryRow}>
+                        <View style={styles.summaryItem}>
                             <Text style={styles.summaryLabel}>Nominal</Text>
                             <Text style={[styles.summaryValue, { color: amountColor }]}>
                                 {isIncome ? '+' : '-'} {formatRupiah(transaction.amount)}
                             </Text>
                         </View>
-                    </View>
-                    <View style={styles.summaryItem}>
-                        <MaterialCommunityIcons name="calendar-check-outline" size={18} color={colors.primary} />
-                        <View style={styles.summaryTextWrap}>
+                        <View style={styles.summaryDivider} />
+                        <View style={styles.summaryItem}>
                             <Text style={styles.summaryLabel}>Tanggal</Text>
                             <Text style={styles.summaryValue}>{formatDateLong(transaction.date)}</Text>
                         </View>
                     </View>
-                </Animated.View>
+                </ContentPanel>
 
-                <Animated.View entering={FadeInUp.delay(160).springify()} style={styles.detailCard}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Rincian</Text>
-                        <Text style={styles.sectionSubtitle}>Informasi yang membantu kamu meninjau transaksi</Text>
-                    </View>
-                    {detailItems.map((item, index) => (
-                        <View key={item.label}>
-                            <View style={styles.detailRow}>
-                                <View style={styles.detailIcon}>
-                                    <MaterialCommunityIcons name={item.icon as any} size={18} color={colors.primary} />
+                <ContentPanel compact>
+                    <SectionHeader
+                        title="Rincian penting"
+                        subtitle="Semua informasi yang membuat transaksi ini terbaca jelas saat ditinjau ulang."
+                    />
+                    <View style={styles.detailList}>
+                        {detailItems.map((item, index) => (
+                            <View key={item.label}>
+                                <View style={styles.detailRow}>
+                                    <View
+                                        style={[
+                                            styles.detailIcon,
+                                            item.tone === 'primary'
+                                                ? { backgroundColor: colors.primaryBg }
+                                                : item.tone === 'info'
+                                                  ? { backgroundColor: colors.infoBg }
+                                                  : item.tone === 'warning'
+                                                    ? { backgroundColor: colors.warningBg }
+                                                    : { backgroundColor: colors.surfaceAlt },
+                                        ]}
+                                    >
+                                        <MaterialCommunityIcons
+                                            name={item.icon as any}
+                                            size={18}
+                                            color={
+                                                item.tone === 'primary'
+                                                    ? colors.primary
+                                                    : item.tone === 'info'
+                                                      ? colors.info
+                                                      : item.tone === 'warning'
+                                                        ? colors.warning
+                                                        : colors.textSecondary
+                                            }
+                                        />
+                                    </View>
+                                    <View style={styles.detailCopy}>
+                                        <Text style={styles.detailLabel}>{item.label}</Text>
+                                        <Text style={styles.detailValue}>{item.value}</Text>
+                                        {item.meta ? <Text style={styles.detailMeta}>{item.meta}</Text> : null}
+                                    </View>
                                 </View>
-                                <View style={styles.detailInfo}>
-                                    <Text style={styles.detailLabel}>{item.label}</Text>
-                                    <Text style={styles.detailValue}>{item.value}</Text>
-                                    {item.meta ? <Text style={styles.detailMeta}>{item.meta}</Text> : null}
-                                </View>
+                                {index < detailItems.length - 1 ? <View style={styles.divider} /> : null}
                             </View>
-                            {index < detailItems.length - 1 && <View style={styles.divider} />}
-                        </View>
-                    ))}
-                </Animated.View>
-
-                <Animated.View entering={FadeInUp.delay(220).springify()} style={styles.actionCard}>
-                    <View style={styles.actionCopy}>
-                        <Text style={styles.sectionTitle}>Aksi cepat</Text>
-                        <Text style={styles.sectionSubtitle}>Perbarui jika ada koreksi atau hapus jika sudah tidak relevan.</Text>
+                        ))}
                     </View>
-                    <View style={styles.actionRow}>
-                        <Button
-                            label="Edit Transaksi"
-                            onPress={handleEdit}
-                            variant="primary"
-                            fullWidth
-                        />
-                        <Button
-                            label="Hapus"
-                            onPress={handleDelete}
-                            variant="danger"
-                            fullWidth
-                        />
-                    </View>
-                </Animated.View>
+                </ContentPanel>
             </ScrollView>
-        </SafeAreaView>
+
+            <PrimaryActionBar
+                primaryLabel="Edit transaksi"
+                onPrimaryPress={() => navigation.navigate('AddTransaction', { editId: transaction.id })}
+                secondaryLabel="Hapus"
+                onSecondaryPress={handleDelete}
+            />
+        </ScreenShell>
     );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-    safe: { flex: 1, backgroundColor: colors.background },
-    bgAuraTop: {
-        position: 'absolute',
-        top: -100,
-        right: -40,
-        width: 220,
-        height: 220,
-        borderRadius: BorderRadius.full,
-        backgroundColor: colors.primaryLight,
-        opacity: 0.45,
-    },
-    bgAuraBottom: {
-        position: 'absolute',
-        bottom: -120,
-        left: -60,
-        width: 260,
-        height: 260,
-        borderRadius: BorderRadius.full,
-        backgroundColor: colors.successBg,
-        opacity: 0.32,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-    },
-    iconBtn: {
-        width: 44,
-        height: 44,
-        borderRadius: BorderRadius.xl,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.surfaceElevated,
-        borderWidth: 1,
-        borderColor: colors.border,
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.06,
-        shadowRadius: 10,
-        elevation: 2,
-    },
-    headerCenter: { flex: 1 },
-    headerTitle: { ...Typography.h3, color: colors.textPrimary },
-    headerSubtitle: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
-        color: colors.textSecondary,
-        marginTop: 2,
-    },
-    content: { padding: 20, gap: 16, paddingBottom: 36 },
-    heroCard: {
-        borderRadius: 30,
-        padding: 24,
-        overflow: 'hidden',
-        gap: 16,
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 14 },
-        shadowOpacity: 0.12,
-        shadowRadius: 24,
-        elevation: 6,
-    },
-    heroGlow: {
-        position: 'absolute',
-        width: 170,
-        height: 170,
-        borderRadius: BorderRadius.full,
-        top: -58,
-        right: -24,
-        backgroundColor: 'rgba(255,255,255,0.12)',
-    },
-    heroTopRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    heroIcon: {
-        width: 62,
-        height: 62,
-        borderRadius: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.16)',
-    },
-    heroMeta: { flex: 1, gap: 2 },
-    heroCategory: {
-        fontFamily: FontFamily.headingMedium,
-        fontSize: FontSize.h4,
-        color: colors.textInverse,
-    },
-    heroDate: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
-        color: 'rgba(255,255,255,0.82)',
-    },
-    heroAmount: {
-        fontFamily: FontFamily.heading,
-        fontSize: 34,
-        color: colors.textInverse,
-    },
-    chipRow: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-    },
-    typeChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 999,
-        backgroundColor: 'rgba(255,255,255,0.14)',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.16)',
-    },
-    typeChipText: {
-        fontFamily: FontFamily.bodyMedium,
-        fontSize: FontSize.caption,
-        color: colors.textInverse,
-    },
-    summaryCard: {
-        flexDirection: 'row',
-        gap: 12,
-        padding: 18,
-        backgroundColor: colors.surfaceElevated,
-        borderWidth: 1,
-        borderColor: colors.border,
-        borderRadius: 24,
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.08,
-        shadowRadius: 16,
-        elevation: 3,
-    },
-    summaryItem: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-    },
-    summaryTextWrap: { flex: 1 },
-    summaryLabel: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
-        color: colors.textSecondary,
-    },
-    summaryValue: {
-        fontFamily: FontFamily.bodyMedium,
-        fontSize: FontSize.body,
-        color: colors.textPrimary,
-        marginTop: 2,
-    },
-    detailCard: {
-        backgroundColor: colors.surfaceElevated,
-        borderRadius: 24,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: colors.border,
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.08,
-        shadowRadius: 16,
-        elevation: 3,
-    },
-    sectionHeader: {
-        padding: 18,
-        paddingBottom: 14,
-    },
-    sectionTitle: {
-        ...Typography.h4,
-        color: colors.textPrimary,
-    },
-    sectionSubtitle: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
-        color: colors.textSecondary,
-        marginTop: 4,
-    },
-    detailRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        gap: 14,
-        paddingHorizontal: 18,
-        paddingVertical: 16,
-    },
-    detailIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 14,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.primaryBg,
-    },
-    detailInfo: { flex: 1 },
-    detailLabel: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
-        color: colors.textSecondary,
-    },
-    detailValue: {
-        fontFamily: FontFamily.bodyMedium,
-        fontSize: FontSize.body,
-        color: colors.textPrimary,
-        marginTop: 3,
-        lineHeight: 22,
-    },
-    detailMeta: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
-        color: colors.textTertiary,
-        marginTop: 3,
-    },
-    divider: {
-        height: 1,
-        backgroundColor: colors.divider,
-        marginLeft: 72,
-    },
-    actionCard: {
-        gap: 14,
-        backgroundColor: colors.surfaceElevated,
-        borderRadius: 24,
-        borderWidth: 1,
-        borderColor: colors.border,
-        padding: 18,
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.08,
-        shadowRadius: 16,
-        elevation: 3,
-    },
-    actionCopy: { gap: 2 },
-    actionRow: {
-        flexDirection: 'row',
-        gap: 12,
-    },
-    emptyState: {
-        marginHorizontal: 20,
-    },
-});
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+    StyleSheet.create({
+        emptyWrap: {
+            flex: 1,
+            justifyContent: 'center',
+            paddingHorizontal: 20,
+            paddingBottom: 80,
+        },
+        content: {
+            paddingHorizontal: 20,
+            gap: 16,
+        },
+        heroPanel: {
+            gap: 16,
+        },
+        heroTopRow: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            gap: 12,
+        },
+        heroCopy: { flex: 1 },
+        eyebrow: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.caption,
+            color: colors.primary,
+            textTransform: 'uppercase',
+            letterSpacing: 0.45,
+        },
+        heroTitle: {
+            ...Typography.h3,
+            color: colors.textPrimary,
+            marginTop: 4,
+        },
+        heroDate: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+            marginTop: 4,
+        },
+        heroIconWrap: {
+            width: 52,
+            height: 52,
+            borderRadius: BorderRadius['2xl'],
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        heroAmount: {
+            fontFamily: FontFamily.heading,
+            fontSize: 34,
+        },
+        badgeRow: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 8,
+        },
+        summaryRow: {
+            flexDirection: 'row',
+            alignItems: 'stretch',
+        },
+        summaryItem: {
+            flex: 1,
+            gap: 4,
+        },
+        summaryDivider: {
+            width: 1,
+            marginHorizontal: 14,
+            backgroundColor: colors.divider,
+        },
+        summaryLabel: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+        },
+        summaryValue: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.body,
+            color: colors.textPrimary,
+        },
+        detailList: {
+            gap: 0,
+        },
+        detailRow: {
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            gap: 12,
+            paddingVertical: 14,
+        },
+        detailIcon: {
+            width: 40,
+            height: 40,
+            borderRadius: BorderRadius.xl,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        detailCopy: {
+            flex: 1,
+        },
+        detailLabel: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+        },
+        detailValue: {
+            fontFamily: FontFamily.bodyBold,
+            fontSize: FontSize.body,
+            color: colors.textPrimary,
+            marginTop: 2,
+            lineHeight: 22,
+        },
+        detailMeta: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textTertiary,
+            marginTop: 4,
+            lineHeight: 18,
+        },
+        divider: {
+            height: 1,
+            marginLeft: 52,
+            backgroundColor: colors.divider,
+        },
+    });
