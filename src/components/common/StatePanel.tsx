@@ -30,10 +30,10 @@ export function StatePanel({
     const { colors, textSize } = useTheme();
     const styles = React.useMemo(() => getStyles(colors, textSize), [colors, textSize]);
     const toneMap = {
-        default: { bg: colors.panelSurface, accent: colors.primary },
-        success: { bg: colors.successSurface, accent: colors.success },
-        warning: { bg: colors.warningSurface, accent: colors.warning },
-        danger: { bg: colors.dangerSurface, accent: colors.danger },
+        default: { bg: colors.brutalWhite, accent: colors.brutalYellow },
+        success: { bg: colors.brutalLime, accent: colors.brutalGreen },
+        warning: { bg: colors.brutalYellow, accent: colors.warning },
+        danger: { bg: colors.brutalRed, accent: colors.danger },
     };
     const palette = toneMap[tone];
 
@@ -63,16 +63,24 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             paddingHorizontal: 24,
             paddingVertical: 28,
             gap: 12,
-            borderRadius: BorderRadius['4xl'],
-            borderWidth: 1,
-            borderColor: colors.border,
+            borderRadius: BorderRadius.md,
+            borderWidth: 2,
+            borderColor: colors.brutalInk,
+            shadowColor: colors.brutalInk,
+            shadowOffset: { width: 4, height: 4 },
+            shadowOpacity: 1,
+            shadowRadius: 0,
+            elevation: 4,
         },
         iconWrap: {
             width: 56,
             height: 56,
-            borderRadius: BorderRadius.full,
+            borderRadius: BorderRadius.md,
             alignItems: 'center',
             justifyContent: 'center',
+            borderWidth: 2,
+            borderColor: colors.brutalInk,
+            backgroundColor: colors.brutalWhite,
         },
         title: {
             fontFamily: FontFamily.headingMedium,

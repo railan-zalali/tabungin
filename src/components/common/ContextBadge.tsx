@@ -17,24 +17,24 @@ interface ContextBadgeProps {
 function resolveBadgeColors(colors: ReturnType<typeof useTheme>['colors'], tone: BadgeTone, inverse: boolean) {
     if (inverse) {
         return {
-            backgroundColor: 'rgba(255,255,255,0.14)',
-            borderColor: 'rgba(255,255,255,0.18)',
-            textColor: colors.textInverse,
+            backgroundColor: colors.brutalWhite,
+            borderColor: colors.brutalInk,
+            textColor: colors.brutalInk,
         };
     }
 
     switch (tone) {
         case 'primary':
-            return { backgroundColor: colors.primaryBg, borderColor: `${colors.primary}26`, textColor: colors.primary };
+            return { backgroundColor: colors.brutalGreen, borderColor: colors.brutalInk, textColor: colors.brutalInk };
         case 'success':
-            return { backgroundColor: colors.successBg, borderColor: `${colors.success}26`, textColor: colors.success };
+            return { backgroundColor: colors.brutalLime, borderColor: colors.brutalInk, textColor: colors.brutalInk };
         case 'warning':
-            return { backgroundColor: colors.warningBg, borderColor: `${colors.warning}26`, textColor: colors.warning };
+            return { backgroundColor: colors.brutalYellow, borderColor: colors.brutalInk, textColor: colors.brutalInk };
         case 'info':
-            return { backgroundColor: colors.infoBg, borderColor: `${colors.info}26`, textColor: colors.info };
+            return { backgroundColor: colors.brutalBlue, borderColor: colors.brutalInk, textColor: colors.brutalWhite };
         case 'neutral':
         default:
-            return { backgroundColor: colors.surfaceElevated, borderColor: colors.border, textColor: colors.textSecondary };
+            return { backgroundColor: colors.brutalWhite, borderColor: colors.brutalInk, textColor: colors.brutalInk };
     }
 }
 
@@ -76,7 +76,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             paddingHorizontal: 10,
             paddingVertical: 6,
             borderRadius: BorderRadius.full,
-            borderWidth: 1,
+            borderWidth: 2,
             maxWidth: '100%',
         },
         label: {

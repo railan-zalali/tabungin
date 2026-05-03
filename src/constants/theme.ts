@@ -27,6 +27,12 @@ export const BorderRadius = {
     full: 9999,
 } as const;
 
+export const BorderWidth = {
+    hairline: 1,
+    brutal: 2,
+    brutalStrong: 3,
+} as const;
+
 export const Shadow = {
     sm: {
         shadowColor: '#0F1714',
@@ -55,6 +61,20 @@ export const Shadow = {
         shadowOpacity: 0.16,
         shadowRadius: 36,
         elevation: 12,
+    },
+    brutal: {
+        shadowColor: '#111111',
+        shadowOffset: { width: 5, height: 5 },
+        shadowOpacity: 1,
+        shadowRadius: 0,
+        elevation: 6,
+    },
+    brutalSm: {
+        shadowColor: '#111111',
+        shadowOffset: { width: 3, height: 3 },
+        shadowOpacity: 1,
+        shadowRadius: 0,
+        elevation: 3,
     },
 } as const;
 
@@ -117,6 +137,7 @@ export const LightTheme = {
     },
     spacing: Spacing,
     borderRadius: BorderRadius,
+    borderWidth: BorderWidth,
     shadow: Shadow,
     motion: Motion,
     isDark: false,
@@ -163,6 +184,7 @@ export const DarkTheme = {
     },
     spacing: Spacing,
     borderRadius: BorderRadius,
+    borderWidth: BorderWidth,
     shadow: Shadow,
     motion: Motion,
     isDark: true,

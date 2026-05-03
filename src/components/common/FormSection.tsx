@@ -29,16 +29,16 @@ export function FormSection({ title, subtitle, children, style }: FormSectionPro
 const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: ReturnType<typeof useTheme>['textSize']) =>
     StyleSheet.create({
         section: {
-            backgroundColor: colors.panelSurface,
-            borderRadius: BorderRadius['4xl'],
+            backgroundColor: colors.brutalWhite,
+            borderRadius: BorderRadius.md,
             padding: 18,
-            borderWidth: 1,
-            borderColor: colors.border,
-            shadowColor: colors.shadowColor,
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.08,
-            shadowRadius: 16,
-            elevation: 3,
+            borderWidth: 2,
+            borderColor: colors.brutalInk,
+            shadowColor: colors.brutalInk,
+            shadowOffset: { width: 4, height: 4 },
+            shadowOpacity: 1,
+            shadowRadius: 0,
+            elevation: 4,
             gap: 14,
         },
         header: {

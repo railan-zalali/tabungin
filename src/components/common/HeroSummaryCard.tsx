@@ -1,6 +1,5 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography, scaleFontSize } from '../../constants/typography';
@@ -37,37 +36,30 @@ export function HeroSummaryCard({
     onPressCta,
     tone = 'primary',
 }: HeroSummaryCardProps) {
-    const { colors, gradients, textSize } = useTheme();
+    const { colors, textSize } = useTheme();
     const styles = React.useMemo(() => getStyles(colors, textSize), [colors, textSize]);
-    const gradientMap = {
-        primary: gradients.hero,
-        success: [colors.success, colors.primaryDark, colors.success] as const,
-        warning: [colors.warning, colors.primaryDark, colors.warning] as const,
-        info: [colors.info, colors.primaryDark, colors.info] as const,
+    const toneMap = {
+        primary: colors.brutalYellow,
+        success: colors.brutalLime,
+        warning: colors.brutalYellow,
+        info: colors.brutalBlue,
     };
+    const foregroundColor = tone === 'info' ? colors.brutalWhite : colors.brutalInk;
 
     return (
-        <LinearGradient
-            colors={gradientMap[tone] as unknown as [string, string, ...string[]]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.card}
-        >
-            <View style={styles.glowTop} />
-            <View style={styles.glowBottom} />
-
+        <View style={[styles.card, { backgroundColor: toneMap[tone] }]}>
             <View style={styles.header}>
                 <View style={styles.copy}>
-                    {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
-                    <Text style={styles.title}>{title}</Text>
-                    <Text style={styles.value} numberOfLines={1}>
+                    {eyebrow ? <Text style={[styles.eyebrow, { color: foregroundColor }]}>{eyebrow}</Text> : null}
+                    <Text style={[styles.title, { color: foregroundColor }]}>{title}</Text>
+                    <Text style={[styles.value, { color: foregroundColor }]} adjustsFontSizeToFit minimumFontScale={0.78}>
                         {value}
                     </Text>
-                    {description ? <Text style={styles.description}>{description}</Text> : null}
+                    {description ? <Text style={[styles.description, { color: foregroundColor }]}>{description}</Text> : null}
                 </View>
 
                 <View style={styles.iconWrap}>
-                    <MaterialCommunityIcons name={icon as any} size={26} color={colors.textInverse} />
+                    <MaterialCommunityIcons name={icon as any} size={26} color={colors.brutalInk} />
                 </View>
             </View>
 
@@ -78,7 +70,7 @@ export function HeroSummaryCard({
                     {stats.map((item) => (
                         <View key={`${item.label}-${item.value}`} style={styles.statChip}>
                             {item.icon ? (
-                                <MaterialCommunityIcons name={item.icon as any} size={14} color={colors.textInverse} />
+                                <MaterialCommunityIcons name={item.icon as any} size={14} color={colors.brutalInk} />
                             ) : null}
                             <Text style={styles.statValue}>{item.value}</Text>
                             <Text style={styles.statLabel}>{item.label}</Text>
@@ -90,44 +82,26 @@ export function HeroSummaryCard({
             {ctaLabel && onPressCta ? (
                 <TouchableOpacity style={styles.cta} onPress={onPressCta}>
                     <Text style={styles.ctaText}>{ctaLabel}</Text>
-                    <MaterialCommunityIcons name="chevron-right" size={16} color={colors.textInverse} />
+                    <MaterialCommunityIcons name="chevron-right" size={16} color={colors.brutalInk} />
                 </TouchableOpacity>
             ) : null}
-        </LinearGradient>
+        </View>
     );
 }
 
 const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: ReturnType<typeof useTheme>['textSize']) =>
     StyleSheet.create({
         card: {
-            borderRadius: BorderRadius['5xl'],
+            borderRadius: BorderRadius.md,
             padding: 22,
             overflow: 'hidden',
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.14)',
-            shadowColor: colors.shadowColor,
-            shadowOffset: { width: 0, height: 14 },
-            shadowOpacity: 0.16,
-            shadowRadius: 24,
-            elevation: 6,
-        },
-        glowTop: {
-            position: 'absolute',
-            width: 180,
-            height: 180,
-            borderRadius: BorderRadius.full,
-            top: -68,
-            right: -24,
-            backgroundColor: 'rgba(255,255,255,0.12)',
-        },
-        glowBottom: {
-            position: 'absolute',
-            width: 120,
-            height: 120,
-            borderRadius: BorderRadius.full,
-            bottom: -40,
-            left: -20,
-            backgroundColor: 'rgba(255,255,255,0.08)',
+            borderWidth: 3,
+            borderColor: colors.brutalInk,
+            shadowColor: colors.brutalInk,
+            shadowOffset: { width: 6, height: 6 },
+            shadowOpacity: 1,
+            shadowRadius: 0,
+            elevation: 7,
         },
         header: {
             flexDirection: 'row',
@@ -140,37 +114,35 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
         eyebrow: {
             fontFamily: FontFamily.bodyMedium,
             fontSize: scaleFontSize(FontSize.caption, textSize),
-            color: 'rgba(255,255,255,0.78)',
             marginBottom: 6,
+            textTransform: 'uppercase',
+            letterSpacing: 0.4,
         },
         title: {
             fontFamily: FontFamily.headingMedium,
             fontSize: scaleFontSize(FontSize.h4, textSize),
-            color: colors.textInverse,
         },
         value: {
             ...Typography.display,
             fontSize: scaleFontSize(FontSize.display, textSize),
-            color: colors.textInverse,
             marginTop: 8,
-            letterSpacing: -1,
+            letterSpacing: 0,
         },
         description: {
             fontFamily: FontFamily.body,
             fontSize: scaleFontSize(FontSize.caption, textSize),
-            color: 'rgba(255,255,255,0.82)',
             marginTop: 6,
             lineHeight: 18,
         },
         iconWrap: {
             width: 54,
             height: 54,
-            borderRadius: BorderRadius['2xl'],
+            borderRadius: BorderRadius.md,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: 'rgba(255,255,255,0.14)',
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.12)',
+            backgroundColor: colors.brutalWhite,
+            borderWidth: 2,
+            borderColor: colors.brutalInk,
         },
         badges: {
             flexDirection: 'row',
@@ -190,20 +162,20 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             gap: 6,
             paddingHorizontal: 12,
             paddingVertical: 8,
-            borderRadius: BorderRadius.full,
-            backgroundColor: 'rgba(255,255,255,0.12)',
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.12)',
+            borderRadius: BorderRadius.md,
+            backgroundColor: colors.brutalWhite,
+            borderWidth: 2,
+            borderColor: colors.brutalInk,
         },
         statValue: {
             fontFamily: FontFamily.bodyBold,
             fontSize: scaleFontSize(FontSize.caption, textSize),
-            color: colors.textInverse,
+            color: colors.brutalInk,
         },
         statLabel: {
             fontFamily: FontFamily.body,
             fontSize: scaleFontSize(FontSize.caption, textSize),
-            color: 'rgba(255,255,255,0.82)',
+            color: colors.brutalInk,
         },
         cta: {
             marginTop: 18,
@@ -211,15 +183,15 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             alignItems: 'center',
             justifyContent: 'center',
             gap: 4,
-            borderRadius: BorderRadius.xl,
+            borderRadius: BorderRadius.md,
             paddingVertical: 12,
-            backgroundColor: 'rgba(255,255,255,0.12)',
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.14)',
+            backgroundColor: colors.brutalWhite,
+            borderWidth: 2,
+            borderColor: colors.brutalInk,
         },
         ctaText: {
             fontFamily: FontFamily.bodyBold,
             fontSize: scaleFontSize(FontSize.body, textSize),
-            color: colors.textInverse,
+            color: colors.brutalInk,
         },
     });

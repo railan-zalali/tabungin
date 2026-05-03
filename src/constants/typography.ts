@@ -34,7 +34,7 @@ export const LineHeight = {
 } as const;
 
 export const LetterSpacing = {
-    tight: -0.5,
+    tight: 0,
     normal: 0,
     wide: 0.5,
     wider: 1,

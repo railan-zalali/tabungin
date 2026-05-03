@@ -37,11 +37,11 @@ export function EmptyState({
     const { colors, textSize } = useTheme();
     const styles = React.useMemo(() => getStyles(colors, textSize), [colors, textSize]);
     const toneMap = {
-        default: { accent: colors.primary, bg: colors.panelSurface },
-        success: { accent: colors.success, bg: colors.successSurface },
-        warning: { accent: colors.warning, bg: colors.warningSurface },
-        danger: { accent: colors.danger, bg: colors.dangerSurface },
-        info: { accent: colors.info, bg: colors.infoBg },
+        default: { accent: colors.brutalInk, bg: colors.brutalWhite },
+        success: { accent: colors.brutalInk, bg: colors.brutalLime },
+        warning: { accent: colors.brutalInk, bg: colors.brutalYellow },
+        danger: { accent: colors.brutalInk, bg: colors.brutalRed },
+        info: { accent: colors.brutalWhite, bg: colors.brutalBlue },
     };
     const palette = toneMap[tone];
     return (
@@ -103,13 +103,13 @@ const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize'
         paddingVertical: 34,
         gap: 14,
         backgroundColor: colors.surfaceElevated,
-        borderRadius: BorderRadius['4xl'],
-        borderWidth: 1,
-        borderColor: colors.border,
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.08,
-        shadowRadius: 18,
+        borderRadius: BorderRadius.md,
+        borderWidth: 2,
+        borderColor: colors.brutalInk,
+        shadowColor: colors.brutalInk,
+        shadowOffset: { width: 4, height: 4 },
+        shadowOpacity: 1,
+        shadowRadius: 0,
         elevation: 4,
     },
     compact: {
@@ -129,18 +129,19 @@ const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize'
         position: 'absolute',
         width: 120,
         height: 120,
-        borderRadius: BorderRadius.full,
+        borderRadius: BorderRadius.md,
         backgroundColor: colors.primaryBg,
+        opacity: 0,
     },
     iconContainer: {
         width: 96,
         height: 96,
         borderRadius: BorderRadius.full,
-        backgroundColor: colors.surface,
+        backgroundColor: colors.brutalWhite,
         alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: colors.border,
+        borderWidth: 2,
+        borderColor: colors.brutalInk,
     },
     iconContainerRing: {
         backgroundColor: 'transparent',

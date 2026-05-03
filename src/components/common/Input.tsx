@@ -119,6 +119,7 @@ export function Input({
                         style={styles.rightIconBtn}
                         accessible={!!onRightIconPress}
                         accessibilityRole="button"
+                        accessibilityLabel={`${label} aksi`}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
                         <MaterialCommunityIcons
@@ -165,24 +166,25 @@ const getStyles = (colors: any) =>
         inputContainer: {
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: colors.surfaceElevated,
-            borderRadius: 16,
-            borderWidth: 1,
-            borderColor: colors.border,
+            backgroundColor: colors.brutalWhite,
+            borderRadius: 8,
+            borderWidth: 2,
+            borderColor: colors.brutalInk,
             minHeight: 54,
-            shadowColor: colors.shadowColor,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.04,
-            shadowRadius: 10,
-            elevation: 1,
+            shadowColor: colors.brutalInk,
+            shadowOffset: { width: 3, height: 3 },
+            shadowOpacity: 1,
+            shadowRadius: 0,
+            elevation: 3,
         },
         inputContainerFocused: {
             borderColor: colors.primary,
-            backgroundColor: colors.surface,
-            shadowOpacity: 0.08,
-            elevation: 2,
+            backgroundColor: colors.brutalPaper,
         },
-        inputContainerError: { borderColor: colors.danger },
+        inputContainerError: {
+            borderColor: colors.brutalRed,
+            backgroundColor: colors.dangerBg,
+        },
         leftIcon: { paddingLeft: 14 },
         rightIconBtn: { paddingRight: 14, paddingLeft: 8, minHeight: 48, justifyContent: 'center' },
         input: {

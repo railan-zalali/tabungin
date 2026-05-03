@@ -125,7 +125,7 @@ function TabBarButton({
             <Animated.View style={[styles.tabButton, animatedStyle]}>
                 {isFocused && (
                     <LinearGradient
-                        colors={[`${accentColor}20`, colors.surfaceCard]}
+                        colors={[colors.brutalLime, colors.brutalLime]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={styles.activeGlow}
@@ -136,7 +136,7 @@ function TabBarButton({
                     <MaterialCommunityIcons
                         name={(isFocused ? meta.activeIcon : meta.icon) as any}
                         size={22}
-                        color={isFocused ? accentColor : colors.textSecondary}
+                        color={isFocused ? colors.brutalInk : colors.textSecondary}
                     />
                 </View>
                 <Text
@@ -163,7 +163,7 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         <View pointerEvents="box-none" style={styles.tabBarOuter}>
             <View style={[styles.tabBarShell, { paddingBottom: Math.max(insets.bottom, 10) }]}>
                 <LinearGradient
-                    colors={[colors.surfaceElevated, colors.surfaceGlass]}
+                    colors={[colors.brutalWhite, colors.brutalWhite]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.tabBar}
@@ -251,15 +251,15 @@ const getStyles = (colors: any) =>
             paddingHorizontal: 10,
             paddingTop: 12,
             paddingBottom: 4,
-            borderRadius: BorderRadius['5xl'],
-            borderWidth: 1,
-            borderColor: colors.border,
-            shadowColor: colors.shadowColor,
-            shadowOffset: { width: 0, height: 14 },
-            shadowOpacity: Platform.OS === 'ios' ? 0.14 : 0.22,
-            shadowRadius: 28,
+            borderRadius: BorderRadius.md,
+            borderWidth: 2,
+            borderColor: colors.brutalInk,
+            shadowColor: colors.brutalInk,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: Platform.OS === 'ios' ? 1 : 1,
+            shadowRadius: 0,
             elevation: 16,
-            backgroundColor: colors.surfaceGlass,
+            backgroundColor: colors.brutalWhite,
         },
         pressable: {
             flex: 1,
@@ -269,7 +269,7 @@ const getStyles = (colors: any) =>
             alignItems: 'center',
             justifyContent: 'center',
             gap: 6,
-            borderRadius: BorderRadius['4xl'],
+            borderRadius: BorderRadius.sm,
             overflow: 'hidden',
             paddingHorizontal: 4,
             paddingVertical: 10,
@@ -277,7 +277,7 @@ const getStyles = (colors: any) =>
         },
         activeGlow: {
             ...StyleSheet.absoluteFillObject,
-            borderRadius: BorderRadius['4xl'],
+            borderRadius: BorderRadius.sm,
         },
         activeIndicator: {
             position: 'absolute',
@@ -285,13 +285,15 @@ const getStyles = (colors: any) =>
             alignSelf: 'center',
             width: 26,
             height: 4,
-            borderBottomLeftRadius: BorderRadius.sm,
-            borderBottomRightRadius: BorderRadius.sm,
+            borderBottomLeftRadius: 0,
+            borderBottomRightRadius: 0,
+            borderWidth: 1,
+            borderColor: colors.brutalInk,
         },
         iconWrap: {
             width: 40,
             height: 40,
-            borderRadius: BorderRadius['2xl'],
+            borderRadius: BorderRadius.sm,
             alignItems: 'center',
             justifyContent: 'center',
         },

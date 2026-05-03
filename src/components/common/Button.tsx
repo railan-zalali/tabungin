@@ -125,7 +125,7 @@ export function Button({
             {variant === 'primary' && <Animated.View pointerEvents="none" style={[styles.primaryGlow, glowStyle]} />}
             {loading ? (
                 <ActivityIndicator
-                    color={variant === 'primary' ? colors.textInverse : colors.primary}
+                    color={variant === 'primary' ? colors.brutalInk : colors.primary}
                     size="small"
                     accessibilityLabel="Memuat..."
                 />
@@ -151,69 +151,65 @@ const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize'
         gap: 8,
         minHeight: 52,
         minWidth: 48,
-        borderRadius: BorderRadius['2xl'],
-        borderWidth: 1,
-        borderColor: 'transparent',
+        borderRadius: BorderRadius.md,
+        borderWidth: 2,
+        borderColor: colors.brutalInk,
+        shadowColor: colors.brutalInk,
+        shadowOffset: { width: 4, height: 4 },
+        shadowOpacity: 1,
+        shadowRadius: 0,
+        elevation: 5,
     },
     fullWidth: { width: '100%' },
     mediumEmphasis: {
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.08,
-        shadowRadius: 14,
+        shadowOffset: { width: 3, height: 3 },
         elevation: 3,
     },
     glass: {
-        backgroundColor: colors.surfaceGlass,
-        borderColor: colors.glassStroke,
+        backgroundColor: colors.brutalWhite,
+        borderColor: colors.brutalInk,
     },
 
     primary: {
-        backgroundColor: colors.primary,
-        borderColor: `${colors.primaryDark}55`,
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 12 },
-        shadowOpacity: 0.14,
-        shadowRadius: 20,
-        elevation: 6,
+        backgroundColor: colors.brutalLime,
+        borderColor: colors.brutalInk,
     },
     secondary: {
-        backgroundColor: colors.surfaceElevated,
-        borderColor: colors.borderStrong,
+        backgroundColor: colors.brutalWhite,
+        borderColor: colors.brutalInk,
     },
     outline: {
-        backgroundColor: 'transparent',
-        borderWidth: 1.2,
-        borderColor: `${colors.primary}66`,
+        backgroundColor: colors.brutalPaper,
+        borderColor: colors.brutalInk,
     },
-    ghost: { backgroundColor: 'transparent' },
+    ghost: {
+        backgroundColor: 'transparent',
+        borderColor: 'transparent',
+        shadowOpacity: 0,
+        elevation: 0,
+    },
     danger: {
-        backgroundColor: colors.danger,
-        borderColor: `${colors.danger}66`,
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.12,
-        shadowRadius: 18,
-        elevation: 5,
+        backgroundColor: colors.brutalRed,
+        borderColor: colors.brutalInk,
     },
 
-    primaryText: { color: colors.textInverse },
-    secondaryText: { color: colors.textPrimary },
-    outlineText: { color: colors.primary },
+    primaryText: { color: colors.brutalInk },
+    secondaryText: { color: colors.brutalInk },
+    outlineText: { color: colors.brutalInk },
     ghostText: { color: colors.primary },
-    dangerText: { color: colors.textInverse },
+    dangerText: { color: colors.brutalInk },
 
     sm: {
         paddingHorizontal: 12,
         paddingVertical: 8,
         minHeight: 38,
-        borderRadius: BorderRadius.lg,
+        borderRadius: BorderRadius.md,
     },
     md: { paddingHorizontal: 18, paddingVertical: 14 },
     lg: {
         paddingHorizontal: 24,
         paddingVertical: 18,
-        borderRadius: BorderRadius['2xl'],
+        borderRadius: BorderRadius.md,
     },
 
     labelBase: {
@@ -226,6 +222,6 @@ const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize'
     lgText: { fontSize: scaleFontSize(FontSize.h4, textSize) },
     primaryGlow: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(255,255,255,0.12)',
+        backgroundColor: 'rgba(255,255,255,0)',
     },
 });

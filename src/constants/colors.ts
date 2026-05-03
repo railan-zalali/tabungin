@@ -7,6 +7,20 @@ export const Colors = {
     primaryLight: '#D9F0E2',
     primaryBg: '#F3FAF6',
 
+    // Neubrutalism foundation
+    brutalInk: '#111111',
+    brutalPaper: '#FFF8E7',
+    brutalPaperAlt: '#F4E8C8',
+    brutalWhite: '#FFFFFF',
+    brutalLime: '#B6FF3B',
+    brutalYellow: '#FFD84D',
+    brutalRed: '#FF4D4D',
+    brutalBlue: '#3B82F6',
+    brutalGreen: '#00A86B',
+    brutalPink: '#FF7AB6',
+    brutalPurple: '#8B5CF6',
+    brutalGray: '#D9D9D9',
+
     // Premium calm neutrals
     neutral950: '#0F1714',
     neutral900: '#17211D',
@@ -97,6 +111,11 @@ export const Colors = {
         warningBg: 'rgba(197, 138, 30, 0.18)',
         dangerBg: 'rgba(201, 90, 99, 0.18)',
         infoBg: 'rgba(58, 121, 201, 0.18)',
+        brutalInk: '#F6F1E3',
+        brutalPaper: '#181818',
+        brutalPaperAlt: '#242015',
+        brutalWhite: '#202020',
+        brutalGray: '#3A3A3A',
     },
 } as const;
 

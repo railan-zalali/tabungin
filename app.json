@@ -20,6 +20,7 @@
       "package": "com.tabungin.app"
     },
     "plugins": [
+      "expo-dev-client",
       "expo-sqlite",
       "expo-font",
       "expo-secure-store",

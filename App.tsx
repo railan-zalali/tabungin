@@ -5,7 +5,6 @@ import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { LinearGradient } from 'expo-linear-gradient';
 import {
     View,
     Text,
@@ -13,6 +12,7 @@ import {
     ActivityIndicator,
     TouchableOpacity,
 } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
     useFonts,
     PlusJakartaSans_400Regular,
@@ -30,7 +30,7 @@ import { linking } from './src/navigation/LinkingConfiguration';
 import { useTheme } from './src/store/useThemeStore';
 
 export default function App() {
-    const { colors, gradients, isDark } = useTheme();
+    const { colors, isDark } = useTheme();
     const [dbReady, setDbReady] = useState(false);
     const [dbError, setDbError] = useState<string | null>(null);
     const [dbInitAttempt, setDbInitAttempt] = useState(0);
@@ -97,10 +97,7 @@ export default function App() {
 
     if ((!fontsLoaded && !fontError) || !dbReady) {
         return (
-            <LinearGradient
-                colors={gradients.hero as unknown as [string, string, ...string[]]}
-                style={[styles.loadingContainer, { backgroundColor: colors.background }]}
-            >
+            <View style={[styles.loadingContainer, { backgroundColor: colors.brutalPaper }]}>
                 <View style={[styles.loadingGlowTop, { backgroundColor: colors.primaryLight }]} pointerEvents="none" />
                 <View style={[styles.loadingGlowBottom, { backgroundColor: colors.infoBg }]} pointerEvents="none" />
 
@@ -108,22 +105,22 @@ export default function App() {
                     style={[
                         styles.loadingCard,
                         {
-                            backgroundColor: colors.surfaceGlass,
-                            borderColor: colors.glassStroke,
-                            shadowColor: colors.shadowColor,
+                            backgroundColor: colors.brutalWhite,
+                            borderColor: colors.brutalInk,
+                            shadowColor: colors.brutalInk,
                         },
                     ]}
                     accessible={true}
                     accessibilityLabel="Memuat aplikasi Tabungin"
                 >
                     <View style={styles.logoContainer}>
-                        <Text style={[styles.logoText, { color: colors.primary }]} accessibilityElementsHidden={true}>
-                            🐷
-                        </Text>
-                        <Text style={[styles.appName, { color: colors.textPrimary }]} allowFontScaling={false}>
+                        <View style={[styles.logoMark, { backgroundColor: colors.brutalYellow, borderColor: colors.brutalInk }]}>
+                            <MaterialCommunityIcons name="piggy-bank-outline" size={42} color={colors.brutalInk} />
+                        </View>
+                        <Text style={[styles.appName, { color: colors.textPrimary }]} allowFontScaling={true}>
                             Tabungin
                         </Text>
-                        <Text style={[styles.tagline, { color: colors.textSecondary }]} allowFontScaling={false}>
+                        <Text style={[styles.tagline, { color: colors.textSecondary }]} allowFontScaling={true}>
                             Catat, Kelola, Wujudkan
                         </Text>
                     </View>
@@ -132,7 +129,7 @@ export default function App() {
 
                     {dbError && (
                         <View style={styles.errorContainer}>
-                            <Text style={[styles.errorText, { color: colors.danger }]} allowFontScaling={false}>
+                            <Text style={[styles.errorText, { color: colors.danger }]} allowFontScaling={true}>
                                 {dbError}
                             </Text>
                             <TouchableOpacity
@@ -141,7 +138,7 @@ export default function App() {
                                 accessibilityRole="button"
                                 accessibilityLabel="Coba lagi memuat database"
                             >
-                                <Text style={styles.retryButtonText} allowFontScaling={false}>
+                                <Text style={styles.retryButtonText} allowFontScaling={true}>
                                     Coba Lagi
                                 </Text>
                             </TouchableOpacity>
@@ -149,12 +146,12 @@ export default function App() {
                     )}
 
                     {fontError && (
-                        <Text style={[styles.errorText, { color: colors.danger }]} allowFontScaling={false}>
+                        <Text style={[styles.errorText, { color: colors.danger }]} allowFontScaling={true}>
                             Gagal memuat font.
                         </Text>
                     )}
                 </View>
-            </LinearGradient>
+            </View>
         );
     }
 
@@ -186,6 +183,7 @@ const styles = StyleSheet.create({
         height: 220,
         borderRadius: 9999,
         backgroundColor: 'rgba(255,255,255,0.16)',
+        opacity: 0,
     },
     loadingGlowBottom: {
         position: 'absolute',
@@ -195,6 +193,7 @@ const styles = StyleSheet.create({
         height: 180,
         borderRadius: 9999,
         backgroundColor: 'rgba(255,255,255,0.12)',
+        opacity: 0,
     },
     loadingCard: {
         width: '100%',
@@ -203,19 +202,31 @@ const styles = StyleSheet.create({
         gap: 28,
         paddingVertical: 36,
         paddingHorizontal: 28,
-        borderRadius: 32,
-        borderWidth: 1,
-        shadowOffset: { width: 0, height: 18 },
-        shadowOpacity: 0.12,
-        shadowRadius: 30,
+        borderRadius: 8,
+        borderWidth: 3,
+        shadowOffset: { width: 6, height: 6 },
+        shadowOpacity: 1,
+        shadowRadius: 0,
         elevation: 10,
     },
     logoContainer: { alignItems: 'center', gap: 10 },
-    logoText: { fontSize: 64 },
+    logoMark: {
+        width: 72,
+        height: 72,
+        borderRadius: 8,
+        borderWidth: 3,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#111111',
+        shadowOffset: { width: 4, height: 4 },
+        shadowOpacity: 1,
+        shadowRadius: 0,
+        elevation: 5,
+    },
     appName: {
         fontSize: 32,
         fontWeight: 'bold',
-        letterSpacing: -1,
+        letterSpacing: 0,
     },
     tagline: {
         fontSize: 15,
@@ -230,9 +241,11 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     retryButton: {
-        borderRadius: 12,
+        borderRadius: 8,
         paddingHorizontal: 18,
         paddingVertical: 10,
+        borderWidth: 2,
+        borderColor: '#111111',
     },
     retryButtonText: {
         color: '#FFFFFF',

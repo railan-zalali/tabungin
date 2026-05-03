@@ -69,7 +69,11 @@ export function FilterBar<T extends string, U extends string>({
                     placeholderTextColor={colors.textDisabled}
                 />
                 {searchValue ? (
-                    <TouchableOpacity onPress={() => onSearchChange('')}>
+                    <TouchableOpacity
+                        onPress={() => onSearchChange('')}
+                        accessibilityRole="button"
+                        accessibilityLabel="Bersihkan pencarian"
+                    >
                         <MaterialCommunityIcons name="close-circle" size={18} color={colors.textSecondary} />
                     </TouchableOpacity>
                 ) : null}
@@ -114,16 +118,16 @@ export function FilterBar<T extends string, U extends string>({
 const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: ReturnType<typeof useTheme>['textSize']) =>
     StyleSheet.create({
         container: {
-            backgroundColor: colors.panelSurface,
-            borderRadius: BorderRadius['4xl'],
+            backgroundColor: colors.brutalWhite,
+            borderRadius: BorderRadius.md,
             padding: 16,
             gap: 14,
-            borderWidth: 1,
-            borderColor: colors.border,
-            shadowColor: colors.shadowColor,
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.08,
-            shadowRadius: 18,
+            borderWidth: 2,
+            borderColor: colors.brutalInk,
+            shadowColor: colors.brutalInk,
+            shadowOffset: { width: 4, height: 4 },
+            shadowOpacity: 1,
+            shadowRadius: 0,
             elevation: 4,
         },
         header: {
@@ -152,26 +156,26 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             gap: 6,
             paddingHorizontal: 10,
             paddingVertical: 6,
-            borderRadius: BorderRadius.full,
-            backgroundColor: colors.primaryBg,
-            borderWidth: 1,
-            borderColor: colors.focusRing,
+            borderRadius: BorderRadius.md,
+            backgroundColor: colors.brutalYellow,
+            borderWidth: 2,
+            borderColor: colors.brutalInk,
         },
         resultBadgeText: {
             fontFamily: FontFamily.bodyBold,
             fontSize: scaleFontSize(FontSize.caption, textSize),
-            color: colors.primary,
+            color: colors.brutalInk,
         },
         searchBar: {
             flexDirection: 'row',
             alignItems: 'center',
             gap: 8,
             minHeight: 52,
-            borderRadius: BorderRadius['2xl'],
+            borderRadius: BorderRadius.md,
             paddingHorizontal: 14,
-            backgroundColor: colors.formFieldBg,
-            borderWidth: 1,
-            borderColor: colors.border,
+            backgroundColor: colors.brutalPaper,
+            borderWidth: 2,
+            borderColor: colors.brutalInk,
         },
         searchInput: {
             flex: 1,
@@ -188,14 +192,14 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             gap: 6,
             paddingHorizontal: 14,
             paddingVertical: 9,
-            borderRadius: BorderRadius.full,
-            backgroundColor: colors.interactiveIdle,
-            borderWidth: 1,
-            borderColor: colors.border,
+            borderRadius: BorderRadius.md,
+            backgroundColor: colors.brutalWhite,
+            borderWidth: 2,
+            borderColor: colors.brutalInk,
         },
         chipActive: {
-            backgroundColor: colors.primaryBg,
-            borderColor: colors.focusRing,
+            backgroundColor: colors.brutalLime,
+            borderColor: colors.brutalInk,
         },
         chipText: {
             fontFamily: FontFamily.bodyMedium,
@@ -203,7 +207,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             color: colors.textSecondary,
         },
         chipTextActive: {
-            color: colors.primary,
+            color: colors.brutalInk,
             fontFamily: FontFamily.bodyBold,
         },
     });

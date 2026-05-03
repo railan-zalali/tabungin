@@ -21,20 +21,20 @@ export function Badge({ label, variant = 'neutral', size = 'md', style, accessib
     const getVariantConfig = () => {
         switch (variant) {
             case 'success':
-                return { bg: colors.successBg, text: colors.success, border: `${colors.success}28` };
+                return { bg: colors.brutalLime, text: colors.brutalInk, border: colors.brutalInk };
             case 'danger':
-                return { bg: colors.dangerBg, text: colors.danger, border: `${colors.danger}28` };
+                return { bg: colors.brutalRed, text: colors.brutalInk, border: colors.brutalInk };
             case 'warning':
-                return { bg: colors.warningBg, text: colors.warning, border: `${colors.warning}28` };
+                return { bg: colors.brutalYellow, text: colors.brutalInk, border: colors.brutalInk };
             case 'info':
-                return { bg: colors.infoBg, text: colors.info, border: `${colors.info}28` };
+                return { bg: colors.brutalBlue, text: colors.brutalWhite, border: colors.brutalInk };
             case 'primary':
-                return { bg: colors.primaryBg, text: colors.primaryDark, border: `${colors.primary}28` };
+                return { bg: colors.brutalGreen, text: colors.brutalInk, border: colors.brutalInk };
             case 'secondary':
-                return { bg: colors.secondaryLight, text: colors.warning, border: `${colors.warning}22` };
+                return { bg: colors.brutalPink, text: colors.brutalInk, border: colors.brutalInk };
             case 'neutral':
             default:
-                return { bg: colors.surfaceGlass, text: colors.textSecondary, border: `${colors.borderStrong}66` };
+                return { bg: colors.brutalWhite, text: colors.brutalInk, border: colors.brutalInk };
         }
     };
 
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: BorderRadius.full,
-        borderWidth: 1,
+        borderWidth: 2,
         alignSelf: 'flex-start',
     },
     sm: { paddingHorizontal: 8, paddingVertical: 4 },

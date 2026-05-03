@@ -10,6 +10,7 @@ import { OnboardingScreen } from '../screens/auth/OnboardingScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { RegisterScreen } from '../screens/auth/RegisterScreen';
 import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
+import { ResetPasswordScreen } from '../screens/auth/ResetPasswordScreen';
 import { TabNavigator } from './TabNavigator';
 import { SavingStackNavigator } from './SavingStackNavigator';
 import { BudgetScreen } from '../screens/budget/BudgetScreen';
@@ -51,6 +52,7 @@ export function RootNavigator() {
                     <Stack.Screen name="Savings" component={SavingStackNavigator} />
                 </>
             )}
+            <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
         </Stack.Navigator>
     );
 }

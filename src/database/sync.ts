@@ -342,37 +342,53 @@ async function pushChanges() {
 
     if (pendingUpserts.length > 0) {
       let syncedRows = pendingUpserts;
-      let records = pendingUpserts.map((row) => {
-        const record = mapRecordToSupabase(table.tableName, row);
-        const payload: any = {};
+      let records = await Promise.all(
+        pendingUpserts.map(async (row) => {
+          const record = mapRecordToSupabase(table.tableName, row);
+          const payload: any = {};
 
-        table.columns.forEach((col) => {
-          if (col in record) {
-            payload[col] = record[col];
+          table.columns.forEach((col) => {
+            if (col in record) {
+              payload[col] = record[col];
+            }
+          });
+
+          if (table.tableName === 'profiles') {
+            payload.id = validProfileId;
+            payload.user_id = user.id;
+            payload.name = payload.name || user.email?.split('@')[0] || 'User';
+            payload.updated_at = Date.now();
           }
-        });
 
-        if (table.tableName === 'profiles') {
-          payload.id = validProfileId;
-          payload.user_id = user.id;
-          payload.name = payload.name || user.email?.split('@')[0] || 'User';
-          payload.updated_at = Date.now();
-        }
-
-        // CRITICAL: Set profile_id untuk wallet yang baru dibuat
-        // Jika profile_id tidak valid atau NULL, set NULL saja
-        // Supabase akan membuat foreign key NULL jika profile_id tidak valid
-        if (table.columns.includes('profile_id')) {
-          if (!payload.profile_id && validProfileId) {
-            payload.profile_id = validProfileId;
-            console.log(`[Sync] Assigning profile_id ${validProfileId} to new wallet`);
-          } else if (payload.profile_id === activeProfileId && validProfileId) {
+          // CRITICAL: Always override profile_id with valid Supabase profile ID
+          // This fixes RLS violations by ensuring profile_id matches Supabase profile
+          if (table.columns.includes('profile_id')) {
             payload.profile_id = validProfileId;
           }
-        }
 
-        return payload;
-      });
+          // CRITICAL: Validate wallet_id exists in Supabase before pushing child records
+          // This prevents FK constraint violations
+          if ((table.tableName === 'transactions' || table.tableName === 'saving_goals') && payload.wallet_id) {
+            const { data: walletExists } = await supabase
+              .from('wallets')
+              .select('id')
+              .eq('id', payload.wallet_id)
+              .eq('profile_id', validProfileId)
+              .maybeSingle();
+
+            if (!walletExists) {
+              console.log(`[Sync] Skipping ${table.tableName} - wallet ${payload.wallet_id} not in Supabase or not owned by profile ${validProfileId}`);
+              return null; // Return null to filter out later
+            }
+          }
+
+          return payload;
+        })
+      );
+
+      // Filter out null records (where wallet_id validation failed)
+      records = records.filter(r => r !== null);
+      syncedRows = syncedRows.filter((_, index) => records[index] !== null);
 
       if (table.tableName === 'wallet_members') {
         const walletIds = [...new Set(records.map((record) => record.wallet_id).filter(Boolean))];

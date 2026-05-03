@@ -59,16 +59,16 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     StyleSheet.create({
         container: {
             flex: 1,
-            backgroundColor: colors.background,
+            backgroundColor: colors.brutalPaper,
         },
         panelSurface: {
-            backgroundColor: colors.panelSurfaceAlt,
+            backgroundColor: colors.brutalPaperAlt,
         },
         altSurface: {
-            backgroundColor: colors.backgroundAlt,
+            backgroundColor: colors.brutalPaper,
         },
         stickyHeader: {
-            backgroundColor: colors.stickyHeader,
+            backgroundColor: colors.brutalPaper,
         },
         bgAuraTop: {
             position: 'absolute',
@@ -78,7 +78,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             height: 240,
             borderRadius: BorderRadius.full,
             backgroundColor: colors.primaryLight,
-            opacity: 0.52,
+            opacity: 0,
         },
         bgAuraBottom: {
             position: 'absolute',
@@ -88,6 +88,6 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             height: 220,
             borderRadius: BorderRadius.full,
             backgroundColor: colors.infoBg,
-            opacity: 0.24,
+            opacity: 0,
         },
     });

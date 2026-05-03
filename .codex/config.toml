@@ -1,0 +1,14 @@
+[mcp_servers.TestSprite]
+args = ["testsprite-mcp-plugin"]
+command = "npx"
+
+[mcp_servers.TestSprite.env]
+API_KEY = "sk-user-wMnXoujLEjqSdtXjpwmTj_fXzL3geRvk7YQO2sei1dFcd83QUQtsRCjZA8XBewqHX45W4iefjo_W8GsUDJZCo15Z_u9pgcKyGT5lEQQ7GR6QSF_VfhyFszXucg0sSBAwgww"
+APPDATA = 'C:\Railan\New folder\tabungin\.testsprite'
+
+[mcp_servers.context7]
+args = [
+    "-y",
+    "@upstash/context7-mcp@latest",
+]
+command = "npx"

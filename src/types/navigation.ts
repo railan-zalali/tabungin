@@ -11,6 +11,7 @@ export type RootStackParamList = {
     Register: undefined;
     ForgotPassword: undefined;
     AuthCallback: undefined;
+    ResetPassword: { access_token?: string; refresh_token?: string; type?: string; error_description?: string } | undefined;
     Main: NavigatorScreenParams<TabParamList>;
     Budget: undefined;
     Savings: NavigatorScreenParams<SavingStackParamList>;

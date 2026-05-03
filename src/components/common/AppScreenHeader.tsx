@@ -99,7 +99,7 @@ export function AppScreenHeader({
                         <MaterialCommunityIcons
                             name={rightAction.icon as any}
                             size={20}
-                            color={rightAction.tone === 'primary' ? colors.textInverse : colors.primary}
+                            color={colors.brutalInk}
                         />
                     </TouchableOpacity>
                 ) : rightSlot ? (
@@ -119,15 +119,15 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
         container: {
             paddingHorizontal: 20,
             paddingBottom: 14,
-            backgroundColor: colors.pageHeader,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.glassStroke,
+            backgroundColor: colors.brutalPaper,
+            borderBottomWidth: 2,
+            borderBottomColor: colors.brutalInk,
         },
         sticky: {
-            backgroundColor: colors.stickyHeader,
+            backgroundColor: colors.brutalPaper,
         },
         solid: {
-            backgroundColor: colors.background,
+            backgroundColor: colors.brutalPaper,
         },
         transparent: {
             backgroundColor: 'transparent',
@@ -148,12 +148,17 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
         iconButton: {
             width: 44,
             height: 44,
-            borderRadius: BorderRadius.xl,
+            borderRadius: BorderRadius.md,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: colors.interactiveIdle,
-            borderWidth: 1,
-            borderColor: colors.border,
+            backgroundColor: colors.brutalWhite,
+            borderWidth: 2,
+            borderColor: colors.brutalInk,
+            shadowColor: colors.brutalInk,
+            shadowOffset: { width: 3, height: 3 },
+            shadowOpacity: 1,
+            shadowRadius: 0,
+            elevation: 3,
         },
         copy: {
             flex: 1,
@@ -174,16 +179,21 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
         actionButton: {
             width: 44,
             height: 44,
-            borderRadius: BorderRadius.xl,
+            borderRadius: BorderRadius.md,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: colors.primaryBg,
-            borderWidth: 1,
-            borderColor: colors.focusRing,
+            backgroundColor: colors.brutalYellow,
+            borderWidth: 2,
+            borderColor: colors.brutalInk,
+            shadowColor: colors.brutalInk,
+            shadowOffset: { width: 3, height: 3 },
+            shadowOpacity: 1,
+            shadowRadius: 0,
+            elevation: 3,
         },
         actionButtonPrimary: {
-            backgroundColor: colors.primary,
-            borderColor: `${colors.primaryDark}44`,
+            backgroundColor: colors.brutalLime,
+            borderColor: colors.brutalInk,
         },
         actionPlaceholder: {
             width: 44,

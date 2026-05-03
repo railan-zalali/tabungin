@@ -69,11 +69,11 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
     StyleSheet.create({
         container: {
             flexDirection: 'row',
-            backgroundColor: colors.surfaceAlt,
-            borderRadius: BorderRadius.xl,
+            backgroundColor: colors.brutalWhite,
+            borderRadius: BorderRadius.md,
             padding: 4,
-            borderWidth: 1,
-            borderColor: colors.border,
+            borderWidth: 2,
+            borderColor: colors.brutalInk,
             gap: 4,
         },
         containerScrollable: {
@@ -87,16 +87,21 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             paddingVertical: 10,
             paddingHorizontal: 8,
             alignItems: 'center',
-            borderRadius: BorderRadius.lg,
+            borderRadius: BorderRadius.sm,
+            borderWidth: 2,
+            borderColor: 'transparent',
         },
         segmentAuto: {
             flex: 0,
             minWidth: 96,
         },
         segmentActive: {
-            backgroundColor: colors.background,
-            borderWidth: 1,
-            borderColor: colors.focusRing,
+            backgroundColor: colors.brutalLime,
+            borderColor: colors.brutalInk,
+            shadowOffset: { width: 3, height: 3 },
+            shadowOpacity: 1,
+            shadowRadius: 0,
+            elevation: 3,
         },
         segmentInner: {
             flexDirection: 'row',
@@ -113,7 +118,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             textAlign: 'center',
         },
         segmentLabelActive: {
-            color: colors.textPrimary,
+            color: colors.brutalInk,
             fontFamily: FontFamily.bodyBold,
         },
         countBadge: {
@@ -121,10 +126,12 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             paddingHorizontal: 6,
             paddingVertical: 2,
             borderRadius: BorderRadius.full,
-            backgroundColor: colors.surface,
+            backgroundColor: colors.brutalPaper,
+            borderWidth: 1,
+            borderColor: colors.brutalInk,
         },
         countBadgeActive: {
-            backgroundColor: colors.primaryBg,
+            backgroundColor: colors.brutalYellow,
         },
         countText: {
             fontFamily: FontFamily.bodyBold,
@@ -132,6 +139,6 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             color: colors.textSecondary,
         },
         countTextActive: {
-            color: colors.primary,
+            color: colors.brutalInk,
         },
     });

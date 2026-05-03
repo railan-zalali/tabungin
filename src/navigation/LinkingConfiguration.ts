@@ -9,6 +9,7 @@ export const linking = {
       Login: 'login',
       Register: 'register',
       ForgotPassword: 'forgot-password',
+      ResetPassword: 'reset-password',
 
       // Main App (Available when logged in)
       Main: {

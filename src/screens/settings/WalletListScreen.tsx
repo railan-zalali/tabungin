@@ -131,11 +131,21 @@ export function WalletListScreen() {
                 onBackPress={() => navigation.goBack()}
                 rightSlot={
                     <View style={styles.headerActions}>
-                        <TouchableOpacity style={styles.headerIconButton} onPress={() => navigation.navigate('QRScanner')}>
+                        <TouchableOpacity
+                            style={styles.headerIconButton}
+                            onPress={() => navigation.navigate('QRScanner')}
+                            accessibilityRole="button"
+                            accessibilityLabel="Pindai QR undangan dompet"
+                        >
                             <MaterialCommunityIcons name="qrcode-scan" size={22} color={colors.textPrimary} />
                         </TouchableOpacity>
-                        <TouchableOpacity style={[styles.headerIconButton, styles.headerPrimaryButton]} onPress={() => navigation.navigate('AddWallet')}>
-                            <MaterialCommunityIcons name="plus" size={22} color={colors.textInverse} />
+                        <TouchableOpacity
+                            style={[styles.headerIconButton, styles.headerPrimaryButton]}
+                            onPress={() => navigation.navigate('AddWallet')}
+                            accessibilityRole="button"
+                            accessibilityLabel="Tambah dompet"
+                        >
+                            <MaterialCommunityIcons name="plus" size={22} color={colors.brutalInk} />
                         </TouchableOpacity>
                     </View>
                 }
@@ -211,16 +221,21 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         headerIconButton: {
             width: 44,
             height: 44,
-            borderRadius: BorderRadius.xl,
+            borderRadius: BorderRadius.md,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: colors.panelSurface,
-            borderWidth: 1,
-            borderColor: colors.border,
+            backgroundColor: colors.brutalWhite,
+            borderWidth: 2,
+            borderColor: colors.brutalInk,
+            shadowColor: colors.brutalInk,
+            shadowOffset: { width: 3, height: 3 },
+            shadowOpacity: 1,
+            shadowRadius: 0,
+            elevation: 3,
         },
         headerPrimaryButton: {
-            backgroundColor: colors.primary,
-            borderColor: `${colors.primaryDark}44`,
+            backgroundColor: colors.brutalLime,
+            borderColor: colors.brutalInk,
         },
         listContent: {
             paddingHorizontal: 20,

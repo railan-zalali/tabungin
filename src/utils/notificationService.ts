@@ -28,10 +28,10 @@ setNotificationHandler({
  */
 export async function requestNotificationPermission(): Promise<boolean> {
     try {
-        const { status: existingStatus } = await getPermissionsAsync();
-        if (existingStatus === 'granted') return true;
-        const { status } = await requestPermissionsAsync();
-        return status === 'granted';
+        const existingStatus = await getPermissionsAsync();
+        if (existingStatus.granted) return true;
+        const status = await requestPermissionsAsync();
+        return status.granted;
     } catch {
         return false;
     }
