@@ -14,9 +14,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { BorderRadius } from '../../constants/theme';
 import { useProfileStore } from '../../store/useProfileStore';
-import { useWalletStore } from '../../store/useWalletStore';
-import { useTransactionStore } from '../../store/useTransactionStore';
-import { useSavingStore } from '../../store/useSavingStore';
 import { useTheme } from '../../store/useThemeStore';
 
 const PROFILE_COLORS = ['#16A34A', '#2563EB', '#F59E0B', '#DC2626', '#9333EA', '#0891B2'];
@@ -24,16 +21,13 @@ const PROFILE_ICONS = ['account', 'briefcase', 'home', 'school', 'gamepad-varian
 
 export function ProfileSwitcher() {
     const insets = useSafeAreaInsets();
-    const { profiles, activeProfileId, setActiveProfile, addProfile, isLoading } = useProfileStore();
-    const { loadWallets } = useWalletStore();
-    const { loadTransactions, loadRecent, refreshSummary } = useTransactionStore();
-    const { loadGoals } = useSavingStore();
+    const { profiles, activeProfileId, switchProfile, addProfile, isLoading } = useProfileStore();
     const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
 
     const [visible, setVisible] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
-    
+
     // New Profile Form State
     const [newName, setNewName] = useState('');
     const [newColor, setNewColor] = useState(PROFILE_COLORS[0]);
@@ -47,18 +41,8 @@ export function ProfileSwitcher() {
             return;
         }
 
-        setActiveProfile(id);
-        
-        // Reload all data for the new profile
-        // Note: The stores should pick up the new ID from useProfileStore.getState()
-        await Promise.all([
-            loadWallets(),
-            loadTransactions(),
-            loadRecent(),
-            refreshSummary(),
-            loadGoals(),
-        ]);
-
+        // Use the coordinated switchProfile method from the store
+        await switchProfile(id);
         setVisible(false);
     };
 
@@ -70,15 +54,12 @@ export function ProfileSwitcher() {
 
         try {
             await addProfile(newName, newIcon, newColor);
-            
-            // Reload all data (new profile will be empty)
-            await Promise.all([
-                loadWallets(),
-                loadTransactions(),
-                loadRecent(),
-                refreshSummary(),
-                loadGoals(),
-            ]);
+            // addProfile already sets the new profile as active,
+            // reload dependent stores via switchProfile coordination
+            const newActiveId = useProfileStore.getState().activeProfileId;
+            if (newActiveId) {
+                await switchProfile(newActiveId);
+            }
 
             setIsAdding(false);
             setNewName('');

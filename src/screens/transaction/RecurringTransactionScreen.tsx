@@ -10,17 +10,14 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
-  Platform,
-  StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
-import { FontFamily, FontSize, Typography } from '../../constants/typography';
+import { FontFamily, FontSize } from '../../constants/typography';
 import { BorderRadius } from '../../constants/theme';
 import { useTheme } from '../../store/useThemeStore';
 import { useRecurringStore } from '../../store/useRecurringStore';
@@ -30,7 +27,8 @@ import { formatCurrency } from '../../utils/currency';
 import { formatDateLong } from '../../utils/date';
 import { resolveCategoriesForType } from '../../utils/categoryResolver';
 import { EmptyState } from '../../components/common/EmptyState';
-import { Button } from '../../components/common/Button';
+import { ScreenShell } from '../../components/common/ScreenShell';
+import { AppScreenHeader } from '../../components/common/AppScreenHeader';
 
 const FREQUENCY_OPTIONS: { label: string; value: RecurringFrequency }[] = [
   { label: 'Harian', value: 'daily' },
@@ -42,8 +40,7 @@ const FREQUENCY_OPTIONS: { label: string; value: RecurringFrequency }[] = [
 
 export function RecurringTransactionScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
-  const insets = useSafeAreaInsets();
-  const { colors, mode } = useTheme();
+  const { colors } = useTheme();
   const styles = React.useMemo(() => getStyles(colors), [colors]);
 
   const { recurringTransactions, isLoading, loadRecurringTransactions, addRecurringTransaction, toggleRecurringTransaction, deleteRecurringTransaction } = useRecurringStore();
@@ -187,31 +184,20 @@ export function RecurringTransactionScreen() {
   }, [recurringTransactions]);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
-      <StatusBar
-        barStyle={mode === 'dark' ? 'light-content' : 'dark-content'}
-        backgroundColor='transparent'
-        translucent
+    <ScreenShell topInset={false} bottomInset={false}>
+      <AppScreenHeader
+        title="Transaksi Berulang"
+        subtitle="Jadwalkan pemasukan dan pengeluaran rutin."
+        showBack
+        onBackPress={() => navigation.goBack()}
+        rightAction={{
+          icon: 'plus',
+          label: 'Tambah',
+          onPress: () => setShowAddModal(true),
+          tone: 'primary',
+        }}
+        variant="transparent"
       />
-
-      {/* Header */}
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>Transaksi Berulang</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setShowAddModal(true)}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <MaterialCommunityIcons name="plus" size={24} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
 
       {/* Content */}
       <ScrollView
@@ -497,47 +483,11 @@ export function RecurringTransactionScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </ScreenShell>
   );
 }
 
 const getStyles = (colors: any) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: BorderRadius.xl,
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  title: {
-    ...Typography.h2,
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  addButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: BorderRadius.xl,
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
   scrollContent: {
     paddingVertical: 16,
     gap: 16,
@@ -707,28 +657,8 @@ const getStyles = (colors: any) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 40,
-    paddingVertical: 60,
-  },
   emptyState: {
     marginHorizontal: 16,
-  },
-  emptyTitle: {
-    fontFamily: FontFamily.bodyBold,
-    fontSize: FontSize.h3,
-    color: colors.textSecondary,
-    marginTop: 16,
-  },
-  emptyText: {
-    fontFamily: FontFamily.body,
-    fontSize: FontSize.body,
-    color: colors.textTertiary,
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 24,
   },
   modalOverlay: {
     flex: 1,

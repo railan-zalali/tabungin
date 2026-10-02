@@ -22,6 +22,9 @@ export function SettingsStackNavigator() {
             <Stack.Screen name="Notifications" component={NotificationScreen} />
             <Stack.Screen name="CategoryManagement" component={CategoryManagementScreen} />
             <Stack.Screen name="ExportData" component={ExportDataScreen} />
+            {/* Wallet routes — also registered in WalletStackNavigator.
+                Kept here so SettingsScreen can push them within its own stack.
+                Both stacks use the same screen components, so no code duplication. */}
             <Stack.Screen name="WalletList" component={WalletListScreen} />
             <Stack.Screen name="AddWallet" component={AddWalletScreen} />
             <Stack.Screen name="QRScanner" component={QRScannerScreen} />

@@ -7,10 +7,11 @@ interface ProfileState {
     profiles: Profile[];
     activeProfileId: string | null;
     isLoading: boolean;
-    
+
     loadProfiles: () => Promise<void>;
     setActiveProfile: (id: string) => void;
     addProfile: (name: string, icon?: string, color?: string) => Promise<void>;
+    switchProfile: (profileId: string) => Promise<void>;
 }
 
 export const useProfileStore = create<ProfileState>()(
@@ -55,6 +56,30 @@ export const useProfileStore = create<ProfileState>()(
                     throw error;
                 } finally {
                     set({ isLoading: false });
+                }
+            },
+
+            switchProfile: async (profileId) => {
+                const currentId = get().activeProfileId;
+                if (currentId === profileId) return;
+
+                set({ activeProfileId: profileId });
+
+                // Coordinated reload of all dependent stores
+                try {
+                    const { useWalletStore } = await import('../store/useWalletStore');
+                    const { useTransactionStore } = await import('../store/useTransactionStore');
+                    const { useSavingStore } = await import('../store/useSavingStore');
+
+                    await Promise.all([
+                        useWalletStore.getState().loadWallets(),
+                        useTransactionStore.getState().loadTransactions(),
+                        useTransactionStore.getState().loadRecent(),
+                        useTransactionStore.getState().refreshSummary(),
+                        useSavingStore.getState().loadGoals(),
+                    ]);
+                } catch (error) {
+                    console.error('Failed to reload stores after profile switch:', error);
                 }
             },
         }),

@@ -8,7 +8,6 @@ import {
     Alert,
     TextInput,
     Modal,
-    StatusBar,
     KeyboardAvoidingView,
     Platform,
 } from 'react-native';
@@ -16,7 +15,6 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
@@ -25,6 +23,8 @@ import { useSavingStore } from '../../store/useSavingStore';
 import { ProgressBar } from '../../components/saving/ProgressBar';
 import { SavingSimulator } from '../../components/saving/SavingSimulator';
 import { Button } from '../../components/common/Button';
+import { ScreenShell } from '../../components/common/ScreenShell';
+import { AppScreenHeader } from '../../components/common/AppScreenHeader';
 import { formatInputRupiah, parseRupiah, formatCurrency } from '../../utils/currency';
 import { formatDateShort } from '../../utils/date';
 import { calculateProgress } from '../../utils/calculator';
@@ -50,9 +50,8 @@ function formatPermissionLabel(permissionLevel: string) {
 export function SavingDetailScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<any>>();
     const route = useRoute<any>();
-    const insets = useSafeAreaInsets();
     const goalId = route.params?.goalId as string;
-    const { colors, isDark } = useTheme();
+    const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
     const wallets = useWalletStore((state) => state.wallets);
     const activeProfileId = useProfileStore((state) => state.activeProfileId);
@@ -116,9 +115,12 @@ export function SavingDetailScreen() {
 
     if (!currentGoal) {
         return (
-            <View style={[styles.container, { paddingTop: insets.top }]}>
-                <Text style={styles.loadingText}>Memuat...</Text>
-            </View>
+            <ScreenShell topInset={false} bottomInset={false}>
+                <AppScreenHeader title="Detail Target" showBack onBackPress={() => navigation.goBack()} variant="transparent" />
+                <View style={styles.loadingContainer}>
+                    <Text style={styles.loadingText}>Memuat...</Text>
+                </View>
+            </ScreenShell>
         );
     }
 
@@ -140,8 +142,18 @@ export function SavingDetailScreen() {
     ];
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
-            <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
+        <ScreenShell topInset={false} bottomInset={false}>
+            <AppScreenHeader
+                title={currentGoal.name}
+                showBack
+                onBackPress={() => navigation.goBack()}
+                rightAction={{
+                    icon: 'pencil',
+                    label: 'Edit',
+                    onPress: () => navigation.navigate('AddSavingGoal', { editId: goalId }),
+                }}
+                variant="transparent"
+            />
 
             {showConfetti && (
                 <View style={styles.confettiOverlay}>
@@ -152,24 +164,6 @@ export function SavingDetailScreen() {
                     </Text>
                 </View>
             )}
-
-            <View style={styles.header}>
-                <TouchableOpacity
-                    onPress={() => navigation.goBack()}
-                    style={styles.backBtn}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                    <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                    onPress={() => navigation.navigate('AddSavingGoal', { editId: goalId })}
-                    style={styles.editBtn}
-                >
-                    <MaterialCommunityIcons name="pencil" size={20} color={colors.textPrimary} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle} numberOfLines={1}>{currentGoal.name}</Text>
-                <View style={{ width: 44 }} />
-            </View>
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 <Animated.View entering={FadeInDown.delay(70).springify()}>
@@ -404,51 +398,13 @@ export function SavingDetailScreen() {
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
-        </View>
+        </ScreenShell>
     );
 }
 
 const getStyles = (colors: any) => StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.background },
+    loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     loadingText: { padding: 20, color: colors.textSecondary, fontFamily: FontFamily.body },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-    },
-    backBtn: {
-        width: 44,
-        height: 44,
-        borderRadius: BorderRadius.xl,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.surfaceElevated,
-        borderWidth: 1,
-        borderColor: colors.border,
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.06,
-        shadowRadius: 10,
-        elevation: 2,
-    },
-    editBtn: {
-        width: 44,
-        height: 44,
-        borderRadius: BorderRadius.xl,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.surfaceElevated,
-        borderWidth: 1,
-        borderColor: colors.border,
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.06,
-        shadowRadius: 10,
-        elevation: 2,
-    },
-    headerTitle: { ...Typography.h3, color: colors.textPrimary, flex: 1, textAlign: 'center' },
     content: { padding: 20, gap: 24, paddingBottom: 100 },
     heroSection: {
         borderRadius: 30,

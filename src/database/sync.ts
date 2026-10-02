@@ -1,141 +1,30 @@
 import { getInitializedDatabase } from "./schema";
 import { isSupabaseConfigured, supabase, warnIfSupabaseUnavailable } from "../lib/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { NetInfoState, useNetInfo } from "@react-native-community/netinfo";
 import { v4 as uuidv4 } from "uuid";
 import { runSerializedSyncTask } from "./syncQueue";
+import {
+  SYNC_TABLES,
+  unsupportedRemoteTables,
+  shouldSkipRemoteTable,
+  isRemoteMissingTableError,
+  tableRequiresRemoteWallet,
+  type SyncTable,
+  type SyncStatus,
+} from "./sync/syncTables";
+import {
+  mapRecordToSupabase,
+  mapRecordFromSupabase,
+  isRowSyncableForRemoteWallet,
+} from "./sync/syncUtils";
+
+// Re-export untuk backward compatibility (consumers yang import dari sync.ts)
+export type { SyncStatus, SyncTable } from "./sync/syncTables";
+export { SYNC_TABLES } from "./sync/syncTables";
+export { mapRecordToSupabase, mapRecordFromSupabase } from "./sync/syncUtils";
 
 const LAST_SYNC_KEY = "tabungin_last_sync_time";
-
-// Tipe data untuk sync
-type SyncStatus = "synced" | "pending_create" | "pending_update" | "pending_delete";
-
-interface SyncTable {
-  tableName: string;
-  columns: string[];
-  remoteColumns?: string[];
-  remoteUpdatedAtColumn?: string;
-  optional?: boolean;
-}
-
-const SYNC_TABLES: SyncTable[] = [
-  {
-    tableName: "profiles",
-    columns: ["id", "user_id", "name", "icon", "color", "created_at", "updated_at"],
-  },
-  {
-    tableName: "wallets",
-    columns: [
-      "id",
-      "name",
-      "type",
-      "color",
-      "balance",
-      "is_default",
-      "created_at",
-      "updated_at",
-      "profile_id",
-    ],
-  },
-  {
-    tableName: "transactions",
-    columns: ["id", "type", "amount", "category", "note", "date", "created_at", "updated_at", "wallet_id", "profile_id"],
-  },
-  {
-    tableName: "wallet_members",
-    columns: ["id", "wallet_id", "user_email", "role", "status", "created_at", "updated_at"],
-  },
-  {
-    tableName: "saving_goals",
-    columns: [
-      "id",
-      "name",
-      "target_amount",
-      "current_amount",
-      "emoji",
-      "photo_uri",
-      "saving_per_period",
-      "period_type",
-      "color",
-      "start_date",
-      "estimated_date",
-      "is_completed",
-      "reminder_enabled",
-      "reminder_time",
-      "created_at",
-      "updated_at",
-      "wallet_id",
-      "profile_id",
-    ],
-  },
-  {
-    tableName: "saving_logs",
-    columns: ["id", "goal_id", "amount", "note", "date", "created_at", "updated_at"],
-  },
-  {
-    tableName: "wallet_goals_shared",
-    columns: [
-      "id",
-      "goal_id",
-      "wallet_id",
-      "user_email",
-      "shared_by",
-      "shared_at",
-      "created_at",
-      "updated_at",
-      "permission_level",
-    ],
-    remoteColumns: [
-      "id",
-      "goal_id",
-      "wallet_id",
-      "user_email",
-      "shared_by",
-      "shared_at",
-      "created_at",
-      "updated_at",
-      "permission_level",
-    ],
-    remoteUpdatedAtColumn: "updated_at",
-  },
-  {
-    tableName: "sharing_activity_log",
-    columns: [
-      "id",
-      "goal_id",
-      "wallet_id",
-      "user_email",
-      "action",
-      "performed_by",
-      "metadata",
-      "timestamp",
-      "created_at",
-      "updated_at",
-    ],
-    optional: true,
-  },
-  {
-    tableName: "budgets",
-    columns: ["id", "category", "amount", "month", "year", "created_at", "updated_at", "wallet_id", "profile_id"],
-  },
-];
-
-const unsupportedRemoteTables = new Set<string>();
 let activeSyncPromise: Promise<void> | null = null;
-
-function isRemoteMissingTableError(error: any) {
-  return error?.code === "PGRST205" || String(error?.message || "").includes("schema cache");
-}
-
-function shouldSkipRemoteTable(table: SyncTable, error: any) {
-  if (table.optional && isRemoteMissingTableError(error)) {
-    unsupportedRemoteTables.add(table.tableName);
-    console.log(`[Sync] Skipping optional remote table ${table.tableName} because it is unavailable in Supabase.`);
-    return true;
-  }
-
-  return false;
-}
 
 export async function getLastSyncTime(): Promise<number> {
   const raw = await AsyncStorage.getItem(LAST_SYNC_KEY);
@@ -144,30 +33,6 @@ export async function getLastSyncTime(): Promise<number> {
 
 export async function setLastSyncTime(time: number): Promise<void> {
   await AsyncStorage.setItem(LAST_SYNC_KEY, time.toString());
-}
-
-/**
- * Helper untuk mapping data SQLite ke Supabase (Postgres)
- */
-function mapRecordToSupabase(table: string, row: any): any {
-  const record = { ...row };
-
-  // Convert boolean fields from 0/1 to false/true
-  if (table === "saving_goals") {
-    if ("is_completed" in record) record.is_completed = Boolean(record.is_completed);
-    if ("reminder_enabled" in record) record.reminder_enabled = Boolean(record.reminder_enabled);
-  }
-  if (table === "wallets") {
-    if ("is_default" in record) record.is_default = Boolean(record.is_default);
-  }
-  if (table === "wallet_goals_shared") {
-    record.created_at = record.created_at ?? record.shared_at ?? Date.now();
-    record.updated_at = record.updated_at ?? record.created_at;
-    record.permission_level = record.permission_level ?? "read_write";
-  }
-  // No boolean conversion needed for profiles or wallet_members yet
-
-  return record;
 }
 
 /**
@@ -351,18 +216,6 @@ async function fetchAccessibleRemoteWalletIds(walletIds: string[]): Promise<Set<
   }
 
   return new Set((data ?? []).map((wallet: any) => wallet.id));
-}
-
-function tableRequiresRemoteWallet(tableName: string): boolean {
-  return ['transactions', 'budgets', 'saving_goals', 'wallet_members'].includes(tableName);
-}
-
-function isRowSyncableForRemoteWallet(payload: Record<string, any>, remoteWalletIdSet: Set<string>): boolean {
-  if (!payload.wallet_id) {
-    return true;
-  }
-
-  return remoteWalletIdSet.has(payload.wallet_id);
 }
 
 /**
@@ -612,23 +465,6 @@ async function getActiveProfile(): Promise<{ activeProfileId: string }> {
 /**
  * Helper untuk mapping data Supabase (Postgres) ke SQLite
  */
-function mapRecordFromSupabase(table: string, row: any): any {
-  const record = { ...row };
-
-  // Convert boolean fields from true/false to 0/1
-  if (table === "saving_goals") {
-    if ("is_completed" in record) record.is_completed = record.is_completed ? 1 : 0;
-    if ("reminder_enabled" in record) record.reminder_enabled = record.reminder_enabled ? 1 : 0;
-  }
-  if (table === "wallet_goals_shared") {
-    record.created_at = record.created_at ?? record.shared_at ?? Date.now();
-    record.updated_at = record.updated_at ?? record.created_at;
-    record.permission_level = record.permission_level ?? "read_write";
-  }
-
-  return record;
-}
-
 /**
  * PULL: Ambil perubahan dari Supabase
  */

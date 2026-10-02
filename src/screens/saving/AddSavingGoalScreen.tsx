@@ -9,7 +9,6 @@ import {
     KeyboardAvoidingView,
     Platform,
     Switch,
-    StatusBar,
     Alert,
     ActivityIndicator,
 } from 'react-native';
@@ -17,21 +16,20 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { FontFamily, FontSize, Typography } from '../../constants/typography';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { FontFamily, FontSize } from '../../constants/typography';
 import { GOAL_COLORS } from '../../constants/categories';
 import { useSavingStore } from '../../store/useSavingStore';
 import { fetchSavingGoalById } from '../../database/savingQueries';
 import { Button } from '../../components/common/Button';
-import { NavigationBar } from '../../components/common/NavigationBar';
+import { ScreenShell } from '../../components/common/ScreenShell';
+import { AppScreenHeader } from '../../components/common/AppScreenHeader';
 import { formatInputRupiah, parseRupiah } from '../../utils/currency';
 import { formatEstimatedDate } from '../../utils/date';
 import { simulateSaving } from '../../utils/calculator';
 import { validateGoalName, validateTargetAmount, validateSavingPerPeriod } from '../../utils/validation';
 import type { PeriodType } from '../../types/saving';
-import { BorderRadius } from '../../constants/theme';
 import { useTheme } from '../../store/useThemeStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import { useProfileStore } from '../../store/useProfileStore';
@@ -43,8 +41,7 @@ const EMOJIS = ['💻', '🌴', '🎮', '🏠', '🚗', '📱', '✈️', '👜'
 export function AddSavingGoalScreen() {
     const navigation = useNavigation<NativeStackNavigationProp<any>>();
     const route = useRoute<RouteProp<any, 'AddSavingGoal'>>();
-    const insets = useSafeAreaInsets();
-    const { colors, isDark } = useTheme();
+    const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
     const { addGoal, editGoal, isLoading } = useSavingStore();
     const { wallets, loadWallets } = useWalletStore();
@@ -233,24 +230,15 @@ export function AddSavingGoalScreen() {
     ];
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
-            <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
+        <ScreenShell topInset={false} bottomInset={false} surfaceVariant="alt">
+            <AppScreenHeader
+                title={isEditMode ? 'Edit Target' : 'Buat Target'}
+                subtitle={isEditMode ? 'Edit target ini untuk diperbarui' : 'Lebih rapi, lebih jelas, dan siap terkait ke dompet'}
+                showClose
+                onClosePress={() => navigation.goBack()}
+                variant="transparent"
+            />
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-                <View style={styles.header}>
-                    <TouchableOpacity
-                        onPress={() => navigation.goBack()}
-                        style={styles.closeBtn}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                        <MaterialCommunityIcons name="close" size={24} color={colors.textPrimary} />
-                    </TouchableOpacity>
-                    <View style={styles.headerCenter}>
-                        <Text style={styles.headerTitle}>{isEditMode ? 'Edit Target' : 'Buat Target'}</Text>
-                        <Text style={styles.headerSubtitle}>{isEditMode ? 'Edit target ini untuk diperbarui' : 'Lebih rapi, lebih jelas, dan siap terkait ke dompet'}</Text>
-                    </View>
-                    <View style={{ width: 44 }} />
-                </View>
-
                 {isPrefilling ? (
                     <View style={styles.loadingState}>
                         <ActivityIndicator size="large" color={colors.primary} />
@@ -538,30 +526,12 @@ export function AddSavingGoalScreen() {
                     />
                 </View>
             </KeyboardAvoidingView>
-        </View>
+        </ScreenShell>
     );
 }
 
 const getStyles = (colors: any) => StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.background },
     flex: { flex: 1 },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-    },
-    closeBtn: {
-        width: 44,
-        height: 44,
-        borderRadius: BorderRadius.xl,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.surfaceElevated,
-        borderWidth: 1,
-        borderColor: colors.border,
-    },
     loadingState: {
         flex: 1,
         alignItems: 'center',
@@ -580,14 +550,6 @@ const getStyles = (colors: any) => StyleSheet.create({
         lineHeight: 22,
         color: colors.textSecondary,
         textAlign: 'center',
-    },
-    headerCenter: { flex: 1 },
-    headerTitle: { ...Typography.h3, color: colors.textPrimary },
-    headerSubtitle: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
-        color: colors.textSecondary,
-        marginTop: 2,
     },
     content: { padding: 20, gap: 18, paddingBottom: 48 },
     previewCard: {
@@ -635,7 +597,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     previewTitle: {
         fontFamily: FontFamily.headingMedium,
         fontSize: FontSize.h4,
-        color: '#FFFFFF',
+        color: colors.textInverse,
     },
     previewSubtitle: {
         fontFamily: FontFamily.body,
@@ -657,13 +619,13 @@ const getStyles = (colors: any) => StyleSheet.create({
     previewMetricValue: {
         fontFamily: FontFamily.heading,
         fontSize: FontSize.h3,
-        color: '#FFFFFF',
+        color: colors.textInverse,
         marginTop: 6,
     },
     previewMetricValueSmall: {
         fontFamily: FontFamily.bodyBold,
         fontSize: FontSize.body,
-        color: '#FFFFFF',
+        color: colors.textInverse,
         marginTop: 6,
     },
     sectionCard: {

@@ -22,6 +22,7 @@ import { RootNavigator } from './src/navigation/RootNavigator';
 import { initDatabase } from './src/database/schema';
 import { linking } from './src/navigation/LinkingConfiguration';
 import { useTheme } from './src/store/useThemeStore';
+import { AppErrorBoundary } from './src/components/common/AppErrorBoundary';
 
 export default function App() {
     const { colors, gradients, isDark } = useTheme();
@@ -156,7 +157,9 @@ export default function App() {
             <SafeAreaProvider>
                 <NavigationContainer linking={linking as any} theme={navigationTheme}>
                     <StatusBar style={isDark ? 'light' : 'dark'} backgroundColor="transparent" translucent />
-                    <RootNavigator />
+                    <AppErrorBoundary>
+                        <RootNavigator />
+                    </AppErrorBoundary>
                 </NavigationContainer>
             </SafeAreaProvider>
         </GestureHandlerRootView>
