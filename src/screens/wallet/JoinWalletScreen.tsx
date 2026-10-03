@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../store/useThemeStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import { Button } from '../../components/common/Button';
 import { EmptyState } from '../../components/common/EmptyState';
+import { AppScreenHeader } from '../../components/common/AppScreenHeader';
+import { ScreenShell } from '../../components/common/ScreenShell';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { supabase } from '../../lib/supabase';
@@ -25,8 +26,7 @@ export function JoinWalletScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<JoinWalletScreenRouteProp>();
   const { walletId } = route.params;
-  const insets = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const styles = React.useMemo(() => getStyles(colors), [colors]);
   const { loadWallets } = useWalletStore();
 
@@ -142,34 +142,39 @@ export function JoinWalletScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.center]}>
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
+      <ScreenShell style={styles.center}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Memeriksa undangan...</Text>
-      </View>
+      </ScreenShell>
     );
   }
 
   if (error) {
     return (
-      <View style={[styles.container, styles.center, { padding: 20 }]}>
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
-        <EmptyState
-          icon="alert-circle-outline"
-          title="Undangan tidak bisa dibuka"
-          description={error}
-          actionLabel="Coba Lagi"
-          onAction={fetchWalletInfo}
-          style={styles.errorState}
+      <ScreenShell>
+        <AppScreenHeader
+          title="Undangan Dompet"
+          showClose
+          onClosePress={() => navigation.goBack()}
         />
-        <Button
-          label="Kembali"
-          onPress={() => navigation.goBack()}
-          variant="secondary"
-          fullWidth
-          style={styles.backAction}
-        />
-      </View>
+        <View style={[styles.center, styles.errorStateWrap]}>
+          <EmptyState
+            icon="alert-circle-outline"
+            title="Undangan tidak bisa dibuka"
+            description={error}
+            actionLabel="Coba Lagi"
+            onAction={fetchWalletInfo}
+            style={styles.errorState}
+          />
+          <Button
+            label="Kembali"
+            onPress={() => navigation.goBack()}
+            variant="secondary"
+            fullWidth
+            style={styles.backAction}
+          />
+        </View>
+      </ScreenShell>
     );
   }
 
@@ -177,17 +182,12 @@ export function JoinWalletScreen() {
   const walletTypeLabel = walletInfo?.type?.toUpperCase?.() || 'GENERAL';
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
-      <View style={styles.bgAuraTop} pointerEvents="none" />
-
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <MaterialCommunityIcons name="close" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Undangan Dompet</Text>
-        <View style={{ width: 44 }} />
-      </View>
+    <ScreenShell>
+      <AppScreenHeader
+        title="Undangan Dompet"
+        showClose
+        onClosePress={() => navigation.goBack()}
+      />
 
       <View style={styles.content}>
         <LinearGradient
@@ -264,46 +264,13 @@ export function JoinWalletScreen() {
           </View>
         )}
       </View>
-    </View>
+    </ScreenShell>
   );
 }
 
 const getStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  bgAuraTop: {
-    position: 'absolute',
-    top: -120,
-    right: -30,
-    width: 240,
-    height: 240,
-    borderRadius: BorderRadius.full,
-    backgroundColor: colors.primaryLight,
-    opacity: 0.5,
-  },
   center: { justifyContent: 'center', alignItems: 'center' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    gap: 12,
-  },
-  headerTitle: { ...Typography.h3, color: colors.textPrimary, flex: 1, textAlign: 'center' },
-  backBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: BorderRadius.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 2,
-  },
+  errorStateWrap: { flex: 1, padding: 20 },
   loadingText: {
     marginTop: 16,
     color: colors.textSecondary,
