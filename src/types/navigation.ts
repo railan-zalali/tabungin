@@ -57,10 +57,6 @@ export type SettingsStackParamList = {
     Notifications: undefined;
     CategoryManagement: undefined;
     ExportData: undefined;
-    WalletList: undefined;
-    AddWallet: WalletRouteParams;
-    QRScanner: undefined;
-    JoinWallet: { walletId: string };
 };
 
 export type DashboardNavigationProp = CompositeNavigationProp<
@@ -85,8 +81,11 @@ export type SettingsChildNavigationProp<Screen extends keyof SettingsStackParamL
 >;
 
 export type WalletFlowNavigationProp = CompositeNavigationProp<
-    NativeStackNavigationProp<WalletStackParamList, 'WalletList'>,
-    NativeStackNavigationProp<SettingsStackParamList>
+    NativeStackNavigationProp<WalletStackParamList>,
+    CompositeNavigationProp<
+        BottomTabNavigationProp<TabParamList, 'Wallet'>,
+        NativeStackNavigationProp<RootStackParamList>
+    >
 >;
 
 export type TransactionNavigationProp<Screen extends keyof TransactionStackParamList> = CompositeNavigationProp<

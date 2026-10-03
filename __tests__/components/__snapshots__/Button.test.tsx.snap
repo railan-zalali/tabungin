@@ -1,0 +1,107 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Button matches snapshot for primary variant 1`] = `
+<View
+  accessibilityLabel="Lanjut"
+  accessibilityRole="button"
+  accessibilityState={
+    {
+      "busy": false,
+      "checked": undefined,
+      "disabled": false,
+      "expanded": undefined,
+      "selected": undefined,
+    }
+  }
+  accessibilityValue={
+    {
+      "max": undefined,
+      "min": undefined,
+      "now": undefined,
+      "text": undefined,
+    }
+  }
+  accessible={true}
+  collapsable={false}
+  focusable={true}
+  onClick={[Function]}
+  onResponderGrant={[Function]}
+  onResponderMove={[Function]}
+  onResponderRelease={[Function]}
+  onResponderTerminate={[Function]}
+  onResponderTerminationRequest={[Function]}
+  onStartShouldSetResponder={[Function]}
+  style={
+    {
+      "alignItems": "center",
+      "backgroundColor": "#0EAD69",
+      "borderColor": "#0f865355",
+      "borderRadius": 20,
+      "borderWidth": 1,
+      "elevation": 6,
+      "flexDirection": "row",
+      "gap": 8,
+      "justifyContent": "center",
+      "minHeight": 52,
+      "minWidth": 48,
+      "opacity": 1,
+      "overflow": "hidden",
+      "paddingHorizontal": 18,
+      "paddingVertical": 14,
+      "shadowColor": "rgba(15, 23, 20, 0.16)",
+      "shadowOffset": {
+        "height": 12,
+        "width": 0,
+      },
+      "shadowOpacity": 0.14,
+      "shadowRadius": 20,
+      "transform": [
+        {
+          "scale": 1,
+        },
+      ],
+    }
+  }
+>
+  <View
+    pointerEvents="none"
+    style={
+      [
+        {
+          "backgroundColor": "rgba(255,255,255,0.12)",
+          "bottom": 0,
+          "left": 0,
+          "position": "absolute",
+          "right": 0,
+          "top": 0,
+        },
+        {
+          "opacity": 1,
+        },
+      ]
+    }
+  />
+  <Text
+    allowFontScaling={true}
+    numberOfLines={1}
+    style={
+      [
+        {
+          "fontFamily": "DMSans_700Bold",
+          "fontSize": 14,
+          "letterSpacing": 0.1,
+        },
+        {
+          "color": "#FFFFFF",
+        },
+        {
+          "fontSize": 14,
+        },
+        undefined,
+      ]
+    }
+  >
+    Lanjut
+  </Text>
+</View>
+`;

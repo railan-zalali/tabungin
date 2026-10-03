@@ -129,11 +129,94 @@ jest.mock('@supabase/supabase-js', () => ({
     })),
 }));
 
-// Mock react-native-reanimated
+// Mock react-native-worklets — native module tidak tersedia di jest.
+// Diminta oleh react-native-reanimated (via runtime/init).
+jest.mock('react-native-worklets', () => ({
+    createSerializable: (fn: unknown) => fn,
+    serializableMappingCache: {
+        set: () => {},
+        get: () => undefined,
+        clear: () => {},
+    },
+    runOnUI: (fn: unknown) => fn,
+    runOnRuntime: (fn: unknown) => fn,
+    createWorklet: (fn: unknown) => fn,
+    scheduleOnRN: (fn: unknown) => fn,
+}));
+
+// Mock react-native-reanimated — mock mandiri, TIDAK memakai
+// 'react-native-reanimated/mock' karena modul itu me-require src/index.ts
+// yang menarik native runtime worklets (gagal di jest).
+// Jangan tambahkan moduleNameMapper untuk path ini di jest.config.js:
+// mapper + jest.mock pada path sama = factory require dirinya sendiri.
 jest.mock('react-native-reanimated', () => {
-    const Reanimated = require('react-native-reanimated/mock');
-    Reanimated.default.call = () => {};
-    return Reanimated;
+    const React = require('react');
+    const { View, Text, ScrollView, Image } = require('react-native');
+
+    const createAnimatedComponent = (Component: unknown) => Component;
+
+    const Animated = {
+        View,
+        Text,
+        ScrollView,
+        Image,
+        createAnimatedComponent,
+        // default callable shape: Animated.View sudah cukup untuk codebase ini
+    };
+
+    // Entering/exiting layout animations dipakai sebagai prop `entering={FadeInDown}`.
+    // Cukup return identitas; test tidak merender animasi.
+    const layoutAnimation = () => ({});
+
+    const sharedValue = (initial: unknown) => ({ value: initial });
+
+    return {
+        __esModule: true,
+        default: Animated,
+        Animated,
+        useSharedValue: sharedValue,
+        useAnimatedStyle: (fn: () => unknown) => {
+            // Panggil sekali agar style tereksekusi di test (catch error runtime)
+            try {
+                return typeof fn === 'function' ? fn() : {};
+            } catch {
+                return {};
+            }
+        },
+        withSpring: (toValue: unknown) => toValue,
+        withTiming: (toValue: unknown) => toValue,
+        withDelay: (_delay: unknown, animation: unknown) => animation,
+        withRepeat: (animation: unknown) => animation,
+        withSequence: (...animations: unknown[]) => animations[0],
+        runOnJS: (fn: unknown) => fn,
+        runOnUI: (fn: unknown) => fn,
+        Easing: {
+            linear: (t: number) => t,
+            ease: (t: number) => t,
+            quad: (t: number) => t,
+            cubic: (t: number) => t,
+            bezier: () => (t: number) => t,
+            in: (fn: (t: number) => number) => fn,
+            out: (fn: (t: number) => number) => fn,
+            inOut: (fn: (t: number) => number) => fn,
+        },
+        Extrapolation: { CLAMP: 'clamp', EXTEND: 'extend', IDENTITY: 'identity' },
+        interpolate: (value: number) => value,
+        FadeInDown: layoutAnimation(),
+        FadeInUp: layoutAnimation(),
+        FadeIn: layoutAnimation(),
+        FadeOut: layoutAnimation(),
+        Layout: layoutAnimation(),
+        SlideInDown: layoutAnimation(),
+        // no-op untuk API yang tidak dipakai tapi mungkin di-import
+        useFrameCallback: () => ({}),
+        useAnimatedRef: () => ({ current: null }),
+        measure: () => null,
+        useDerivedValue: (fn: unknown) => fn,
+        cancelAnimation: () => {},
+        JsRuntime: {},
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any;
 });
 
 // Mock react-native-safe-area-context
@@ -146,12 +229,17 @@ jest.mock('react-native-safe-area-context', () => {
     };
 });
 
-// Mock @expo/vector-icons
-jest.mock('@expo/vector-icons', () => ({
-    MaterialCommunityIcons: 'MaterialCommunityIcons',
-    Ionicons: 'Ionicons',
-    Feather: 'Feather',
-}));
+// Mock @expo/vector-icons — sertakan glyphMap asli agar resolveMaterialIcon valid
+jest.mock('@expo/vector-icons', () => {
+    const glyphMap = require('@expo/vector-icons/build/vendor/react-native-vector-icons/glyphmaps/MaterialCommunityIcons.json');
+    const Icon = () => null;
+    Icon.glyphMap = glyphMap;
+    return {
+        MaterialCommunityIcons: Icon,
+        Ionicons: Icon,
+        Feather: Icon,
+    };
+});
 
 // Mock uuid
 jest.mock('uuid', () => ({

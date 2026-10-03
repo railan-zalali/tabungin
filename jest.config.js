@@ -6,7 +6,10 @@ module.exports = {
     ],
     setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
     moduleNameMapper: {
-        '^react-native-reanimated$': 'react-native-reanimated/mock',
+        // Catatan: 'react-native-reanimated' sengaja TIDAK dipetakan di sini.
+        // Jest mock-nya didefinisikan di jest.setup.ts; mapper + jest.mock
+        // untuk path yang sama menyebabkan factory memanggil dirinya sendiri
+        // (infinite recursion / maximum call stack size exceeded).
     },
     testPathIgnorePatterns: ['/node_modules/', '/android/', '/ios/'],
     collectCoverageFrom: [

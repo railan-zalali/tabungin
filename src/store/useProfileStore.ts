@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchProfiles, insertProfile, type Profile } from '../database/profileQueries';
+import { useWalletStore } from './useWalletStore';
+import { useTransactionStore } from './useTransactionStore';
+import { useSavingStore } from './useSavingStore';
 
 interface ProfileState {
     profiles: Profile[];
@@ -65,12 +68,11 @@ export const useProfileStore = create<ProfileState>()(
 
                 set({ activeProfileId: profileId });
 
-                // Coordinated reload of all dependent stores
+                // Coordinated reload of all dependent stores.
+                // Static import (bukan dynamic import()) — pemakaian tetap lazy
+                // di dalam fungsi, jadi aman terhadap circular dependency dan
+                // tidak bergantung pada transform dynamic import.
                 try {
-                    const { useWalletStore } = await import('../store/useWalletStore');
-                    const { useTransactionStore } = await import('../store/useTransactionStore');
-                    const { useSavingStore } = await import('../store/useSavingStore');
-
                     await Promise.all([
                         useWalletStore.getState().loadWallets(),
                         useTransactionStore.getState().loadTransactions(),
