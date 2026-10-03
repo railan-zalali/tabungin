@@ -1,0 +1,3 @@
+# Pre-commit: pastikan typecheck hijau sebelum commit (test dijalankan di CI).
+# Test unit tidak dijalankan di sini agar hook tetap cepat.
+npm run typecheck
