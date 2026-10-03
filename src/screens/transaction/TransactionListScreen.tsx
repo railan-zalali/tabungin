@@ -27,7 +27,16 @@ export function TransactionListScreen() {
     const { colors } = useTheme();
     const { contentBottomSpacing } = useScreenLayout();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
-    const { transactions, isLoading, loadTransactions, removeTransaction } = useTransactionStore();
+    const {
+        transactions,
+        isLoading,
+        isLoadingMore,
+        hasMoreTransactions,
+        listTotals,
+        loadTransactions,
+        loadMoreTransactions,
+        removeTransaction,
+    } = useTransactionStore();
     const loadCategories = useCategoryStore((state) => state.loadCategories);
     const categoryCount = useCategoryStore((state) => state.categories.length);
 
@@ -85,13 +94,9 @@ export function TransactionListScreen() {
         }));
     }, [transactions]);
 
-    const netAmount = useMemo(
-        () =>
-            transactions.reduce((sum, item) => {
-                return sum + (item.type === 'income' ? item.amount : -item.amount);
-            }, 0),
-        [transactions],
-    );
+    // Dihitung SQL (bukan dari baris yang dimuat) supaya tetap benar
+    // ketika daftarnya dipaginasi.
+    const netAmount = listTotals.totalIncome - listTotals.totalExpense;
 
     return (
         <ScreenShell topInset={false} bottomInset surfaceVariant="alt">
@@ -136,7 +141,7 @@ export function TransactionListScreen() {
                 <View style={styles.summaryStrip}>
                     <View style={styles.summaryItem}>
                         <Text style={styles.summaryLabel}>Transaksi</Text>
-                        <Text style={styles.summaryValue}>{transactions.length}</Text>
+                        <Text style={styles.summaryValue}>{listTotals.count}</Text>
                     </View>
                     <View style={styles.summaryDivider} />
                     <View style={styles.summaryItem}>
@@ -197,6 +202,17 @@ export function TransactionListScreen() {
                             </View>
                         )}
                         renderSectionFooter={() => <View style={{ height: 16 }} />}
+                        onEndReachedThreshold={0.4}
+                        onEndReached={() => {
+                            if (hasMoreTransactions) loadMoreTransactions();
+                        }}
+                        ListFooterComponent={
+                            isLoadingMore ? (
+                                <Text style={styles.footerLoading}>Memuat transaksi berikutnya…</Text>
+                            ) : hasMoreTransactions ? (
+                                <Text style={styles.footerHint}>Gulir ke bawah untuk memuat lebih banyak.</Text>
+                            ) : null
+                        }
                     />
                 )}
             </View>
@@ -251,6 +267,20 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             paddingBottom: 80,
         },
         listContent: {},
+        footerLoading: {
+            textAlign: 'center',
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+            paddingVertical: 14,
+        },
+        footerHint: {
+            textAlign: 'center',
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+            paddingVertical: 14,
+        },
         sectionHeader: {
             marginTop: 10,
             marginBottom: 8,

@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import type { Transaction, TransactionFilter, DailySummary, CategorySummary, MonthlySummary } from '../types/transaction';
 import {
     fetchTransactions,
+    fetchTransactionsTotals,
     fetchTransactionById,
     fetchRecentTransactions,
     insertTransaction,
@@ -12,6 +13,7 @@ import {
     fetchCategorySummary,
     fetchMonthlyData,
 } from '../database/transactionQueries';
+import type { TransactionTotals } from '../database/transactionQueries';
 import { isSameDay, startOfDay, endOfDay } from '../utils/date';
 import { useWalletStore } from './useWalletStore';
 import { useProfileStore } from './useProfileStore';
@@ -19,10 +21,21 @@ import { useAuthStore } from './useAuthStore';
 import { supabase } from '../lib/supabase';
 import { handleRealtimePayload, syncDatabase } from '../database/sync';
 import { RealtimeChannel } from '@supabase/supabase-js';
+
+/**
+ * Ukuran satu halaman transaksi (§6.4). List dijaga tetap ringan dengan
+ * memuat bertahap, bukan menarik seluruh riwayat sekaligus.
+ */
+export const TRANSACTION_PAGE_SIZE = 500;
+
 interface TransactionState {
     transactions: Transaction[];
     recentTransactions: Transaction[];
     isLoading: boolean;
+    isLoadingMore: boolean;
+    hasMoreTransactions: boolean;
+    /** Ringkasan daftar (dihitung SQL), tidak terpengaruh paginasi. */
+    listTotals: TransactionTotals;
     filter: TransactionFilter;
     totalIncome: number;
     totalExpense: number;
@@ -30,6 +43,7 @@ interface TransactionState {
 
     // Actions
     loadTransactions: (filter?: TransactionFilter) => Promise<void>;
+    loadMoreTransactions: () => Promise<void>;
     loadRecent: () => Promise<void>;
     addTransaction: (data: Omit<Transaction, 'id' | 'created_at'> & { wallet_id?: string }) => Promise<Transaction>;
     editTransaction: (id: string, data: Partial<Omit<Transaction, 'id' | 'created_at'>>) => Promise<void>;
@@ -50,6 +64,9 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     transactions: [],
     recentTransactions: [],
     isLoading: false,
+    isLoadingMore: false,
+    hasMoreTransactions: false,
+    listTotals: { count: 0, totalIncome: 0, totalExpense: 0 },
     filter: { type: 'all', period: 'month' },
     totalIncome: 0,
     totalExpense: 0,
@@ -61,10 +78,38 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
             const profileId = useProfileStore.getState().activeProfileId;
             const userEmail = useAuthStore.getState().user?.email;
             const f = { ...filter ?? get().filter, profile_id: profileId || undefined, userEmail: userEmail || undefined };
-            const data = await fetchTransactions(f);
-            set({ transactions: data, filter: f });
+            const [data, totals] = await Promise.all([
+                fetchTransactions({ ...f, limit: TRANSACTION_PAGE_SIZE }),
+                fetchTransactionsTotals(f),
+            ]);
+            set({
+                transactions: data,
+                filter: f,
+                listTotals: totals,
+                hasMoreTransactions: data.length === TRANSACTION_PAGE_SIZE,
+            });
         } finally {
             set({ isLoading: false });
+        }
+    },
+
+    loadMoreTransactions: async () => {
+        const { isLoading, isLoadingMore, hasMoreTransactions, filter, transactions } = get();
+        if (!hasMoreTransactions || isLoading || isLoadingMore) return;
+
+        set({ isLoadingMore: true });
+        try {
+            const data = await fetchTransactions({
+                ...filter,
+                limit: TRANSACTION_PAGE_SIZE,
+                offset: transactions.length,
+            });
+            set((state) => ({
+                transactions: [...state.transactions, ...data],
+                hasMoreTransactions: data.length === TRANSACTION_PAGE_SIZE,
+            }));
+        } finally {
+            set({ isLoadingMore: false });
         }
     },
 

@@ -6,6 +6,7 @@ import { getInitializedDatabase } from '../../src/database/schema';
 import {
     insertTransaction,
     fetchTransactions,
+    fetchTransactionsTotals,
     fetchTransactionById,
     fetchRecentTransactions,
     deleteTransaction,
@@ -151,6 +152,66 @@ describe('fetchTransactions', () => {
         const theirs = await fetchTransactions({ profile_id: 'p2' });
         expect(theirs).toHaveLength(1);
         expect(theirs[0].profile_id).toBe('p2');
+    });
+});
+
+describe('pagination & totals', () => {
+    beforeEach(async () => {
+        for (let i = 0; i < 5; i += 1) {
+            await insertTransaction(
+                expense({
+                    type: i % 2 === 0 ? 'expense' : 'income',
+                    amount: 10000 * (i + 1),
+                    category: `Kategori ${i}`,
+                    date: NOW - i * DAY,
+                }) as never,
+            );
+        }
+    });
+
+    it('tetap mengambil semua baris bila limit tidak dikirim', async () => {
+        expect(await fetchTransactions()).toHaveLength(5);
+    });
+
+    it('membatasi baris sesuai limit dengan urutan yang sama', async () => {
+        const page = await fetchTransactions({ limit: 2 });
+        const all = await fetchTransactions();
+
+        expect(page).toHaveLength(2);
+        expect(page.map((row) => row.id)).toEqual(all.slice(0, 2).map((row) => row.id));
+    });
+
+    it('lanjut ke halaman berikutnya lewat offset', async () => {
+        const all = await fetchTransactions();
+        const page = await fetchTransactions({ limit: 2, offset: 2 });
+
+        expect(page.map((row) => row.id)).toEqual(all.slice(2, 4).map((row) => row.id));
+    });
+
+    it('mengabaikan offset tanpa limit', async () => {
+        expect(await fetchTransactions({ offset: 2 })).toHaveLength(5);
+    });
+
+    it('menghitung ringkasan daftar terlepas dari paginasi', async () => {
+        await expect(fetchTransactionsTotals()).resolves.toEqual({
+            count: 5,
+            totalIncome: 60000,
+            totalExpense: 90000,
+        });
+    });
+
+    it('ringkasan membaca filter yang sama dengan daftarnya', async () => {
+        await expect(fetchTransactionsTotals({ type: 'income' })).resolves.toEqual({
+            count: 2,
+            totalIncome: 60000,
+            totalExpense: 0,
+        });
+    });
+
+    it('ringkasan kosong bila tidak ada baris yang cocok', async () => {
+        await expect(
+            fetchTransactionsTotals({ period: 'custom', startDate: NOW + DAY, endDate: NOW + 2 * DAY }),
+        ).resolves.toEqual({ count: 0, totalIncome: 0, totalExpense: 0 });
     });
 });
 

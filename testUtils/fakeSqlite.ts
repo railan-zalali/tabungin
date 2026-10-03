@@ -118,6 +118,7 @@ interface ParsedSelect {
     group: string | null;
     order: string | null;
     hasLimit: boolean;
+    hasOffset: boolean;
 }
 
 function nextMarker(rest: string, from: number): number {
@@ -142,6 +143,7 @@ function parseSelect(sql: string): ParsedSelect {
     const groupIndex = rest.indexOf(' GROUP BY ');
     const orderIndex = rest.indexOf(' ORDER BY ');
     const limitIndex = rest.indexOf(' LIMIT ?');
+    const offsetIndex = rest.indexOf(' OFFSET ?');
 
     const whereEnd = nextMarker(rest, whereIndex >= 0 ? whereIndex + 7 : 0);
     const groupEnd = nextMarker(rest, groupIndex >= 0 ? groupIndex + 10 : 0);
@@ -154,6 +156,7 @@ function parseSelect(sql: string): ParsedSelect {
         group: groupIndex >= 0 ? rest.slice(groupIndex + 10, groupEnd).trim() : null,
         order: orderIndex >= 0 ? rest.slice(orderIndex + 10, orderEnd).trim() : null,
         hasLimit: limitIndex >= 0,
+        hasOffset: offsetIndex >= 0,
     };
 }
 
@@ -304,13 +307,14 @@ export class FakeSqlite {
         const query = normalize(sql);
         const select = parseSelect(query);
 
-        // LIMIT ? selalu memakai placeholder terakhir, jadi harus dilepas
-        // dari parameter WHERE sebelum evaluasi (urutan param tetap urut tulis).
-        const hasLimit = select.hasLimit;
-        const limit = hasLimit ? Number(params[params.length - 1]) : null;
+        // LIMIT ? / OFFSET ? memakai placeholder terakhir (urut menurut tulisan),
+        // jadi harus dilepas dari parameter WHERE sebelum evaluasi.
+        const trailingParams = (select.hasLimit ? 1 : 0) + (select.hasOffset ? 1 : 0);
+        const limit = select.hasLimit ? Number(params[params.length - trailingParams]) : null;
+        const offset = select.hasOffset ? Number(params[params.length - 1]) : 0;
         const whereParams = select.where
-            ? hasLimit
-                ? params.slice(0, params.length - 1)
+            ? trailingParams > 0
+                ? params.slice(0, params.length - trailingParams)
                 : params
             : [];
         let rows = this.table(select.table);
@@ -324,7 +328,8 @@ export class FakeSqlite {
             : project(select.cols, rows);
 
         const sorted = sortRows(grouped, select.order);
-        return (limit != null ? sorted.slice(0, limit) : sorted) as T[];
+        const offsetRows = offset > 0 ? sorted.slice(offset) : sorted;
+        return (limit != null ? offsetRows.slice(0, limit) : offsetRows) as T[];
     }
 }
 

@@ -101,14 +101,26 @@ export async function insertTransaction(
 /**
  * Ambil semua transaksi dengan filter opsional
  */
-export async function fetchTransactions(filter?: TransactionFilter & { userEmail?: string }): Promise<Transaction[]> {
-  const db = await getInitializedDatabase();
+export type TransactionQueryFilter = TransactionFilter & {
+  userEmail?: string;
+  limit?: number;
+  offset?: number;
+};
 
-  let query = "SELECT * FROM transactions WHERE sync_status != 'pending_delete'";
+/**
+ * Susun klausul WHERE beserta parameternya untuk semua bacaan transaksi.
+ * Dipakai bersama oleh fetchTransactions() dan fetchTransactionsTotals()
+ * supaya daftar baris dan ringkasannya tidak pernah membaca cakupan berbeda.
+ */
+function buildTransactionsWhere(filter?: TransactionQueryFilter): {
+  where: string;
+  params: (string | number)[];
+} {
+  let where = " WHERE sync_status != 'pending_delete'";
   const params: (string | number)[] = [];
 
   if (filter?.type && filter.type !== "all") {
-    query += " AND type = ?";
+    where += " AND type = ?";
     params.push(filter.type);
   }
 
@@ -116,33 +128,86 @@ export async function fetchTransactions(filter?: TransactionFilter & { userEmail
     const now = Date.now();
     const today = new Date();
     if (filter.period === "today") {
-      query += " AND date >= ? AND date <= ?";
+      where += " AND date >= ? AND date <= ?";
       params.push(startOfDay(today).getTime(), endOfDay(today).getTime());
     } else if (filter.period === "week") {
       const weekAgo = new Date(today);
       weekAgo.setDate(today.getDate() - 7);
-      query += " AND date >= ?";
+      where += " AND date >= ?";
       params.push(weekAgo.getTime());
     } else if (filter.period === "month") {
-      query += " AND date >= ?";
+      where += " AND date >= ?";
       params.push(startOfMonth().getTime());
     } else if (filter.period === "custom" && filter.startDate && filter.endDate) {
-      query += " AND date >= ? AND date <= ?";
+      where += " AND date >= ? AND date <= ?";
       params.push(filter.startDate, filter.endDate);
     }
   }
 
   if (filter?.searchQuery) {
-    query += " AND (note LIKE ? OR category LIKE ?)";
+    where += " AND (note LIKE ? OR category LIKE ?)";
     const s = `%${filter.searchQuery}%`;
     params.push(s, s);
   }
 
-  query = applyAccessibleTransactionScope(query, params, filter?.profile_id, filter?.userEmail);
+  where = applyAccessibleTransactionScope(where, params, filter?.profile_id, filter?.userEmail);
 
-  query += " ORDER BY date DESC, created_at DESC";
+  return { where, params };
+}
+
+export async function fetchTransactions(filter?: TransactionQueryFilter): Promise<Transaction[]> {
+  const db = await getInitializedDatabase();
+  const { where, params } = buildTransactionsWhere(filter);
+
+  let query = "SELECT * FROM transactions" + where + " ORDER BY date DESC, created_at DESC";
+
+  // Pagination opsional (§6.4): default tetap mengambil semua baris agar
+  // perilaku pemanggil lama tidak berubah. `offset` hanya dipakai bersama
+  // `limit`, karena urutan halaman ditentukan oleh ORDER BY di atas.
+  if (filter?.limit != null) {
+    query += " LIMIT ?";
+    params.push(filter.limit);
+    if (filter.offset) {
+      query += " OFFSET ?";
+      params.push(filter.offset);
+    }
+  }
 
   return await db.getAllAsync<Transaction>(query, params);
+}
+
+export interface TransactionTotals {
+  count: number;
+  totalIncome: number;
+  totalExpense: number;
+}
+
+/**
+ * Ringkasan daftar transaksi (jumlah + total pemasukan/pengeluaran) dihitung
+ * langsung oleh SQL. Terpisah dari baris yang dimuat sehingga angka di layar
+ * tetap utuh walaupun daftarnya dipaginasi.
+ */
+export async function fetchTransactionsTotals(
+  filter?: TransactionQueryFilter,
+): Promise<TransactionTotals> {
+  const db = await getInitializedDatabase();
+  const { where, params } = buildTransactionsWhere(filter);
+
+  const rows = await db.getAllAsync<{ type: string; total: number; count: number }>(
+    "SELECT type, COALESCE(SUM(amount), 0) as total, COUNT(*) as count FROM transactions" +
+      where +
+      " GROUP BY type",
+    params,
+  );
+
+  const totals: TransactionTotals = { count: 0, totalIncome: 0, totalExpense: 0 };
+  for (const row of rows) {
+    totals.count += Number(row.count ?? 0);
+    if (row.type === "income") totals.totalIncome += Number(row.total ?? 0);
+    else if (row.type === "expense") totals.totalExpense += Number(row.total ?? 0);
+  }
+
+  return totals;
 }
 
 /**

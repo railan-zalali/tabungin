@@ -551,6 +551,29 @@ Fitur-fitur berikut dapat diimplementasi sesuai prioritas bisnis:
 3. Pertimbangkan database vacuum/cleanup strategy untuk user dengan data besar
 4. Tambah pagination untuk `fetchTransactions()` jika result set > 500 rows
 
+**Hasil (Okt 2026):**
+
+1. **Selesai** — dijalankan terhadap SQLite sungguhan (20.000 baris `transactions`,
+   3.000 `saving_goals`, dengan `ANALYZE`) memakai query yang benar-benar dipancarkan
+   `transactionQueries.ts` / `savingQueries.ts`:
+   - `fetchTransactions` dengan rentang tanggal memakai `idx_transactions_date`;
+     cabang `wallet_id` dari scope akses memakai `idx_transactions_wallet` lewat
+     MULTI-INDEX OR. Keduanya sudah tepat.
+   - `fetchSavingGoals` tetap `SCAN saving_goals` sebelum *dan* sesudah indeks
+     kandidat ditambahkan — predikat OR-nya membuat indeks tidak terpilih.
+2. **Tidak jadi ditambahkan**, sesuai syarat "jika diperlukan": kedua indeks contoh
+   di atas terbukti **tidak dipakai** oleh rencana query mana pun.
+   `idx_transactions_profile_date` khususnya tidak ada gunanya karena tidak ada
+   query yang menyaring `profile_id` secara langsung — scope memakai subquery wallet.
+   Menambahnya hanya membebani setiap tulisan baris.
+3. **Ditunda** — butuh keputusan retensi/ukuran data dulu (kapan dianggap "besar"),
+   bukan sekadar menyalakan `VACUUM` rutin.
+4. **Selesai** — `fetchTransactions({ limit, offset })` dengan halaman
+   `TRANSACTION_PAGE_SIZE = 500`, `SectionList.onEndReached` memuat halaman
+   berikutnya, dan ringkasan daftar (jumlah + net) dihitung SQL lewat
+   `fetchTransactionsTotals()` sehingga angka di layar tetap utuh walau daftarnya
+   dipaginasi. Default tetap memuat semua baris, jadi perilaku lama tidak berubah.
+
 **Estimasi:** 2–3 hari
 
 ---
