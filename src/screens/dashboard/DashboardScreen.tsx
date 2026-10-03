@@ -19,9 +19,11 @@ import { useTheme } from '../../store/useThemeStore';
 import { useTransactionStore } from '../../store/useTransactionStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import type { DashboardNavigationProp } from '../../types/navigation';
+import { useInsights } from '../../hooks/useInsights';
 import { AppScreenHeader } from '../../components/common/AppScreenHeader';
 import { ContextBadge } from '../../components/common/ContextBadge';
 import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
+import { InsightCard } from '../../components/common/InsightCard';
 import { InsightPanel } from '../../components/common/InsightPanel';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { SectionHeader } from '../../components/common/SectionHeader';
@@ -85,6 +87,8 @@ export function DashboardScreen() {
     const { unreadCount, loadUnreadCount } = useNotificationStore();
     const loadCategories = useCategoryStore((state) => state.loadCategories);
     const categoryCount = useCategoryStore((state) => state.categories.length);
+    const { insights, isLoading: insightLoading, refresh: refreshInsights } = useInsights();
+    const topInsight = insights[0];
 
     const sharedGoalsCount = useMemo(
         () =>
@@ -127,7 +131,7 @@ export function DashboardScreen() {
     const onRefresh = async () => {
         setRefreshing(true);
         try {
-            await loadAll();
+            await Promise.all([loadAll(), refreshInsights()]);
         } finally {
             setRefreshing(false);
         }
@@ -231,32 +235,27 @@ export function DashboardScreen() {
                 </Animated.View>
 
                 <Animated.View entering={FadeInDown.delay(120).springify()} style={styles.sectionGap}>
-                    <InsightPanel
-                        title="Fokus yang layak dipantau"
-                        description={
-                            sharedGoalsCount > 0
-                                ? `Ada ${sharedGoalsCount} target bersama aktif. Pastikan konteks wallet dan ownership tetap jelas saat menambah progres.`
-                                : activeGoals.length > 0
-                                    ? `Masih ada ${activeGoals.length} target aktif. Sedikit kontribusi rutin akan menjaga progres tetap sehat.`
-                                    : 'Belum ada target aktif. Membuat satu target utama akan membantu dashboard terasa lebih actionable.'
-                        }
-                        badges={
-                            <>
-                                <ContextBadge
-                                    icon={netBalance >= 0 ? 'trending-up' : 'trending-down'}
-                                    label={netBalance >= 0 ? 'Arus kas positif' : 'Perlu perhatian'}
-                                    tone={netBalance >= 0 ? 'success' : 'warning'}
-                                />
-                                <ContextBadge icon="calendar-month-outline" label="Bulan berjalan" tone="neutral" />
-                            </>
-                        }
-                        actionLabel={activeGoals.length > 0 ? 'Lihat target aktif' : 'Buat target pertama'}
-                        onAction={() =>
-                            navigation.navigate('Savings', {
-                                screen: activeGoals.length > 0 ? 'SavingList' : 'AddSavingGoal',
-                            })
-                        }
-                    />
+                    {insightLoading ? (
+                        <Skeleton height={140} borderRadius={24} />
+                    ) : topInsight ? (
+                        <InsightCard
+                            insight={topInsight}
+                            actionLabel="Buka detail insight"
+                            onAction={() => navigation.navigate('Report')}
+                        />
+                    ) : (
+                        <InsightPanel
+                            title="Belum ada insight"
+                            description="Belum ada transaksi yang cukup untuk dibaca. Catat transaksi dulu supaya pola pengeluaranmu mulai terbentuk."
+                            actionLabel="Catat transaksi"
+                            onAction={() =>
+                                navigation.navigate('Transactions', {
+                                    screen: 'AddTransaction',
+                                    params: { type: 'expense' },
+                                })
+                            }
+                        />
+                    )}
                 </Animated.View>
 
                 <Animated.View entering={FadeInUp.delay(160).springify()} style={styles.sectionGap}>

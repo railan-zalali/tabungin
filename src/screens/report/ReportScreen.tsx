@@ -9,13 +9,14 @@ import type { CategorySummary, MonthlySummary } from '../../types/transaction';
 import { formatCurrency } from '../../utils/currency';
 import { resolveCategoryByKey } from '../../utils/categoryResolver';
 import { useScreenLayout } from '../../hooks/useScreenLayout';
+import { useInsights } from '../../hooks/useInsights';
 import { useCategoryStore } from '../../store/useCategoryStore';
 import { useTheme } from '../../store/useThemeStore';
 import { useTransactionStore } from '../../store/useTransactionStore';
 import { AppScreenHeader } from '../../components/common/AppScreenHeader';
 import { ContextBadge } from '../../components/common/ContextBadge';
 import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
-import { InsightPanel } from '../../components/common/InsightPanel';
+import { InsightCard } from '../../components/common/InsightCard';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { SectionHeader } from '../../components/common/SectionHeader';
 import { SegmentedControl } from '../../components/common/SegmentedControl';
@@ -93,6 +94,7 @@ export function ReportScreen() {
     const [monthlyData, setMonthlyData] = useState<MonthlySummary[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isExporting, setIsExporting] = useState(false);
+    const { insights, isLoading: insightLoading } = useInsights();
 
     useEffect(() => {
         if (categories.length === 0) {
@@ -188,28 +190,30 @@ export function ReportScreen() {
                     />
                 </View>
 
-                <InsightPanel
-                    title="Insight cepat"
-                    description={
-                        expenseCategories[0]
-                            ? `Kategori pengeluaran terbesar saat ini adalah ${resolveCategoryByKey(expenseCategories[0].category, categories)?.name ?? expenseCategories[0].category}.`
-                            : 'Belum ada pengeluaran yang cukup untuk dibaca pada periode ini.'
-                    }
-                    badges={
-                        <>
-                            <ContextBadge
-                                icon={netBalance >= 0 ? 'trending-up' : 'trending-down'}
-                                label={netBalance >= 0 ? 'Surplus' : 'Defisit'}
-                                tone={netBalance >= 0 ? 'success' : 'warning'}
-                            />
-                            <ContextBadge
-                                icon="lightning-bolt-outline"
-                                label={totalIncome > 0 ? `${Math.max(0, ((totalIncome - totalExpense) / totalIncome) * 100).toFixed(0)}% saving rate` : '0% saving rate'}
-                                tone="neutral"
-                            />
-                        </>
-                    }
-                />
+                <View style={styles.insightList}>
+                    <SectionHeader
+                        title="Detail insight"
+                        subtitle="Dibaca dari pola transaksi 6 bulan terakhir, bukan hanya periode yang dipilih di atas."
+                    />
+
+                    {insightLoading ? (
+                        <EmptyState
+                            icon="lightbulb-on-outline"
+                            title="Menyiapkan insight"
+                            description="Sedang membaca pola pengeluaran, tabungan, dan transaksi tak lazim."
+                            compact
+                        />
+                    ) : insights.length === 0 ? (
+                        <EmptyState
+                            icon="lightbulb-on-outline"
+                            title="Belum ada insight"
+                            description="Tambahkan transaksi dulu supaya pola pengeluaran dan perkiraan bulan depan mulai terbentuk."
+                            compact
+                        />
+                    ) : (
+                        insights.map((insight) => <InsightCard key={insight.id} insight={insight} />)
+                    )}
+                </View>
 
                 {isLoading ? (
                     <EmptyState icon="chart-box-outline" title="Menyiapkan laporan" description="Sedang memuat snapshot dan breakdown kategori." compact />
@@ -316,6 +320,9 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             borderColor: colors.border,
             borderRadius: BorderRadius['4xl'],
             padding: 18,
+            gap: 12,
+        },
+        insightList: {
             gap: 12,
         },
         categoryRow: {
