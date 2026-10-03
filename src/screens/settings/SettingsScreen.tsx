@@ -148,7 +148,7 @@ export function SettingsScreen() {
                         tone="primary"
                         title="Daftar dompet"
                         subtitle="Kelola dompet pribadi, shared wallet, dan saldo aktif."
-                        onPress={() => navigation.navigate('WalletList')}
+                        onPress={() => navigation.navigate('Wallet', { screen: 'WalletList' })}
                     />
                 </SettingSection>
 

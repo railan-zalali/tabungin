@@ -13,8 +13,21 @@ import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
 import { TabNavigator } from './TabNavigator';
 import { SavingStackNavigator } from './SavingStackNavigator';
 import { BudgetScreen } from '../screens/budget/BudgetScreen';
+import { withScreenErrorBoundary } from '../components/common/AppErrorBoundary';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+// Bungkus leaf screen; container navigator dibungkus juga agar crash
+// di dalam satu stack tidak membawa seluruh navigator.
+const Screen = {
+    Onboarding: withScreenErrorBoundary(OnboardingScreen),
+    Login: withScreenErrorBoundary(LoginScreen),
+    Register: withScreenErrorBoundary(RegisterScreen),
+    ForgotPassword: withScreenErrorBoundary(ForgotPasswordScreen),
+    Main: TabNavigator,
+    Budget: withScreenErrorBoundary(BudgetScreen),
+    Savings: SavingStackNavigator,
+};
 
 export function RootNavigator() {
     const { isLoggedIn, loadSession, isLoading } = useAuthStore();
@@ -39,16 +52,16 @@ export function RootNavigator() {
         <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
             {!isLoggedIn ? (
                 <>
-                    <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-                    <Stack.Screen name="Login" component={LoginScreen} />
-                    <Stack.Screen name="Register" component={RegisterScreen} />
-                    <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+                    <Stack.Screen name="Onboarding" component={Screen.Onboarding} />
+                    <Stack.Screen name="Login" component={Screen.Login} />
+                    <Stack.Screen name="Register" component={Screen.Register} />
+                    <Stack.Screen name="ForgotPassword" component={Screen.ForgotPassword} />
                 </>
             ) : (
                 <>
-                    <Stack.Screen name="Main" component={TabNavigator} />
-                    <Stack.Screen name="Budget" component={BudgetScreen} />
-                    <Stack.Screen name="Savings" component={SavingStackNavigator} />
+                    <Stack.Screen name="Main" component={Screen.Main} />
+                    <Stack.Screen name="Budget" component={Screen.Budget} />
+                    <Stack.Screen name="Savings" component={Screen.Savings} />
                 </>
             )}
         </Stack.Navigator>

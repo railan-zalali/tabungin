@@ -24,6 +24,11 @@ import { TransactionStackNavigator } from './TransactionStackNavigator';
 import { WalletStackNavigator } from './WalletStackNavigator';
 import { ReportScreen } from '../screens/report/ReportScreen';
 import { SettingsStackNavigator } from './SettingsStackNavigator';
+import { withScreenErrorBoundary } from '../components/common/AppErrorBoundary';
+
+// Di-hoist ke module scope agar tipe komponen stabil (tidak remount tiap render).
+const Dashboard = withScreenErrorBoundary(DashboardScreen);
+const Report = withScreenErrorBoundary(ReportScreen);
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
@@ -227,10 +232,10 @@ export function TabNavigator() {
                 tabBarHideOnKeyboard: true,
             }}
         >
-            <Tab.Screen name="Dashboard" component={DashboardScreen} />
+            <Tab.Screen name="Dashboard" component={Dashboard} />
             <Tab.Screen name="Transactions" component={TransactionStackNavigator} />
             <Tab.Screen name="Wallet" component={WalletStackNavigator} />
-            <Tab.Screen name="Report" component={ReportScreen} />
+            <Tab.Screen name="Report" component={Report} />
             <Tab.Screen name="Settings" component={SettingsStackNavigator} />
         </Tab.Navigator>
     );

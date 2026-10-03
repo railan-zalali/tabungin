@@ -22,8 +22,6 @@ export const linking = {
                         screens: {
                             SettingsMain: 'settings',
                             Profile: 'profile',
-                            WalletList: 'wallets',
-                            AddWallet: 'wallet/:walletId',
                         },
                     },
                 },

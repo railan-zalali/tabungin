@@ -5,6 +5,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 interface Props {
     children: React.ReactNode;
+    /** Optional: tampilan fallback kustom, misal untuk screen-level isolation */
+    fallbackTitle?: string;
 }
 
 interface State {
@@ -20,7 +22,7 @@ export class AppErrorBoundary extends Component<Props, State> {
     }
 
     componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-        console.error('[AppErrorBoundary] Uncaught error:', error, errorInfo);
+        console.error('[AppErrorBoundary] Uncaught error:', error, errorInfo, errorInfo?.componentStack);
     }
 
     handleReload = () => {
@@ -38,7 +40,7 @@ export class AppErrorBoundary extends Component<Props, State> {
                     <View style={styles.iconWrap}>
                         <MaterialCommunityIcons name="alert-circle-outline" size={56} color="#FF6B6B" />
                     </View>
-                    <Text style={styles.title}>Terjadi Kesalahan</Text>
+                    <Text style={styles.title}>{this.props.fallbackTitle ?? 'Terjadi Kesalahan'}</Text>
                     <Text style={styles.subtitle}>
                         Aplikasi mengalami error yang tidak terduga. Coba muat ulang untuk melanjutkan.
                     </Text>
@@ -54,6 +56,26 @@ export class AppErrorBoundary extends Component<Props, State> {
             </View>
         );
     }
+}
+
+/**
+ * HOC untuk isolasi error per-screen: crash di satu screen hanya menampilkan
+ * fallback screen itu, bukan membawa seluruh navigator/app.
+ * Dipakai di navigator sebagai `component={withScreenErrorBoundary(XScreen)}`.
+ */
+export function withScreenErrorBoundary<P extends object>(
+    Component: React.ComponentType<P>,
+    fallbackTitle?: string,
+): React.ComponentType<P> {
+    function Wrapped(props: P) {
+        return (
+            <AppErrorBoundary fallbackTitle={fallbackTitle}>
+                <Component {...props} />
+            </AppErrorBoundary>
+        );
+    }
+    Wrapped.displayName = `withErrorBoundary(${Component.displayName ?? Component.name ?? 'Screen'})`;
+    return Wrapped;
 }
 
 const styles = StyleSheet.create({
