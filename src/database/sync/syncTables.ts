@@ -111,13 +111,21 @@ export const SYNC_TABLES: SyncTable[] = [
         tableName: 'budgets',
         columns: ['id', 'category', 'amount', 'month', 'year', 'created_at', 'updated_at', 'wallet_id', 'profile_id'],
     },
+    {
+        tableName: 'debts',
+        columns: ['id', 'user_id', 'type', 'counterparty', 'counterparty_email', 'amount', 'remaining_amount', 'interest_rate', 'due_date', 'note', 'status', 'wallet_id', 'profile_id', 'created_at', 'updated_at'],
+    },
+    {
+        tableName: 'debt_payments',
+        columns: ['id', 'debt_id', 'amount', 'date', 'note', 'created_at', 'updated_at'],
+    },
 ];
 
 // Tabel yang tidak lagi didukung di remote (Supabase)
 export const unsupportedRemoteTables = new Set<string>();
 
 // Tabel yang membutuhkan parent wallet di Supabase
-const TABLES_REQUIRING_REMOTE_WALLET = ['transactions', 'budgets', 'saving_goals', 'wallet_members'];
+const TABLES_REQUIRING_REMOTE_WALLET = ['transactions', 'budgets', 'saving_goals', 'wallet_members', 'debts'];
 
 export function tableRequiresRemoteWallet(tableName: string): boolean {
     return TABLES_REQUIRING_REMOTE_WALLET.includes(tableName);

@@ -15,7 +15,7 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 
 // ─── VERSI SCHEMA SAAT INI ─────────────────────────────────────────
 // Naikkan angka ini setiap kali ada perubahan schema database
-const CURRENT_DB_VERSION = 13;
+const CURRENT_DB_VERSION = 14;
 
 // ─── DAFTAR MIGRASI ───────────────────────────────────────────────
 // Key = nomor versi target, value = SQL yang dijalankan untuk upgrade ke versi itu
@@ -283,6 +283,47 @@ const MIGRATIONS: Record<number, string[]> = {
         `CREATE INDEX IF NOT EXISTS idx_sharing_activity_log_wallet_id ON sharing_activity_log (wallet_id);`,
         `CREATE INDEX IF NOT EXISTS idx_sharing_activity_log_timestamp ON sharing_activity_log (timestamp DESC);`,
     ],
+    14: [
+        // Versi 14: Debt Tracking Module
+        `CREATE TABLE IF NOT EXISTS debts (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            type TEXT NOT NULL CHECK(type IN ('debt', 'receivable')),
+            counterparty TEXT NOT NULL,
+            counterparty_email TEXT,
+            amount REAL NOT NULL,
+            remaining_amount REAL NOT NULL,
+            interest_rate REAL DEFAULT 0,
+            due_date INTEGER,
+            note TEXT,
+            status TEXT DEFAULT 'active' CHECK(status IN ('active', 'paid', 'cancelled')),
+            wallet_id TEXT,
+            profile_id TEXT,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER,
+            sync_status TEXT DEFAULT 'pending_create'
+        );`,
+        `CREATE TABLE IF NOT EXISTS debt_payments (
+            id TEXT PRIMARY KEY,
+            debt_id TEXT NOT NULL,
+            amount REAL NOT NULL,
+            date INTEGER NOT NULL,
+            note TEXT,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER,
+            sync_status TEXT DEFAULT 'pending_create',
+            FOREIGN KEY (debt_id) REFERENCES debts(id) ON DELETE CASCADE
+        );`,
+        `CREATE INDEX IF NOT EXISTS idx_debts_user ON debts (user_id);`,
+        `CREATE INDEX IF NOT EXISTS idx_debts_profile ON debts (profile_id);`,
+        `CREATE INDEX IF NOT EXISTS idx_debts_status ON debts (profile_id, status);`,
+        `CREATE INDEX IF NOT EXISTS idx_debts_due ON debts (due_date);`,
+        `CREATE INDEX IF NOT EXISTS idx_debt_payments_debt ON debt_payments (debt_id);`,
+        `CREATE INDEX IF NOT EXISTS idx_debt_payments_date ON debt_payments (date DESC);`,
+        // Bersihkan tabel users lokal: autentikasi sudah via Supabase Auth,
+        // hashing password lokal (SHA-256 + static salt) sudah dihapus.
+        `DROP TABLE IF EXISTS users;`,
+    ],
 };
 
 const SCHEMA_GUARDS: string[] = [
@@ -405,6 +446,39 @@ const SCHEMA_GUARDS: string[] = [
     );`,
     `CREATE INDEX IF NOT EXISTS idx_categories_user ON transaction_categories (user_id);`,
     `CREATE INDEX IF NOT EXISTS idx_categories_type ON transaction_categories (user_id, type);`,
+    `CREATE TABLE IF NOT EXISTS debts (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        type TEXT NOT NULL CHECK(type IN ('debt', 'receivable')),
+        counterparty TEXT NOT NULL,
+        counterparty_email TEXT,
+        amount REAL NOT NULL,
+        remaining_amount REAL NOT NULL,
+        interest_rate REAL DEFAULT 0,
+        due_date INTEGER,
+        note TEXT,
+        status TEXT DEFAULT 'active' CHECK(status IN ('active', 'paid', 'cancelled')),
+        wallet_id TEXT,
+        profile_id TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER,
+        sync_status TEXT DEFAULT 'pending_create'
+    );`,
+    `CREATE INDEX IF NOT EXISTS idx_debts_user ON debts (user_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_debts_profile ON debts (profile_id);`,
+    `CREATE INDEX IF NOT EXISTS idx_debts_status ON debts (profile_id, status);`,
+    `CREATE TABLE IF NOT EXISTS debt_payments (
+        id TEXT PRIMARY KEY,
+        debt_id TEXT NOT NULL,
+        amount REAL NOT NULL,
+        date INTEGER NOT NULL,
+        note TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER,
+        sync_status TEXT DEFAULT 'pending_create',
+        FOREIGN KEY (debt_id) REFERENCES debts(id) ON DELETE CASCADE
+    );`,
+    `CREATE INDEX IF NOT EXISTS idx_debt_payments_debt ON debt_payments (debt_id);`,
 ];
 
 // ─── RUNNER MIGRASI ───────────────────────────────────────────────
@@ -489,6 +563,41 @@ async function runSchemaGuards(database: SQLite.SQLiteDatabase): Promise<void> {
                     FOREIGN KEY (goal_id) REFERENCES saving_goals(id) ON DELETE CASCADE
                 );`,
                 requiredColumns: ['goal_id', 'wallet_id', 'user_email', 'action', 'performed_by', 'timestamp', 'created_at', 'updated_at']
+            },
+            debts: {
+                sql: `CREATE TABLE IF NOT EXISTS debts (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    type TEXT NOT NULL CHECK(type IN ('debt', 'receivable')),
+                    counterparty TEXT NOT NULL,
+                    counterparty_email TEXT,
+                    amount REAL NOT NULL,
+                    remaining_amount REAL NOT NULL,
+                    interest_rate REAL DEFAULT 0,
+                    due_date INTEGER,
+                    note TEXT,
+                    status TEXT DEFAULT 'active' CHECK(status IN ('active', 'paid', 'cancelled')),
+                    wallet_id TEXT,
+                    profile_id TEXT,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER,
+                    sync_status TEXT DEFAULT 'pending_create'
+                );`,
+                requiredColumns: ['user_id', 'type', 'counterparty', 'amount', 'remaining_amount', 'status', 'profile_id', 'created_at']
+            },
+            debt_payments: {
+                sql: `CREATE TABLE IF NOT EXISTS debt_payments (
+                    id TEXT PRIMARY KEY,
+                    debt_id TEXT NOT NULL,
+                    amount REAL NOT NULL,
+                    date INTEGER NOT NULL,
+                    note TEXT,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER,
+                    sync_status TEXT DEFAULT 'pending_create',
+                    FOREIGN KEY (debt_id) REFERENCES debts(id) ON DELETE CASCADE
+                );`,
+                requiredColumns: ['debt_id', 'amount', 'date', 'created_at']
             },
             recurring_transactions: {
                 sql: `CREATE TABLE IF NOT EXISTS recurring_transactions (
@@ -584,7 +693,7 @@ export async function initDatabase(): Promise<void> {
 
             // [SELF-HEALING] Pastikan tabel baru tersedia (untuk mengatasi inkonsistensi versi migrasi)
             const tablesToCheck = ['transactions', 'saving_goals', 'saving_logs', 'budgets'];
-            const newTables = ['notifications', 'wallet_goals_shared', 'sharing_activity_log', 'recurring_transactions', 'transaction_categories'];
+            const newTables = ['notifications', 'wallet_goals_shared', 'sharing_activity_log', 'recurring_transactions', 'transaction_categories', 'debts', 'debt_payments'];
 
             // Cek tabel-tabel yang perlu repair kolom
             for (const table of tablesToCheck) {
@@ -764,9 +873,9 @@ export async function clearAllData(): Promise<void> {
         await database.runAsync('DELETE FROM wallet_members');
         await database.runAsync('DELETE FROM wallets');
         await database.runAsync('DELETE FROM profiles');
-        // Jangan hapus tabel users jika masih dipakai untuk cache, tapi karena auth sudah via Supabase, aman untuk dihapus atau diabaikan.
-        // Untuk amannya, kita hapus juga users lokal
-        await database.runAsync('DELETE FROM users');
+        // Tabel users lokal sudah tidak dipakai (auth via Supabase Auth).
+        // DROP IF EXISTS membersihkan instalasi lama tanpa error pada instalasi baru.
+        await database.runAsync('DROP TABLE IF EXISTS users');
     });
 }
 
