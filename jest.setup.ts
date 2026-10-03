@@ -1,5 +1,6 @@
 // Jest setup — mock untuk modul Expo dan Supabase
 import 'react-native-gesture-handler/jestSetup';
+import type { ReactNode } from 'react';
 
 // Mock expo modules
 jest.mock('expo-sqlite', () => ({
@@ -38,6 +39,7 @@ jest.mock('expo-linear-gradient', () => ({
 jest.mock('expo-font', () => ({
     useFonts: jest.fn().mockReturnValue([true, null]),
     isLoaded: jest.fn().mockReturnValue(true),
+    loadAsync: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('expo-status-bar', () => ({
@@ -242,11 +244,25 @@ jest.mock('react-native-reanimated', () => {
 
 // Mock react-native-safe-area-context
 jest.mock('react-native-safe-area-context', () => {
+    const React = require('react');
     const inset = { top: 0, right: 0, bottom: 0, left: 0 };
+    const frame = { x: 0, y: 0, width: 390, height: 844 };
+
+    // @react-navigation/elements memakai context eksplisit (SafeAreaInsetsContext /
+    // SafeAreaFrameContext); tanpa context yang valid useContext() melempar.
+    const SafeAreaInsetsContext = React.createContext(inset);
+    const SafeAreaFrameContext = React.createContext(frame);
+
     return {
-        SafeAreaProvider: ({ children }: { children: React.ReactNode }) => children,
-        SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
+        SafeAreaProvider: ({ children }: { children?: ReactNode }) => children ?? null,
+        SafeAreaView: ({ children }: { children?: ReactNode }) => children ?? null,
+        SafeAreaConsumer: ({ children }: { children: (value: typeof inset) => ReactNode }) =>
+            children(inset),
         useSafeAreaInsets: () => inset,
+        useSafeAreaFrame: () => frame,
+        SafeAreaInsetsContext,
+        SafeAreaFrameContext,
+        initialWindowMetrics: null,
     };
 });
 
