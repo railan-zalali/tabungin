@@ -7,17 +7,16 @@ import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
-import {
-    useFonts,
-    PlusJakartaSans_400Regular,
-    PlusJakartaSans_600SemiBold,
-    PlusJakartaSans_700Bold,
-} from '@expo-google-fonts/plus-jakarta-sans';
-import {
-    DMSans_400Regular,
-    DMSans_500Medium,
-    DMSans_700Bold,
-} from '@expo-google-fonts/dm-sans';
+// Impor per bobot, bukan dari barrel paketnya: barrel mengekspor seluruh
+// varian (termasuk italic) sehingga 32 file font ikut ter-bundle — app hanya
+// memakai 6 varian ini (lihat src/constants/typography.ts).
+import { useFonts } from 'expo-font';
+import { PlusJakartaSans_400Regular } from '@expo-google-fonts/plus-jakarta-sans/400Regular';
+import { PlusJakartaSans_600SemiBold } from '@expo-google-fonts/plus-jakarta-sans/600SemiBold';
+import { PlusJakartaSans_700Bold } from '@expo-google-fonts/plus-jakarta-sans/700Bold';
+import { DMSans_400Regular } from '@expo-google-fonts/dm-sans/400Regular';
+import { DMSans_500Medium } from '@expo-google-fonts/dm-sans/500Medium';
+import { DMSans_700Bold } from '@expo-google-fonts/dm-sans/700Bold';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { initDatabase } from './src/database/schema';
 import { linking } from './src/navigation/LinkingConfiguration';

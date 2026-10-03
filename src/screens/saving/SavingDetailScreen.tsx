@@ -61,12 +61,15 @@ export function SavingDetailScreen() {
     }, [goalId, loadGoalById, loadLogs, loadSharingDetails]);
 
     useEffect(() => {
-        if (justCompletedGoalId === goalId) {
-            setShowConfetti(true);
-            clearJustCompleted();
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            setTimeout(() => setShowConfetti(false), 5000);
-        }
+        if (justCompletedGoalId !== goalId) return;
+        setShowConfetti(true);
+        clearJustCompleted();
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        // Timer harus dibersihkan: kalau layar ditutup sebelum 5 detik,
+        // setState akan menyasar komponen yang sudah unmount.
+        const timer = setTimeout(() => setShowConfetti(false), 5000);
+        return () => clearTimeout(timer);
     }, [clearJustCompleted, goalId, justCompletedGoalId]);
 
     const handleAddSaving = async () => {

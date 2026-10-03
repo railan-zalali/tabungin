@@ -517,6 +517,46 @@ Fitur-fitur berikut dapat diimplementasi sesuai prioritas bisnis:
 4. Setup performance monitoring (opsional: Sentry Performance)
 5. Optimasi cold start time
 
+**Hasil (Okt 2026):**
+
+1–2. **Belum dijalankan** — React DevTools / React Profiler harus dijalankan di
+   device atau emulator; tidak bisa diukur dari CI. Butuh sesi pemakaian manual.
+3. Optimasi:
+   - **Bundle size — selesai dan terukur.** `expo export --platform android
+     --dump-assetmap`:
+
+     | | Sebelum | Sesudah |
+     |---|---|---|
+     | Aset (font, gambar) | 6,18 MB / 51 file | 1,68 MB / 12 file |
+     | JS bundle (Hermes .hbc) | 6.474 KB | 6.258 KB |
+     | **Total export** | **13 MB** | **7,8 MB (−40%)** |
+
+     Penyebabnya dua barrel: `@expo/vector-icons` (19 set ikon → 3,9 MB font,
+     app cuma pakai `MaterialCommunityIcons`) dan `@expo-google-fonts/*`
+     (32 varian italic+weight → 2,3 MB, app cuma pakai 6). Diperbaiki lewat
+     `metro.config.js` yang mengarahkan `@expo/vector-icons` ke
+     `src/lib/vectorIcons.ts`, plus impor font per bobot di `App.tsx`.
+     Guard regresi: `__tests__/utils/bundleImports.test.ts`.
+   - **List virtualization — sebagian, sesuai bukti.** `TransactionListScreen`
+     sudah `SectionList` (virtualisasi native) dan query-nya kini dipaginasi
+     500 baris (§6.4). `SavingListScreen` sengaja dibiarkan ScrollView: jumlah
+     goal realistis puluhan, memasang FlashList hanya menambah dependensi
+     tanpa manfaat terukur — tinjau lagi bila list mendekati ±200 item.
+   - **Image optimization — belum ada yang bisa dioptimasi.** Kolom `photo_uri`
+     sudah ada di skema tetapi belum ada layar yang mengisinya
+     (`AddSavingGoalScreen` selalu menulis `null`); begitu ada pemilih foto,
+     kompresi `expo-image-manipulator` dipasang di titik itu.
+   - **Query optimization — selesai** (analisis + hasilnya di §6.4).
+   - **Memory leaks — selesai.** Audit semua `useEffect` yang menyetel
+     timer/listener: hanya satu yang belum punya cleanup (confetti di
+     `SavingDetailScreen`) dan kini sudah diberi `clearTimeout`; sisanya sudah
+     bersih.
+4. **Dilewati** — Sentry Performance butuh DSN, di luar scope.
+5. **Cold start — belum terukur**, butuh pengukuran di device nyata
+   (`adb logcat` atau pengukuran waktu ke render pertama). Yang sudah pasti,
+   unduhan awal aplikasi turun ±5,2 MB — komponen utama cold start di
+   perangkat kelas bawah.
+
 **Estimasi:** 1–2 minggu
 
 ### 6.3 Observability & Monitoring
@@ -717,7 +757,7 @@ Sebelum PR di-approve, pastikan:
 | Cold start time | (measure) | < 3s | < 2s |
 | Sync success rate | (unknown) | > 95% | > 99% |
 | Screen design system compliance | 20/23 screens | 23/23 screens | 23/23 screens |
-| Bundle size | (measure) | -10% | -15% |
+| Bundle size | 13 MB (export android) → 7,8 MB | -10% | -15% |
 
 ### 9.2 Product Metrics
 
