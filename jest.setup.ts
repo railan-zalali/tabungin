@@ -165,8 +165,21 @@ jest.mock('react-native-reanimated', () => {
     };
 
     // Entering/exiting layout animations dipakai sebagai prop `entering={FadeInDown}`.
-    // Cukup return identitas; test tidak merender animasi.
-    const layoutAnimation = () => ({});
+    // Return objek berantai (delay/springify/duration/...) agar pola
+    // `FadeInDown.delay(x).springify()` di komponen ikut ter-render di test.
+    const layoutAnimation = (): Record<string, unknown> => {
+        const animation: Record<string, unknown> = {};
+        const chain = () => animation;
+        animation.delay = chain;
+        animation.springify = chain;
+        animation.duration = chain;
+        animation.damping = chain;
+        animation.mass = chain;
+        animation.stiffness = chain;
+        animation.initialVelocity = chain;
+        animation.withCallback = chain;
+        return animation;
+    };
 
     const sharedValue = (initial: unknown) => ({ value: initial });
 
