@@ -115,7 +115,7 @@ export function DebtListScreen() {
                                 ? `Dan ${formatCurrency(summary?.totalReceivable ?? 0)} masih dipinjamkan ke orang lain.`
                                 : 'Belum ada piutang berjalan. Fokus menutup sisa utang dulu.'
                         }
-                        icon="hand-coins-outline"
+                        icon="hand-coin-outline"
                         tone={overdueCount > 0 ? 'warning' : 'primary'}
                         badges={
                             <>
@@ -159,7 +159,7 @@ export function DebtListScreen() {
                 ) : visibleDebts.length === 0 ? (
                     <Animated.View entering={FadeInUp.delay(180).springify()}>
                         <EmptyState
-                            icon={filterTab === 'paid' ? 'check-circle-outline' : 'hand-coins-outline'}
+                            icon={filterTab === 'paid' ? 'check-circle-outline' : 'hand-coin-outline'}
                             title={EMPTY_COPY[filterTab].title}
                             description={EMPTY_COPY[filterTab].description}
                             actionLabel={filterTab === 'paid' ? undefined : 'Catat utang'}

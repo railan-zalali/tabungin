@@ -320,7 +320,7 @@ export function DashboardScreen() {
                         </View>
                     ) : activeDebts.length === 0 ? (
                         <EmptyState
-                            icon="hand-coins-outline"
+                            icon="hand-coin-outline"
                             title="Belum ada utang maupun piutang"
                             description="Catat utang atau piutang supaya sisa kewajiban tidak terlupakan sampai jatuh tempo."
                             actionLabel="Catat utang"

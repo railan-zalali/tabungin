@@ -10,7 +10,8 @@
     },
     "types": [
       "nativewind/types",
-      "jest"
+      "jest",
+      "node"
     ]
   },
   "include": [

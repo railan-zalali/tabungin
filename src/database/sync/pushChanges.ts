@@ -286,7 +286,8 @@ export async function pushChanges() {
 
                 if (!data || data.length === 0) {
                     console.warn(
-                        `[Sync] Update ${table.tableName} skipped because the remote row is not writable:`,
+                        `[Sync] Update ${table.tableName} skipped: remote row tidak ditemukan ` +
+                            `atau diblokir policy RLS (tidak writable oleh sesi ini):`,
                         row.id,
                     );
                     continue;

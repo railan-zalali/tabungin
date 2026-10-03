@@ -112,12 +112,17 @@ export const SYNC_TABLES: SyncTable[] = [
         columns: ['id', 'category', 'amount', 'month', 'year', 'created_at', 'updated_at', 'wallet_id', 'profile_id'],
     },
     {
+        // 'debts'/'debt_payments' bersifat opsional karena tabel remote-nya baru
+        // ditambahkan di migrasi supabase/20261003000001_debt_tracking.sql.
+        // Tabelnya belum ada -> dilewati dengan satu warning, bukan error tiap sync.
         tableName: 'debts',
         columns: ['id', 'user_id', 'type', 'counterparty', 'counterparty_email', 'amount', 'remaining_amount', 'interest_rate', 'due_date', 'note', 'status', 'wallet_id', 'profile_id', 'created_at', 'updated_at'],
+        optional: true,
     },
     {
         tableName: 'debt_payments',
         columns: ['id', 'debt_id', 'amount', 'date', 'note', 'created_at', 'updated_at'],
+        optional: true,
     },
 ];
 

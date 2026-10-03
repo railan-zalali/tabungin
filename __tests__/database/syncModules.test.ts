@@ -44,7 +44,12 @@ describe('SYNC_TABLES', () => {
         expect(debts.columns).toEqual(
             expect.arrayContaining(['type', 'counterparty', 'amount', 'remaining_amount', 'due_date']),
         );
-        expect(debts.optional).toBeFalsy();
+
+        // Keduanya opsional: bila Supabase belum menjalankan migrasi
+        // 20261003000001_debt_tracking.sql, sync melewati dengan satu warning
+        // alih-alih membuang PGRST205 di setiap siklus.
+        expect(debts.optional).toBe(true);
+        expect(SYNC_TABLES.find((table) => table.tableName === 'debt_payments')!.optional).toBe(true);
     });
 });
 
@@ -84,6 +89,18 @@ describe('isRemoteMissingTableError / shouldSkipRemoteTable', () => {
             expect(shouldSkipRemoteTable(optional, { code: 'OTHER' })).toBe(false);
         } finally {
             unsupportedRemoteTables.delete('some_optional');
+        }
+    });
+
+    it('melewati debts bila Supabase belum dijalankan migrasinya', () => {
+        const debts = SYNC_TABLES.find((table) => table.tableName === 'debts')!;
+        const missingTable = { code: 'PGRST205', message: "Could not find the table 'public.debts'" };
+
+        try {
+            expect(shouldSkipRemoteTable(debts, missingTable)).toBe(true);
+            expect(unsupportedRemoteTables.has('debts')).toBe(true);
+        } finally {
+            unsupportedRemoteTables.delete('debts');
         }
     });
 });
