@@ -130,6 +130,13 @@ export function useTheme() {
         infoLight: rgba(BaseColors.info, isDark ? 0.28 : 0.16),
         glassStroke: isDark ? rgba('#FFFFFF', 0.08) : rgba(BaseColors.border, 0.88),
         glassTint: surfaceGlass,
+        // Overlay putih transparan — hanya dipakai di atas surface berwarna/gradien
+        // (hero card, gradient header). Konsisten di light & dark karena gradien
+        // primary sama di kedua mode.
+        heroOverlaySoft: 'rgba(255,255,255,0.14)',
+        heroStroke: 'rgba(255,255,255,0.16)',
+        onHeroMuted: 'rgba(255,255,255,0.82)',
+        heroPill: 'rgba(255,255,255,0.94)',
         heroStart: mix(primaryColor, isDark ? '#FFFFFF' : neutralBase.surface, isDark ? 0.08 : 0.10),
         heroEnd: primaryDark,
         heroSoft: primaryStrong,
