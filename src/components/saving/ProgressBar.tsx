@@ -94,7 +94,7 @@ export function ProgressBar({
     );
 }
 
-const getStyles = (colors: any) =>
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     StyleSheet.create({
         labelRow: {
             flexDirection: 'row',

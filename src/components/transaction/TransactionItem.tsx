@@ -163,7 +163,7 @@ export function TransactionItem({ transaction, onDelete, onEdit, onPress }: Tran
 
 
 
-const getStyles = (colors: any) => StyleSheet.create({
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
     wrapper: {
         position: 'relative',
         overflow: 'hidden',

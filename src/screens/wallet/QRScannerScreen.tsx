@@ -11,6 +11,7 @@ import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { Button } from '../../components/common/Button';
 import { parseWalletInvite } from '../../utils/walletInvite';
+import { CameraScrim, Colors } from '../../constants/colors';
 
 export function QRScannerScreen() {
   const navigation = useNavigation<any>();
@@ -177,7 +178,7 @@ export function QRScannerScreen() {
           </View>
 
           <LinearGradient
-            colors={['rgba(6, 12, 20, 0.10)', 'rgba(6, 12, 20, 0.68)', 'rgba(6, 12, 20, 0.92)']}
+            colors={CameraScrim}
             style={styles.bottomSheet}
           >
             <Text style={styles.instruction}>Arahkan kamera ke QR code undangan</Text>
@@ -213,13 +214,13 @@ export function QRScannerScreen() {
   );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.dark.background },
   center: { justifyContent: 'center', alignItems: 'center', padding: 20 },
   overlay: {
     flex: 1,
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(3, 8, 14, 0.26)',
+    backgroundColor: colors.overlayLight,
   },
   header: {
     flexDirection: 'row',
@@ -232,9 +233,9 @@ const getStyles = (colors: any) => StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: BorderRadius.xl,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: colors.heroOverlaySoft,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
+    borderColor: colors.heroStroke,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -262,7 +263,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     width: 260,
     height: 260,
     borderRadius: BorderRadius.full,
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    backgroundColor: colors.heroOverlay,
   },
   scannerBox: {
     width: 250,
@@ -270,7 +271,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.primary,
     borderRadius: 28,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: colors.heroGlow,
   },
   bottomSheet: {
     width: '100%',
@@ -278,7 +279,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     padding: 18,
     gap: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: colors.heroStroke,
     shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.18,
@@ -291,7 +292,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     fontSize: FontSize.body,
   },
   galleryHint: {
-    color: 'rgba(255,255,255,0.8)',
+    color: colors.onHeroMuted,
     fontFamily: FontFamily.body,
     fontSize: FontSize.caption,
     lineHeight: 18,
@@ -303,7 +304,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     alignItems: 'center',
     gap: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: colors.heroStroke,
     shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 14 },
     shadowOpacity: 0.18,
@@ -319,13 +320,13 @@ const getStyles = (colors: any) => StyleSheet.create({
   permissionText: {
     fontFamily: FontFamily.body,
     fontSize: FontSize.body,
-    color: 'rgba(255,255,255,0.86)',
+    color: colors.onHeroMuted,
     textAlign: 'center',
     lineHeight: 22,
   },
   selectedImageCard: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.96)',
+    backgroundColor: colors.surfaceElevated,
     borderRadius: 24,
     padding: 12,
     flexDirection: 'row',
@@ -334,7 +335,7 @@ const getStyles = (colors: any) => StyleSheet.create({
   },
   selectedImageCardFallback: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: colors.heroOverlaySoft,
     borderRadius: 20,
     padding: 12,
     flexDirection: 'row',

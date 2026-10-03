@@ -87,7 +87,7 @@ export function CategoryPicker({ type, selectedCategory, onSelect }: CategoryPic
     );
 }
 
-const getStyles = (colors: any) =>
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     StyleSheet.create({
         grid: {
             flexDirection: 'row',

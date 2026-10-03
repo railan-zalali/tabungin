@@ -70,7 +70,7 @@ const TAB_META: Record<
     },
 };
 
-function resolveAccentColor(colors: any, accent: (typeof TAB_META)[TabRouteName]['accent']) {
+function resolveAccentColor(colors: ReturnType<typeof useTheme>['colors'], accent: (typeof TAB_META)[TabRouteName]['accent']) {
     switch (accent) {
         case 'success':
             return colors.success;
@@ -241,7 +241,7 @@ export function TabNavigator() {
     );
 }
 
-const getStyles = (colors: any) =>
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     StyleSheet.create({
         tabBarOuter: {
             position: 'absolute',

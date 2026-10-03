@@ -140,7 +140,7 @@ export function Button({
     );
 }
 
-const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize']) => StyleSheet.create({
+const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: ReturnType<typeof useTheme>['textSize']) => StyleSheet.create({
     base: {
         overflow: 'hidden',
         flexDirection: 'row',
@@ -224,6 +224,6 @@ const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize'
     lgText: { fontSize: scaleFontSize(FontSize.h4, textSize) },
     primaryGlow: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(255,255,255,0.12)',
+        backgroundColor: colors.heroOverlaySoft,
     },
 });

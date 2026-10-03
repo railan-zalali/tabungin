@@ -101,6 +101,44 @@ export const Colors = {
     },
 } as const;
 
+// Palet pilihan warna yang disediakan ke pengguna (color picker).
+// Bukan token tema — nilainya tetap di kedua mode.
+export const WalletColorChoices = [
+    '#16A34A',
+    '#F59E0B',
+    '#2563EB',
+    '#7C3AED',
+    '#DB2777',
+    '#DC2626',
+    '#4B5563',
+    '#0891B2',
+];
+
+export const ProfileColorChoices = ['#16A34A', '#2563EB', '#F59E0B', '#DC2626', '#9333EA', '#0891B2'];
+
+export const CategoryColorChoices = [
+    '#FF6B6B',
+    '#4ECDC4',
+    '#45B7D1',
+    '#96CEB4',
+    '#FFEAA7',
+    '#DDA0DD',
+    '#98D8C8',
+    '#2ECC71',
+    '#F39C12',
+    '#3498DB',
+    '#E91E63',
+    '#9B59B6',
+];
+
+// Kromatik kamera (QR scanner): scrim gelap 3-stop di atas live preview.
+// Independen tema — kamera selalu butuh latar gelap agar QR kontras.
+export const CameraScrim = [
+    'rgba(6, 12, 20, 0.10)',
+    'rgba(6, 12, 20, 0.68)',
+    'rgba(6, 12, 20, 0.92)',
+] as const;
+
 // Warna kategori transaksi
 export const CategoryColors: Record<string, string> = {
     'Makan & Minum': '#F59E0B',

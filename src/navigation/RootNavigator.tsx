@@ -68,7 +68,7 @@ export function RootNavigator() {
     );
 }
 
-const getStyles = (colors: any) =>
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     StyleSheet.create({
         loadingRoot: {
             flex: 1,

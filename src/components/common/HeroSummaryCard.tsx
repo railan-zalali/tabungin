@@ -104,7 +104,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             padding: 24,
             overflow: 'hidden',
             borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.18)',
+            borderColor: colors.heroStroke,
             shadowColor: colors.shadowColor,
             shadowOffset: { width: 0, height: 16 },
             shadowOpacity: 0.22,
@@ -118,7 +118,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             borderRadius: BorderRadius.full,
             top: -74,
             right: -20,
-            backgroundColor: 'rgba(255,255,255,0.14)',
+            backgroundColor: colors.heroOverlaySoft,
         },
         glowBottom: {
             position: 'absolute',
@@ -127,7 +127,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             borderRadius: BorderRadius.full,
             bottom: -40,
             left: -12,
-            backgroundColor: 'rgba(255,255,255,0.1)',
+            backgroundColor: colors.heroGlow,
         },
         header: {
             flexDirection: 'row',
@@ -140,7 +140,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
         eyebrow: {
             fontFamily: FontFamily.bodyMedium,
             fontSize: scaleFontSize(FontSize.caption, textSize),
-            color: 'rgba(255,255,255,0.78)',
+            color: colors.onHeroMuted,
             marginBottom: 8,
             textTransform: 'uppercase',
             letterSpacing: 0.5,
@@ -160,7 +160,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
         description: {
             fontFamily: FontFamily.body,
             fontSize: scaleFontSize(FontSize.caption, textSize),
-            color: 'rgba(255,255,255,0.82)',
+            color: colors.onHeroMuted,
             marginTop: 6,
             lineHeight: 18,
         },
@@ -170,9 +170,9 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             borderRadius: BorderRadius['3xl'],
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: 'rgba(255,255,255,0.16)',
+            backgroundColor: colors.heroStroke,
             borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.16)',
+            borderColor: colors.heroStroke,
         },
         badges: {
             flexDirection: 'row',
@@ -193,9 +193,9 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             paddingHorizontal: 12,
             paddingVertical: 8,
             borderRadius: BorderRadius.full,
-            backgroundColor: 'rgba(255,255,255,0.12)',
+            backgroundColor: colors.heroOverlaySoft,
             borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.12)',
+            borderColor: colors.heroOverlaySoft,
         },
         statValue: {
             fontFamily: FontFamily.bodyBold,
@@ -205,7 +205,7 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
         statLabel: {
             fontFamily: FontFamily.body,
             fontSize: scaleFontSize(FontSize.caption, textSize),
-            color: 'rgba(255,255,255,0.82)',
+            color: colors.onHeroMuted,
         },
         cta: {
             marginTop: 18,
@@ -215,9 +215,9 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: Retu
             gap: 4,
             borderRadius: BorderRadius['2xl'],
             paddingVertical: 13,
-            backgroundColor: 'rgba(255,255,255,0.14)',
+            backgroundColor: colors.heroOverlaySoft,
             borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.16)',
+            borderColor: colors.heroStroke,
         },
         ctaText: {
             fontFamily: FontFamily.bodyBold,

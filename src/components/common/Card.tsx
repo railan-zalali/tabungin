@@ -69,7 +69,7 @@ export function Card({
     );
 }
 
-const getStyles = (colors: any) =>
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
     StyleSheet.create({
         base: {
             backgroundColor: colors.surfaceElevated,

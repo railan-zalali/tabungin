@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize } from '../../constants/typography';
+import { Colors } from '../../constants/colors';
 import { AuthScreenLayout } from '../../components/common/AuthScreenLayout';
 import { FormSection } from '../../components/common/FormSection';
 import { StatePanel } from '../../components/common/StatePanel';
@@ -28,9 +29,9 @@ function getStrength(password: string) {
     if (/\d/.test(password)) score += 1;
     if (/[^a-zA-Z0-9]/.test(password)) score += 1;
 
-    if (score <= 2) return { label: 'Perlu diperkuat', color: '#E5533D', width: '36%' as const };
-    if (score <= 3) return { label: 'Sudah cukup', color: '#FF9F1C', width: '68%' as const };
-    return { label: 'Kuat', color: '#18A957', width: '100%' as const };
+    if (score <= 2) return { label: 'Perlu diperkuat', color: Colors.danger, width: '36%' as const };
+    if (score <= 3) return { label: 'Sudah cukup', color: Colors.warning, width: '68%' as const };
+    return { label: 'Kuat', color: Colors.success, width: '100%' as const };
 }
 
 export function RegisterScreen() {

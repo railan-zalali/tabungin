@@ -264,7 +264,7 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
                   <QRCode
                     value={inviteUrl}
                     size={280}
-                    color="#000000"
+                    color={colors.textPrimary}
                     backgroundColor={colors.surfaceElevated}
                   />
                 </View>
@@ -295,7 +295,7 @@ export function WalletMemberList({ walletId }: WalletMemberListProps) {
   );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   container: {
     marginTop: 24,
     gap: 14,

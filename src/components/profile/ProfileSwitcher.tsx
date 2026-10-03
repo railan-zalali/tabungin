@@ -15,8 +15,8 @@ import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { BorderRadius } from '../../constants/theme';
 import { useProfileStore } from '../../store/useProfileStore';
 import { useTheme } from '../../store/useThemeStore';
+import { ProfileColorChoices } from '../../constants/colors';
 
-const PROFILE_COLORS = ['#16A34A', '#2563EB', '#F59E0B', '#DC2626', '#9333EA', '#0891B2'];
 const PROFILE_ICONS = ['account', 'briefcase', 'home', 'school', 'gamepad-variant', 'cart'];
 
 export function ProfileSwitcher() {
@@ -30,7 +30,7 @@ export function ProfileSwitcher() {
 
     // New Profile Form State
     const [newName, setNewName] = useState('');
-    const [newColor, setNewColor] = useState(PROFILE_COLORS[0]);
+    const [newColor, setNewColor] = useState(ProfileColorChoices[0]);
     const [newIcon, setNewIcon] = useState(PROFILE_ICONS[0]);
 
     const activeProfile = profiles.find(p => p.id === activeProfileId) || profiles[0];
@@ -196,7 +196,7 @@ export function ProfileSwitcher() {
                                     <View style={styles.inputGroup}>
                                         <Text style={styles.label}>Warna</Text>
                                         <View style={styles.colorRow}>
-                                            {PROFILE_COLORS.map(color => (
+                                            {ProfileColorChoices.map(color => (
                                                 <TouchableOpacity
                                                     key={color}
                                                     style={[styles.colorOption, { backgroundColor: color }]}
@@ -229,7 +229,7 @@ export function ProfileSwitcher() {
     );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
     triggerBtn: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -258,7 +258,7 @@ const getStyles = (colors: any) => StyleSheet.create({
 
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        backgroundColor: colors.overlay,
         justifyContent: 'center',
         padding: 20,
     },

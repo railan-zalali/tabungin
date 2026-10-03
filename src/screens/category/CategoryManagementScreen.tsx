@@ -30,9 +30,9 @@ import { HeroSummaryCard } from '../../components/common/HeroSummaryCard';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { SectionHeader } from '../../components/common/SectionHeader';
 import { SegmentedControl } from '../../components/common/SegmentedControl';
+import { CategoryColorChoices } from '../../constants/colors';
 
 const DEFAULT_ICONS = ['tag', 'food', 'car', 'shopping', 'gamepad', 'file-document', 'medical-bag', 'school', 'cash', 'star', 'trending-up', 'gift'];
-const DEFAULT_COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#2ECC71', '#F39C12', '#3498DB', '#E91E63', '#9B59B6'];
 
 type CategoryTab = Exclude<CategoryType, 'both'>;
 
@@ -86,7 +86,7 @@ export function CategoryManagementScreen() {
     const [formType, setFormType] = useState<CategoryType>('expense');
     const [formName, setFormName] = useState('');
     const [formIcon, setFormIcon] = useState('tag');
-    const [formColor, setFormColor] = useState(DEFAULT_COLORS[0]);
+    const [formColor, setFormColor] = useState(CategoryColorChoices[0]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [editingCategory, setEditingCategory] = useState<ResolvedCategory | null>(null);
 
@@ -115,7 +115,7 @@ export function CategoryManagementScreen() {
         setFormType(activeTab);
         setFormName('');
         setFormIcon('tag');
-        setFormColor(DEFAULT_COLORS[0]);
+        setFormColor(CategoryColorChoices[0]);
     };
 
     const openAddModal = () => {
@@ -369,7 +369,7 @@ export function CategoryManagementScreen() {
                         <View style={styles.inputBlock}>
                             <Text style={styles.inputLabel}>Warna penanda</Text>
                             <View style={styles.colorRow}>
-                                {DEFAULT_COLORS.map((color) => {
+                                {CategoryColorChoices.map((color) => {
                                     const active = formColor === color;
                                     return (
                                         <TouchableOpacity

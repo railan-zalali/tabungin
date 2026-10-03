@@ -95,7 +95,7 @@ export function EmptyState({
     );
 }
 
-const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize']) => StyleSheet.create({
+const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: ReturnType<typeof useTheme>['textSize']) => StyleSheet.create({
     container: {
         alignItems: 'center',
         justifyContent: 'center',

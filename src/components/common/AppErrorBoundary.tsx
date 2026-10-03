@@ -1,6 +1,7 @@
 // Error Boundary — menangkap error React tree untuk mencegah crash seluruh app
 import React, { Component } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { Colors } from '../../constants/colors';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 interface Props {
@@ -38,7 +39,7 @@ export class AppErrorBoundary extends Component<Props, State> {
             <View style={styles.container}>
                 <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                     <View style={styles.iconWrap}>
-                        <MaterialCommunityIcons name="alert-circle-outline" size={56} color="#FF6B6B" />
+                        <MaterialCommunityIcons name="alert-circle-outline" size={56} color={Colors.danger} />
                     </View>
                     <Text style={styles.title}>{this.props.fallbackTitle ?? 'Terjadi Kesalahan'}</Text>
                     <Text style={styles.subtitle}>
@@ -81,7 +82,7 @@ export function withScreenErrorBoundary<P extends object>(
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0B0F14',
+        backgroundColor: Colors.dark.background,
     },
     content: {
         flex: 1,
@@ -96,19 +97,19 @@ const styles = StyleSheet.create({
         borderRadius: 28,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(255, 107, 107, 0.12)',
+        backgroundColor: Colors.dark.dangerBg,
         borderWidth: 1,
-        borderColor: 'rgba(255, 107, 107, 0.20)',
+        borderColor: Colors.danger,
     },
     title: {
         fontSize: 22,
         fontWeight: '700',
-        color: '#FFFFFF',
+        color: Colors.dark.textPrimary,
         letterSpacing: -0.3,
     },
     subtitle: {
         fontSize: 15,
-        color: 'rgba(255,255,255,0.60)',
+        color: Colors.dark.textSecondary,
         textAlign: 'center',
         lineHeight: 22,
         maxWidth: 320,
@@ -118,24 +119,24 @@ const styles = StyleSheet.create({
         maxWidth: 340,
         padding: 14,
         borderRadius: 12,
-        backgroundColor: 'rgba(255, 107, 107, 0.08)',
+        backgroundColor: Colors.dark.dangerBg,
         borderWidth: 1,
-        borderColor: 'rgba(255, 107, 107, 0.15)',
+        borderColor: Colors.danger,
     },
     errorText: {
         fontSize: 12,
-        color: 'rgba(255, 107, 107, 0.85)',
+        color: Colors.danger,
         fontFamily: 'monospace',
     },
     button: {
-        backgroundColor: '#1DB954',
+        backgroundColor: Colors.primary,
         borderRadius: 14,
         paddingVertical: 14,
         paddingHorizontal: 32,
         marginTop: 8,
     },
     buttonText: {
-        color: '#FFFFFF',
+        color: Colors.textInverse,
         fontSize: 16,
         fontWeight: '600',
     },

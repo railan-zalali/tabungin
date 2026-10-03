@@ -22,23 +22,13 @@ import { WalletMemberList } from '../../components/wallet/WalletMemberList';
 import { useTheme } from '../../store/useThemeStore';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
+import { WalletColorChoices } from '../../constants/colors';
 
 const WALLET_TYPES = [
   { id: 'general', label: 'Umum', icon: 'wallet-outline' },
   { id: 'cash', label: 'Tunai', icon: 'cash' },
   { id: 'bank', label: 'Bank', icon: 'bank-outline' },
   { id: 'e-wallet', label: 'E-Wallet', icon: 'cellphone' },
-];
-
-const COLORS = [
-  '#16A34A',
-  '#F59E0B',
-  '#2563EB',
-  '#7C3AED',
-  '#DB2777',
-  '#DC2626',
-  '#4B5563',
-  '#0891B2',
 ];
 
 export function AddWalletScreen() {
@@ -55,7 +45,7 @@ export function AddWalletScreen() {
 
   const [name, setName] = useState(currentWallet?.name || '');
   const [type, setType] = useState(currentWallet?.type || 'general');
-  const [color, setColor] = useState(currentWallet?.color || COLORS[0]);
+  const [color, setColor] = useState(currentWallet?.color || WalletColorChoices[0]);
   const [balance, setBalance] = useState(
     currentWallet ? formatInputRupiah(currentWallet.balance.toString()) : '0',
   );
@@ -222,7 +212,7 @@ export function AddWalletScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Warna Penanda</Text>
             <View style={styles.colorsRow}>
-              {COLORS.map((c) => (
+              {WalletColorChoices.map((c) => (
                 <TouchableOpacity
                   key={c}
                   style={[styles.colorBtn, { backgroundColor: c }]}
@@ -266,7 +256,7 @@ export function AddWalletScreen() {
   );
 }
 
-const getStyles = (colors: any) =>
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     bgAuraTop: {
@@ -326,7 +316,7 @@ const getStyles = (colors: any) =>
       minHeight: 160,
       justifyContent: 'space-between',
       borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.16)',
+      borderColor: colors.heroStroke,
       shadowColor: colors.shadowColor,
       shadowOpacity: 0.12,
       shadowRadius: 18,
@@ -342,7 +332,7 @@ const getStyles = (colors: any) =>
       width: 44,
       height: 44,
       borderRadius: BorderRadius.xl,
-      backgroundColor: 'rgba(255,255,255,0.9)',
+      backgroundColor: colors.heroPill,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -350,7 +340,7 @@ const getStyles = (colors: any) =>
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
-      backgroundColor: 'rgba(0,0,0,0.18)',
+      backgroundColor: colors.overlayLight,
       paddingHorizontal: 8,
       paddingVertical: 4,
       borderRadius: BorderRadius.full,
@@ -363,7 +353,7 @@ const getStyles = (colors: any) =>
     previewName: {
       fontFamily: FontFamily.bodyMedium,
       fontSize: FontSize.body,
-      color: 'rgba(255,255,255,0.9)',
+      color: colors.heroPill,
       marginBottom: 4,
     },
     previewBalance: {
@@ -374,7 +364,7 @@ const getStyles = (colors: any) =>
     previewMeta: {
       fontFamily: FontFamily.bodyMedium,
       fontSize: FontSize.caption,
-      color: 'rgba(255,255,255,0.8)',
+      color: colors.onHeroMuted,
       marginTop: 4,
     },
     formSection: { gap: 24 },
@@ -441,7 +431,7 @@ const getStyles = (colors: any) =>
       borderRadius: 22,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: 'rgba(0,0,0,0.2)',
+      backgroundColor: colors.overlayLight,
     },
     switchContainer: {
       flexDirection: 'row',

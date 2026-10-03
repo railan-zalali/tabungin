@@ -17,8 +17,8 @@ interface ContextBadgeProps {
 function resolveBadgeColors(colors: ReturnType<typeof useTheme>['colors'], tone: BadgeTone, inverse: boolean) {
     if (inverse) {
         return {
-            backgroundColor: 'rgba(255,255,255,0.14)',
-            borderColor: 'rgba(255,255,255,0.18)',
+            backgroundColor: colors.heroOverlaySoft,
+            borderColor: colors.heroStroke,
             textColor: colors.textInverse,
         };
     }

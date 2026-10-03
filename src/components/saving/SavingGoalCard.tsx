@@ -151,7 +151,7 @@ export function SavingGoalCard({ goal, onPress, onAddSaving, animationDelay = 0 
     );
 }
 
-const getStyles = (colors: any, textSize: ReturnType<typeof useTheme>['textSize']) => StyleSheet.create({
+const getStyles = (colors: ReturnType<typeof useTheme>['colors'], textSize: ReturnType<typeof useTheme>['textSize']) => StyleSheet.create({
     card: {
         backgroundColor: colors.surfaceElevated,
         borderRadius: BorderRadius['4xl'],

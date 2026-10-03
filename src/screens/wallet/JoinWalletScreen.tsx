@@ -268,7 +268,7 @@ export function JoinWalletScreen() {
   );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   bgAuraTop: {
     position: 'absolute',
@@ -342,17 +342,17 @@ const getStyles = (colors: any) => StyleSheet.create({
     width: 150,
     height: 150,
     borderRadius: BorderRadius.full,
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: colors.heroOverlaySoft,
   },
   heroIcon: {
     width: 82,
     height: 82,
     borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.94)',
+    backgroundColor: colors.heroPill,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
+    borderColor: colors.heroStroke,
   },
   walletName: {
     fontFamily: FontFamily.heading,
@@ -373,9 +373,9 @@ const getStyles = (colors: any) => StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: colors.heroOverlaySoft,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
+    borderColor: colors.heroStroke,
   },
   heroChipText: {
     fontFamily: FontFamily.bodyMedium,
