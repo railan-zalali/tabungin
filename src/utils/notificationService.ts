@@ -10,8 +10,10 @@ import { getAllScheduledNotificationsAsync } from 'expo-notifications/build/getA
 import { scheduleNotificationAsync } from 'expo-notifications/build/scheduleNotificationAsync';
 import { v4 as uuidv4 } from 'uuid';
 import type { SavingGoal } from '../types/saving';
+import type { Debt } from '../types/debt';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/useAuthStore';
+import { formatCurrency } from './currency';
 
 setNotificationHandler({
     handleNotification: async () => ({
@@ -96,6 +98,58 @@ export async function cancelGoalReminder(goalId: string): Promise<void> {
         }
     } catch {
         // Ignore if there is no scheduled reminder for this goal.
+    }
+}
+
+/**
+ * Jadwalkan pengingat jatuh tempo satu hari sebelum tenggat pukul 09:00.
+ * Tanpa tanggal atau status bukan 'active' berarti tidak ada pengingat.
+ */
+export async function scheduleDebtReminder(
+    debt: Pick<Debt, 'id' | 'type' | 'counterparty' | 'due_date' | 'status' | 'remaining_amount'>,
+): Promise<void> {
+    if (debt.status !== 'active' || !debt.due_date) return;
+
+    await cancelDebtReminder(debt.id);
+
+    const granted = await requestNotificationPermission();
+    if (!granted) return;
+
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const remindAt = debt.due_date - DAY_MS + 9 * 60 * 60 * 1000;
+    if (remindAt <= Date.now()) return;
+
+    const isDebt = debt.type === 'debt';
+    try {
+        await scheduleNotificationAsync({
+            content: {
+                title: isDebt ? 'Jatuh tempo utang' : 'Jatuh tempo piutang',
+                body: isDebt
+                    ? `${debt.counterparty} jatuh tempo besok. Sisa tagihan ${formatCurrency(debt.remaining_amount)}.`
+                    : `${debt.counterparty} jatuh tempo besok. Sisa yang belum diterima ${formatCurrency(debt.remaining_amount)}.`,
+                data: { debtId: debt.id },
+                sound: true,
+            },
+            trigger: {
+                type: SchedulableTriggerInputTypes.DATE,
+                date: remindAt,
+            },
+        });
+    } catch (error) {
+        console.warn('[Notifikasi] Gagal menjadwalkan reminder jatuh tempo:', error);
+    }
+}
+
+export async function cancelDebtReminder(debtId: string): Promise<void> {
+    try {
+        const scheduled = await getAllScheduledNotificationsAsync();
+        for (const notification of scheduled) {
+            if (notification.content.data?.debtId === debtId) {
+                await cancelScheduledNotificationAsync(notification.identifier);
+            }
+        }
+    } catch {
+        // Ignore if there is no scheduled reminder for this debt.
     }
 }
 

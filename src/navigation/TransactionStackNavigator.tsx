@@ -6,12 +6,18 @@ import { TransactionListScreen } from '../screens/transaction/TransactionListScr
 import { AddTransactionScreen } from '../screens/transaction/AddTransactionScreen';
 import { TransactionDetailScreen } from '../screens/transaction/TransactionDetailScreen';
 import { RecurringTransactionScreen } from '../screens/transaction/RecurringTransactionScreen';
+import { DebtListScreen } from '../screens/debt/DebtListScreen';
+import { AddDebtScreen } from '../screens/debt/AddDebtScreen';
+import { DebtDetailScreen } from '../screens/debt/DebtDetailScreen';
 
 // Di-hoist ke module scope agar tipe komponen stabil (tidak remount tiap render).
 const TransactionList = withScreenErrorBoundary(TransactionListScreen);
 const AddTransaction = withScreenErrorBoundary(AddTransactionScreen);
 const TransactionDetail = withScreenErrorBoundary(TransactionDetailScreen);
 const RecurringTransaction = withScreenErrorBoundary(RecurringTransactionScreen);
+const DebtList = withScreenErrorBoundary(DebtListScreen);
+const AddDebt = withScreenErrorBoundary(AddDebtScreen);
+const DebtDetail = withScreenErrorBoundary(DebtDetailScreen);
 
 const Stack = createNativeStackNavigator<TransactionStackParamList>();
 
@@ -22,6 +28,9 @@ export function TransactionStackNavigator() {
             <Stack.Screen name="AddTransaction" component={AddTransaction} />
             <Stack.Screen name="TransactionDetail" component={TransactionDetail} />
             <Stack.Screen name="RecurringTransaction" component={RecurringTransaction} />
+            <Stack.Screen name="DebtList" component={DebtList} />
+            <Stack.Screen name="AddDebt" component={AddDebt} />
+            <Stack.Screen name="DebtDetail" component={DebtDetail} />
         </Stack.Navigator>
     );
 }

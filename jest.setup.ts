@@ -67,6 +67,14 @@ jest.mock('expo-camera', () => ({
     CameraType: { back: 'back', front: 'front' },
 }));
 
+// Native datetimepicker dipakai AddTransactionScreen / AddDebtScreen.
+jest.mock('@react-native-community/datetimepicker', () => {
+    const React = require('react');
+    const MockDateTimePicker = () => React.createElement('DateTimePicker', null);
+    MockDateTimePicker.displayName = 'DateTimePicker';
+    return { __esModule: true, default: MockDateTimePicker };
+});
+
 jest.mock('expo-linking', () => ({
     createURL: jest.fn((path) => `tabungin://${path}`),
     parse: jest.fn(),

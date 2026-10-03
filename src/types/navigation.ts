@@ -33,6 +33,9 @@ export type TransactionStackParamList = {
     AddTransaction: { editId?: string; type?: 'income' | 'expense' } | undefined;
     TransactionDetail: { transactionId: string };
     RecurringTransaction: undefined;
+    DebtList: undefined;
+    AddDebt: { editId?: string } | undefined;
+    DebtDetail: { debtId: string };
 };
 
 // Saving Stack

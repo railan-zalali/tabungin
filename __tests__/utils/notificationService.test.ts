@@ -13,6 +13,8 @@ import {
     sendGoalCompletedNotification,
     sendBudgetWarningNotification,
     sendWalletInviteNotification,
+    scheduleDebtReminder,
+    cancelDebtReminder,
 } from '../../src/utils/notificationService';
 import { supabase } from '../../src/lib/supabase';
 import { useAuthStore } from '../../src/store/useAuthStore';
@@ -352,5 +354,117 @@ describe('sendWalletInviteNotification', () => {
             expect.any(Error),
         );
         warn.mockRestore();
+    });
+});
+
+describe('scheduleDebtReminder', () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    const now = Date.UTC(2026, 5, 15, 12, 0, 0);
+
+    const debtFixture = (over: Record<string, unknown> = {}) => ({
+        id: 'd1',
+        type: 'debt',
+        counterparty: 'Rina',
+        due_date: now + 5 * DAY,
+        status: 'active',
+        remaining_amount: 400000,
+        ...over,
+    });
+
+    let spyDate: jest.SpyInstance<number, []> | undefined;
+
+    beforeEach(() => {
+        spyDate = jest.spyOn(Date, 'now').mockReturnValue(now);
+    });
+
+    afterEach(() => {
+        spyDate?.mockRestore();
+    });
+
+    it('does nothing for settled debts or debts without a due date', async () => {
+        await scheduleDebtReminder(debtFixture({ status: 'paid' }) as never);
+        await scheduleDebtReminder(debtFixture({ status: 'cancelled' }) as never);
+        await scheduleDebtReminder(debtFixture({ due_date: null }) as never);
+
+        expect(schedule).not.toHaveBeenCalled();
+        expect(cancel).not.toHaveBeenCalled();
+    });
+
+    it('schedules a single-day reminder at 09:00 the day before the due date', async () => {
+        getPerms.mockResolvedValue(grant);
+        getAll.mockResolvedValue([{ identifier: 'prev', content: { data: { debtId: 'd1' } } }]);
+
+        await scheduleDebtReminder(debtFixture() as never);
+
+        expect(cancel).toHaveBeenCalledWith('prev');
+        expect(schedule).toHaveBeenCalledWith({
+            content: {
+                title: 'Jatuh tempo utang',
+                body: expect.stringContaining('Rina'),
+                data: { debtId: 'd1' },
+                sound: true,
+            },
+            trigger: { type: 'date', date: now + 4 * DAY + 9 * 60 * 60 * 1000 },
+        });
+    });
+
+    it('uses receivable wording for piutang', async () => {
+        getPerms.mockResolvedValue(grant);
+
+        await scheduleDebtReminder(debtFixture({ type: 'receivable' }) as never);
+
+        expect(schedule.mock.calls[0][0].content.title).toBe('Jatuh tempo piutang');
+        expect(schedule.mock.calls[0][0].content.body).toContain('Rina');
+    });
+
+    it('skips scheduling when permission is denied', async () => {
+        requestPerms.mockResolvedValue(deny);
+
+        await scheduleDebtReminder(debtFixture() as never);
+
+        expect(schedule).not.toHaveBeenCalled();
+    });
+
+    it('skips scheduling when the reminder moment has already passed', async () => {
+        getPerms.mockResolvedValue(grant);
+
+        await scheduleDebtReminder(debtFixture({ due_date: now - 2 * DAY }) as never);
+
+        expect(schedule).not.toHaveBeenCalled();
+    });
+
+    it('swallows scheduling errors', async () => {
+        const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+        getPerms.mockResolvedValue(grant);
+        schedule.mockRejectedValueOnce(new Error('nope'));
+
+        await expect(scheduleDebtReminder(debtFixture() as never)).resolves.toBeUndefined();
+
+        expect(warn).toHaveBeenCalledWith(
+            '[Notifikasi] Gagal menjadwalkan reminder jatuh tempo:',
+            expect.any(Error),
+        );
+        warn.mockRestore();
+    });
+});
+
+describe('cancelDebtReminder', () => {
+    it('cancels only notifications for the given debt', async () => {
+        getAll.mockResolvedValue([
+            { identifier: 'a', content: { data: { debtId: 'd1' } } },
+            { identifier: 'b', content: { data: { debtId: 'other' } } },
+            { identifier: 'c', content: { data: { goalId: 'g1' } } },
+        ]);
+
+        await cancelDebtReminder('d1');
+
+        expect(cancel).toHaveBeenCalledTimes(1);
+        expect(cancel).toHaveBeenCalledWith('a');
+    });
+
+    it('ignores scheduling API failures', async () => {
+        getAll.mockRejectedValue(new Error('nothing scheduled'));
+
+        await expect(cancelDebtReminder('d1')).resolves.toBeUndefined();
     });
 });

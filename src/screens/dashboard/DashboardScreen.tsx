@@ -11,6 +11,7 @@ import { getGoalComputedMeta } from '../../utils/goalSharing';
 import { useScreenLayout } from '../../hooks/useScreenLayout';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useCategoryStore } from '../../store/useCategoryStore';
+import { useDebtStore } from '../../store/useDebtStore';
 import { useNotificationStore } from '../../store/useNotificationStore';
 import { useProfileStore } from '../../store/useProfileStore';
 import { useSavingStore } from '../../store/useSavingStore';
@@ -26,9 +27,10 @@ import { ScreenShell } from '../../components/common/ScreenShell';
 import { SectionHeader } from '../../components/common/SectionHeader';
 import { EmptyState } from '../../components/common/EmptyState';
 import { SavingGoalCard } from '../../components/saving/SavingGoalCard';
+import { DebtCard } from '../../components/debt/DebtCard';
 import { TransactionItem } from '../../components/transaction/TransactionItem';
 import { ProfileSwitcher } from '../../components/profile/ProfileSwitcher';
-import { SavingGoalCardSkeleton, TransactionItemSkeleton } from '../../components/common/SkeletonLoader';
+import { SavingGoalCardSkeleton, TransactionItemSkeleton, Skeleton } from '../../components/common/SkeletonLoader';
 
 interface QuickAction {
     id: string;
@@ -78,6 +80,7 @@ export function DashboardScreen() {
         removeTransaction,
     } = useTransactionStore();
     const { goals, activeGoals, isLoading: savingLoading, loadGoals } = useSavingStore();
+    const { debts, summary: debtSummary, isLoading: debtLoading, loadDebts, loadSummary } = useDebtStore();
     const { wallets, totalBalance, loadWallets } = useWalletStore();
     const { unreadCount, loadUnreadCount } = useNotificationStore();
     const loadCategories = useCategoryStore((state) => state.loadCategories);
@@ -96,11 +99,20 @@ export function DashboardScreen() {
         [activeProfileId, wallets],
     );
     const netBalance = totalIncome - totalExpense;
+    const activeDebts = useMemo(() => debts.filter((debt) => debt.status === 'active'), [debts]);
 
     const loadAll = useCallback(async () => {
         await loadProfiles();
-        await Promise.all([loadRecent(), refreshSummary(), loadGoals(), loadWallets(), loadUnreadCount()]);
-    }, [loadGoals, loadProfiles, loadRecent, loadUnreadCount, loadWallets, refreshSummary]);
+        await Promise.all([
+            loadRecent(),
+            refreshSummary(),
+            loadGoals(),
+            loadWallets(),
+            loadUnreadCount(),
+            loadDebts(),
+            loadSummary(),
+        ]);
+    }, [loadDebts, loadGoals, loadProfiles, loadRecent, loadSummary, loadUnreadCount, loadWallets, refreshSummary]);
 
     useEffect(() => {
         loadAll().catch((error) => console.error('Dashboard load failed:', error));
@@ -278,6 +290,55 @@ export function DashboardScreen() {
                                     onPress={() => navigation.navigate('Savings', { screen: 'SavingDetail', params: { goalId: goal.id } })}
                                     onAddSaving={() =>
                                         navigation.navigate('Savings', { screen: 'SavingDetail', params: { goalId: goal.id } })
+                                    }
+                                />
+                            ))}
+                        </View>
+                    )}
+                </Animated.View>
+
+                <Animated.View entering={FadeInUp.delay(200).springify()} style={styles.sectionGap}>
+                    <SectionHeader
+                        title="Utang & Piutang"
+                        subtitle={
+                            debtSummary && (debtSummary.activeCount > 0 || debtSummary.paidCount > 0)
+                                ? `Sisa utang ${formatCurrency(debtSummary.totalDebt)}${
+                                      debtSummary.overdueCount > 0
+                                          ? ` · ${debtSummary.overdueCount} lewat jatuh tempo`
+                                          : ''
+                                  }.`
+                                : 'Pantau sisa kewajiban dan siapa yang masih meminjam uangmu.'
+                        }
+                        actionLabel="Kelola"
+                        onAction={() => navigation.navigate('Transactions', { screen: 'DebtList' })}
+                    />
+
+                    {debtLoading ? (
+                        <View style={styles.cardList}>
+                            <Skeleton height={148} borderRadius={24} />
+                            <Skeleton height={148} borderRadius={24} />
+                        </View>
+                    ) : activeDebts.length === 0 ? (
+                        <EmptyState
+                            icon="hand-coins-outline"
+                            title="Belum ada utang maupun piutang"
+                            description="Catat utang atau piutang supaya sisa kewajiban tidak terlupakan sampai jatuh tempo."
+                            actionLabel="Catat utang"
+                            onAction={() => navigation.navigate('Transactions', { screen: 'AddDebt' })}
+                            compact
+                        />
+                    ) : (
+                        <View style={styles.cardList}>
+                            {activeDebts.slice(0, 2).map((debt, index) => (
+                                <DebtCard
+                                    key={debt.id}
+                                    debt={debt}
+                                    animationDelay={index * 70}
+                                    onPress={() =>
+                                        navigation.navigate('Transactions', {
+                                            screen: 'DebtDetail',
+                                            params: { debtId: debt.id },
+                                        })
                                     }
                                 />
                             ))}

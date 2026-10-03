@@ -13,7 +13,16 @@ interface WalletSelectorProps {
     selectedWalletId: string;
     onSelect: (walletId: string) => void;
     errorMessage?: string;
+    /** Kalimat konteks bila dompet termasuk shared. Default: konteks target tabungan. */
+    sharedHint?: string;
+    /** Kalimat konteks bila dompet personal. Default: konteks target tabungan. */
+    personalHint?: string;
 }
+
+const DEFAULT_SHARED_HINT =
+    'Karena target ini ditempatkan di dompet bersama, konteks dan progresnya akan terlihat sebagai goal bersama.';
+const DEFAULT_PERSONAL_HINT =
+    'Target ini akan tetap berada di ruang personal aktif, tetapi tetap terkait ke dompet yang kamu pilih.';
 
 export function WalletSelector({
     wallets,
@@ -21,6 +30,8 @@ export function WalletSelector({
     selectedWalletId,
     onSelect,
     errorMessage,
+    sharedHint,
+    personalHint,
 }: WalletSelectorProps) {
     const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
@@ -89,8 +100,8 @@ export function WalletSelector({
                     />
                     <Text style={styles.insightText}>
                         {isSharedWallet
-                            ? 'Karena target ini ditempatkan di dompet bersama, konteks dan progresnya akan terlihat sebagai goal bersama.'
-                            : 'Target ini akan tetap berada di ruang personal aktif, tetapi tetap terkait ke dompet yang kamu pilih.'}
+                            ? (sharedHint ?? DEFAULT_SHARED_HINT)
+                            : (personalHint ?? DEFAULT_PERSONAL_HINT)}
                     </Text>
                 </View>
             ) : null}
