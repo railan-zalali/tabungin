@@ -1,56 +1,35 @@
+// Layar detail target tabungan — komposisi hero, statistik, sharing, riwayat.
+// Section diekstrak ke components/saving/*.
 import React, { useEffect, useState } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TouchableOpacity,
-    Alert,
-    TextInput,
-    Modal,
-    KeyboardAvoidingView,
-    Platform,
-} from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { FontFamily, FontSize, Typography } from '../../constants/typography';
-import { BorderRadius } from '../../constants/theme';
+import Animated, { FadeInUp } from 'react-native-reanimated';
+import { FontFamily, FontSize } from '../../constants/typography';
 import { useSavingStore } from '../../store/useSavingStore';
-import { ProgressBar } from '../../components/saving/ProgressBar';
-import { SavingSimulator } from '../../components/saving/SavingSimulator';
 import { Button } from '../../components/common/Button';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { AppScreenHeader } from '../../components/common/AppScreenHeader';
+import { SectionHeader } from '../../components/common/SectionHeader';
 import { formatInputRupiah, parseRupiah, formatCurrency } from '../../utils/currency';
 import { formatDateShort } from '../../utils/date';
 import { calculateProgress } from '../../utils/calculator';
 import { useTheme } from '../../store/useThemeStore';
 import { useWalletStore } from '../../store/useWalletStore';
 import { useProfileStore } from '../../store/useProfileStore';
-import { ContextBadge } from '../../components/common/ContextBadge';
-import { SectionHeader } from '../../components/common/SectionHeader';
-import { getGoalComputedMeta, getSharingActivityDescription, getSharingActivityLabel } from '../../utils/goalSharing';
-
-function formatPermissionLabel(permissionLevel: string) {
-    switch (permissionLevel) {
-        case 'admin':
-            return 'Admin';
-        case 'read_only':
-            return 'Read only';
-        case 'read_write':
-        default:
-            return 'Bisa edit';
-    }
-}
+import type { SavingNavigationProp, SavingStackParamList } from '../../types/navigation';
+import { getGoalComputedMeta } from '../../utils/goalSharing';
+import { SavingSimulator } from '../../components/saving/SavingSimulator';
+import { SavingGoalHero } from '../../components/saving/SavingGoalHero';
+import { GoalStatsGrid } from '../../components/saving/GoalStatsGrid';
+import { SharingAccessSection } from '../../components/saving/SharingAccessSection';
+import { AddSavingModal } from '../../components/saving/AddSavingModal';
 
 export function SavingDetailScreen() {
-    const navigation = useNavigation<NativeStackNavigationProp<any>>();
-    const route = useRoute<any>();
-    const goalId = route.params?.goalId as string;
+    const navigation = useNavigation<SavingNavigationProp<'SavingDetail'>>();
+    const route = useRoute<RouteProp<SavingStackParamList, 'SavingDetail'>>();
+    const goalId = route.params.goalId;
     const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
     const wallets = useWalletStore((state) => state.wallets);
@@ -116,7 +95,12 @@ export function SavingDetailScreen() {
     if (!currentGoal) {
         return (
             <ScreenShell topInset={false} bottomInset={false}>
-                <AppScreenHeader title="Detail Target" showBack onBackPress={() => navigation.goBack()} variant="transparent" />
+                <AppScreenHeader
+                    title="Detail Target"
+                    showBack
+                    onBackPress={() => navigation.goBack()}
+                    variant="transparent"
+                />
                 <View style={styles.loadingContainer}>
                     <Text style={styles.loadingText}>Memuat...</Text>
                 </View>
@@ -141,6 +125,9 @@ export function SavingDetailScreen() {
         },
     ];
 
+    const hasSharingSection =
+        goalMeta.isSharedGoal || sharingMembers.length > 0 || sharingActivity.length > 0;
+
     return (
         <ScreenShell topInset={false} bottomInset={false}>
             <AppScreenHeader
@@ -155,7 +142,7 @@ export function SavingDetailScreen() {
                 variant="transparent"
             />
 
-            {showConfetti && (
+            {showConfetti ? (
                 <View style={styles.confettiOverlay}>
                     <Text style={styles.confettiText}>🎉</Text>
                     <Text style={styles.confettiTitle}>Selamat!</Text>
@@ -163,90 +150,26 @@ export function SavingDetailScreen() {
                         Target {currentGoal.name} sudah tercapai!
                     </Text>
                 </View>
-            )}
+            ) : null}
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-                <Animated.View entering={FadeInDown.delay(70).springify()}>
-                    <LinearGradient
-                        colors={[`${currentGoal.color}`, `${currentGoal.color}CC`, `${currentGoal.color}`]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.heroSection}
-                    >
-                        <View style={styles.heroGlow} />
+                <SavingGoalHero
+                    goal={currentGoal}
+                    progress={progress}
+                    isCompleted={isCompleted}
+                    wallet={wallet}
+                    meta={goalMeta}
+                    memberCount={sharingMembers.length}
+                />
 
-                        <View style={styles.heroTopRow}>
-                            <View style={styles.contextRow}>
-                                {wallet ? (
-                                    <ContextBadge
-                                        icon={goalMeta.isSharedWalletGoal ? 'account-group-outline' : 'wallet-outline'}
-                                        label={wallet.name}
-                                        inverse
-                                    />
-                                ) : null}
-                                <ContextBadge
-                                    icon={goalMeta.isSharedGoal ? 'account-group-outline' : 'account-outline'}
-                                    label={goalMeta.scopeLabel}
-                                    inverse
-                                />
-                                {sharingMembers.length > 0 ? (
-                                    <ContextBadge icon="shield-account-outline" label={`${sharingMembers.length} member`} inverse />
-                                ) : null}
-                            </View>
-                        </View>
+                <GoalStatsGrid
+                    items={infoItems}
+                    accentColor={currentGoal.color}
+                    scopeLabel={goalMeta.scopeLabel}
+                    walletLabel={wallet?.name || 'Tanpa dompet khusus'}
+                />
 
-                        <Text style={styles.heroEmoji}>{currentGoal.emoji}</Text>
-                        <Text style={styles.heroName}>{currentGoal.name}</Text>
-                        <Text style={styles.heroProgress}>{progress.toFixed(1)}%</Text>
-                        <ProgressBar
-                            progress={progress}
-                            color={colors.textInverse}
-                            height={12}
-                            animationDelay={200}
-                            style={{ width: '82%' }}
-                        />
-                        <Text style={styles.heroDescription}>{goalMeta.scopeDescription}</Text>
-                        {isCompleted && (
-                            <View style={styles.completedBanner}>
-                                <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
-                                <Text style={styles.completedText}>Sudah tercapai!</Text>
-                            </View>
-                        )}
-                    </LinearGradient>
-                </Animated.View>
-
-                <Animated.View entering={FadeInUp.delay(140).springify()} style={styles.infoGrid}>
-                    {infoItems.map((item, idx) => (
-                        <View key={item.label} style={[styles.infoItem, idx % 2 === 0 ? styles.borderRight : null, idx < 2 ? styles.borderBottom : null]}>
-                            <View style={[styles.iconBox, { backgroundColor: `${currentGoal.color}20` }]}>
-                                <MaterialCommunityIcons name={item.icon as any} size={20} color={currentGoal.color} />
-                            </View>
-                            <View style={styles.infoTextWrap}>
-                                <Text style={styles.infoLabel}>{item.label}</Text>
-                                <Text style={styles.infoValue}>{item.value}</Text>
-                            </View>
-                        </View>
-                    ))}
-                </Animated.View>
-
-                <Animated.View entering={FadeInUp.delay(180).springify()} style={styles.contextSummaryCard}>
-                    <SectionHeader
-                        title="Konteks Ownership"
-                        subtitle="Supaya jelas target ini berada di ruang mana dan siapa yang ikut melihat."
-                    />
-                    <View style={styles.contextSummaryRow}>
-                        <View style={styles.contextSummaryItem}>
-                            <Text style={styles.contextSummaryLabel}>Scope</Text>
-                            <Text style={styles.contextSummaryValue}>{goalMeta.scopeLabel}</Text>
-                        </View>
-                        <View style={styles.contextSummaryItem}>
-                            <Text style={styles.contextSummaryLabel}>Wallet</Text>
-                            <Text style={styles.contextSummaryValue}>{wallet?.name || 'Tanpa dompet khusus'}</Text>
-                        </View>
-                    </View>
-                </Animated.View>
-
-                {!isCompleted && (
+                {!isCompleted ? (
                     <Animated.View entering={FadeInUp.delay(220).springify()}>
                         <SavingSimulator
                             targetAmount={currentGoal.target_amount}
@@ -255,68 +178,13 @@ export function SavingDetailScreen() {
                             initialSavingAmount={currentGoal.saving_per_period}
                         />
                     </Animated.View>
-                )}
+                ) : null}
 
-                {(goalMeta.isSharedGoal || sharingMembers.length > 0 || sharingActivity.length > 0) && (
-                    <Animated.View entering={FadeInUp.delay(240).springify()} style={styles.section}>
-                        <SectionHeader
-                            title="Akses & Aktivitas Shared"
-                            subtitle="Lihat siapa yang punya akses dan perubahan penting yang tercatat."
-                        />
-                        <View style={styles.sharingCard}>
-                            {sharingMembers.length > 0 ? (
-                                <View style={styles.memberList}>
-                                    {sharingMembers.map((member) => (
-                                        <View key={member.user_email} style={styles.memberItem}>
-                                            <View style={styles.memberIcon}>
-                                                <MaterialCommunityIcons name="account-outline" size={18} color={colors.info} />
-                                            </View>
-                                            <View style={styles.memberCopy}>
-                                                <Text style={styles.memberTitle}>{member.user_email}</Text>
-                                                <Text style={styles.memberMeta}>
-                                                    {formatPermissionLabel(member.permission_level)} • dibagikan {formatDateShort(member.shared_at)}
-                                                </Text>
-                                            </View>
-                                        </View>
-                                    ))}
-                                </View>
-                            ) : (
-                                <View style={styles.inlineInfo}>
-                                    <MaterialCommunityIcons name="account-off-outline" size={18} color={colors.textSecondary} />
-                                    <Text style={styles.inlineInfoText}>Belum ada anggota tambahan dengan akses langsung ke target ini.</Text>
-                                </View>
-                            )}
+                {hasSharingSection ? (
+                    <SharingAccessSection members={sharingMembers} activity={sharingActivity} />
+                ) : null}
 
-                            <View style={styles.sharingActivityBlock}>
-                                <Text style={styles.activityTitleLabel}>Timeline Aktivitas</Text>
-                                {sharingActivity.length > 0 ? (
-                                    <View style={styles.activityList}>
-                                        {sharingActivity.map((activity, index) => (
-                                            <View key={activity.id}>
-                                                <View style={styles.activityItem}>
-                                                    <View style={styles.activityDot} />
-                                                    <View style={styles.activityCopy}>
-                                                        <Text style={styles.activityItemTitle}>{getSharingActivityLabel(activity)}</Text>
-                                                        <Text style={styles.activityItemDescription}>{getSharingActivityDescription(activity)}</Text>
-                                                        <Text style={styles.activityItemDate}>{formatDateShort(activity.timestamp)}</Text>
-                                                    </View>
-                                                </View>
-                                                {index < sharingActivity.length - 1 && <View style={styles.activityDivider} />}
-                                            </View>
-                                        ))}
-                                    </View>
-                                ) : (
-                                    <View style={styles.inlineInfo}>
-                                        <MaterialCommunityIcons name="timeline-outline" size={18} color={colors.textSecondary} />
-                                        <Text style={styles.inlineInfoText}>Belum ada log aktivitas sharing yang perlu ditampilkan.</Text>
-                                    </View>
-                                )}
-                            </View>
-                        </View>
-                    </Animated.View>
-                )}
-
-                {currentLogs.length > 0 && (
+                {currentLogs.length > 0 ? (
                     <Animated.View entering={FadeInUp.delay(280).springify()} style={styles.section}>
                         <SectionHeader
                             title="Riwayat Tabungan"
@@ -327,11 +195,17 @@ export function SavingDetailScreen() {
                                 <React.Fragment key={log.id}>
                                     <View style={styles.logItem}>
                                         <View style={styles.logIcon}>
-                                            <MaterialCommunityIcons name="plus" size={20} color={currentGoal.color} />
+                                            <MaterialCommunityIcons
+                                                name="plus"
+                                                size={20}
+                                                color={currentGoal.color}
+                                            />
                                         </View>
                                         <View style={styles.logInfo}>
-                                            <Text style={[styles.logAmount, { color: currentGoal.color }]}>+{formatCurrency(log.amount)}</Text>
-                                            {log.note && <Text style={styles.logNote}>{log.note}</Text>}
+                                            <Text style={[styles.logAmount, { color: currentGoal.color }]}>
+                                                +{formatCurrency(log.amount)}
+                                            </Text>
+                                            {log.note ? <Text style={styles.logNote}>{log.note}</Text> : null}
                                         </View>
                                         <Text style={styles.logDate}>{formatDateShort(log.date)}</Text>
                                     </View>
@@ -340,11 +214,11 @@ export function SavingDetailScreen() {
                             ))}
                         </View>
                     </Animated.View>
-                )}
+                ) : null}
             </ScrollView>
 
-            {!isCompleted && (
-                <View style={styles.footer}>
+            {!isCompleted ? (
+                <View style={[styles.footer, { backgroundColor: colors.surfaceElevated, borderTopColor: colors.border }]}>
                     <Button
                         label="+ Tambah Tabungan"
                         onPress={() => setShowAddModal(true)}
@@ -353,371 +227,98 @@ export function SavingDetailScreen() {
                         fullWidth
                     />
                 </View>
-            )}
+            ) : null}
 
-            <Modal visible={showAddModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowAddModal(false)}>
-                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalSafe}>
-                    <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>Tambah Tabungan</Text>
-                        <TouchableOpacity onPress={() => setShowAddModal(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                            <MaterialCommunityIcons name="close" size={24} color={colors.textPrimary} />
-                        </TouchableOpacity>
-                    </View>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalGoalName}>{currentGoal.emoji} {currentGoal.name}</Text>
-
-                        <View style={[styles.rupiahInput, { borderColor: currentGoal.color }]}>
-                            <Text style={styles.prefix}>Rp</Text>
-                            <TextInput
-                                style={styles.modalAmountInput}
-                                value={addAmount}
-                                onChangeText={(v) => setAddAmount(formatInputRupiah(v))}
-                                keyboardType="numeric"
-                                placeholder="0"
-                                placeholderTextColor={colors.textSecondary}
-                                autoFocus
-                            />
-                        </View>
-
-                        <TextInput
-                            style={styles.modalNoteInput}
-                            value={addNote}
-                            onChangeText={setAddNote}
-                            placeholder="Catatan (opsional)"
-                            placeholderTextColor={colors.textSecondary}
-                        />
-
-                        <Button
-                            label="Simpan Tabungan"
-                            onPress={handleAddSaving}
-                            variant="primary"
-                            size="lg"
-                            loading={isAdding}
-                            fullWidth
-                        />
-                    </View>
-                </KeyboardAvoidingView>
-            </Modal>
+            <AddSavingModal
+                visible={showAddModal}
+                goalEmoji={currentGoal.emoji}
+                goalName={currentGoal.name}
+                accentColor={currentGoal.color}
+                amount={addAmount}
+                onAmountChange={(value) => setAddAmount(formatInputRupiah(value))}
+                note={addNote}
+                onNoteChange={setAddNote}
+                isSubmitting={isAdding}
+                onClose={() => setShowAddModal(false)}
+                onSubmit={handleAddSaving}
+            />
         </ScreenShell>
     );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-    loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    loadingText: { padding: 20, color: colors.textSecondary, fontFamily: FontFamily.body },
-    content: { padding: 20, gap: 24, paddingBottom: 100 },
-    heroSection: {
-        borderRadius: 30,
-        padding: 28,
-        alignItems: 'center',
-        gap: 12,
-        overflow: 'hidden',
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 14 },
-        shadowOpacity: 0.12,
-        shadowRadius: 24,
-        elevation: 6,
-    },
-    heroGlow: {
-        position: 'absolute',
-        width: 160,
-        height: 160,
-        borderRadius: 80,
-        top: -55,
-        right: -24,
-        backgroundColor: 'rgba(255,255,255,0.10)',
-    },
-    heroTopRow: {
-        width: '100%',
-        alignItems: 'flex-start',
-    },
-    contextRow: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-    },
-    heroEmoji: { fontSize: 64 },
-    heroName: { fontFamily: FontFamily.heading, fontSize: FontSize.h2, color: colors.textInverse, textAlign: 'center' },
-    heroProgress: { fontFamily: FontFamily.heading, fontSize: 48, color: colors.textInverse },
-    heroDescription: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
-        color: 'rgba(255,255,255,0.86)',
-        textAlign: 'center',
-        paddingHorizontal: 12,
-    },
-    completedBanner: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        backgroundColor: colors.surfaceElevated,
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-        marginTop: 8,
-        borderWidth: 1,
-        borderColor: colors.border,
-    },
-    completedText: { fontFamily: FontFamily.bodyBold, fontSize: FontSize.body, color: colors.success },
-    infoGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        backgroundColor: colors.surfaceElevated,
-        borderRadius: 24,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: colors.border,
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.08,
-        shadowRadius: 16,
-        elevation: 3,
-    },
-    infoItem: {
-        width: '50%',
-        padding: 20,
-        gap: 12,
-        alignItems: 'flex-start',
-    },
-    infoTextWrap: { flex: 1 },
-    borderRight: { borderRightWidth: 1, borderRightColor: colors.divider },
-    borderBottom: { borderBottomWidth: 1, borderBottomColor: colors.divider },
-    iconBox: {
-        width: 42,
-        height: 42,
-        borderRadius: 14,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    infoLabel: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary, marginBottom: 4 },
-    infoValue: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.body, color: colors.textPrimary },
-    contextSummaryCard: {
-        backgroundColor: colors.surfaceElevated,
-        borderRadius: 24,
-        padding: 18,
-        gap: 14,
-        borderWidth: 1,
-        borderColor: colors.border,
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.08,
-        shadowRadius: 16,
-        elevation: 3,
-    },
-    contextSummaryRow: {
-        flexDirection: 'row',
-        gap: 12,
-    },
-    contextSummaryItem: {
-        flex: 1,
-        backgroundColor: colors.surfaceCard,
-        borderRadius: BorderRadius['2xl'],
-        padding: 14,
-        borderWidth: 1,
-        borderColor: colors.border,
-    },
-    contextSummaryLabel: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
-        color: colors.textSecondary,
-    },
-    contextSummaryValue: {
-        fontFamily: FontFamily.bodyBold,
-        fontSize: FontSize.body,
-        color: colors.textPrimary,
-        marginTop: 4,
-    },
-    section: { gap: 12 },
-    sharingCard: {
-        backgroundColor: colors.surfaceElevated,
-        borderRadius: 24,
-        padding: 18,
-        gap: 16,
-        borderWidth: 1,
-        borderColor: colors.border,
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.08,
-        shadowRadius: 16,
-        elevation: 3,
-    },
-    memberList: {
-        gap: 10,
-    },
-    memberItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        padding: 14,
-        borderRadius: BorderRadius['2xl'],
-        backgroundColor: colors.surfaceCard,
-        borderWidth: 1,
-        borderColor: colors.border,
-    },
-    memberIcon: {
-        width: 38,
-        height: 38,
-        borderRadius: BorderRadius.lg,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.infoBg,
-    },
-    memberCopy: { flex: 1 },
-    memberTitle: {
-        fontFamily: FontFamily.bodyBold,
-        fontSize: FontSize.body,
-        color: colors.textPrimary,
-    },
-    memberMeta: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
-        color: colors.textSecondary,
-        marginTop: 2,
-    },
-    sharingActivityBlock: {
-        gap: 12,
-    },
-    activityTitleLabel: {
-        fontFamily: FontFamily.headingMedium,
-        fontSize: FontSize.body,
-        color: colors.textPrimary,
-    },
-    inlineInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        padding: 14,
-        borderRadius: BorderRadius['2xl'],
-        backgroundColor: colors.surfaceCard,
-        borderWidth: 1,
-        borderColor: colors.border,
-    },
-    inlineInfoText: {
-        flex: 1,
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
-        color: colors.textSecondary,
-        lineHeight: 20,
-    },
-    activityList: { gap: 0 },
-    activityItem: {
-        flexDirection: 'row',
-        gap: 12,
-        paddingVertical: 10,
-    },
-    activityDot: {
-        width: 12,
-        height: 12,
-        borderRadius: BorderRadius.full,
-        marginTop: 6,
-        backgroundColor: colors.primary,
-    },
-    activityCopy: { flex: 1 },
-    activityItemTitle: {
-        fontFamily: FontFamily.bodyBold,
-        fontSize: FontSize.body,
-        color: colors.textPrimary,
-    },
-    activityItemDescription: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
-        color: colors.textSecondary,
-        marginTop: 2,
-        lineHeight: 20,
-    },
-    activityItemDate: {
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.caption,
-        color: colors.textTertiary,
-        marginTop: 4,
-    },
-    activityDivider: {
-        height: 1,
-        backgroundColor: colors.divider,
-        marginLeft: 18,
-    },
-    logList: {
-        backgroundColor: colors.surfaceElevated,
-        borderRadius: 24,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: colors.border,
-        shadowColor: colors.shadowColor,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.08,
-        shadowRadius: 16,
-        elevation: 3,
-    },
-    logItem: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16 },
-    logIcon: {
-        width: 42,
-        height: 42,
-        borderRadius: 21,
-        backgroundColor: `${colors.primaryLight}AA`,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    logInfo: { flex: 1 },
-    logAmount: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.body },
-    logNote: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary, marginTop: 2 },
-    logDate: { fontFamily: FontFamily.body, fontSize: FontSize.caption, color: colors.textSecondary },
-    logDivider: { height: 1, backgroundColor: colors.divider, marginLeft: 74 },
-    footer: {
-        padding: 20,
-        paddingBottom: 32,
-        backgroundColor: colors.surfaceElevated,
-        borderTopWidth: 1,
-        borderTopColor: colors.border,
-    },
-    confettiOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(16, 185, 129, 0.95)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 100,
-        gap: 12,
-    },
-    confettiText: { fontSize: 80 },
-    confettiTitle: { fontFamily: FontFamily.heading, fontSize: 36, color: colors.textInverse },
-    confettiSub: { fontFamily: FontFamily.body, fontSize: FontSize.h3, color: colors.textInverse, textAlign: 'center', paddingHorizontal: 40 },
-    modalSafe: { flex: 1, backgroundColor: colors.surface },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
-    },
-    modalTitle: { ...Typography.h3, color: colors.textPrimary },
-    modalContent: { padding: 20, gap: 20 },
-    modalGoalName: { fontFamily: FontFamily.bodyMedium, fontSize: FontSize.body, color: colors.textSecondary },
-    rupiahInput: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: colors.surfaceElevated,
-        borderRadius: 18,
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-        borderWidth: 1,
-        borderColor: colors.border,
-        gap: 8,
-    },
-    prefix: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.h3, color: colors.textSecondary },
-    modalAmountInput: { flex: 1, fontFamily: FontFamily.heading, fontSize: 32, color: colors.textPrimary, padding: 0, height: 40 },
-    modalNoteInput: {
-        backgroundColor: colors.surfaceElevated,
-        borderRadius: 18,
-        padding: 16,
-        fontFamily: FontFamily.body,
-        fontSize: FontSize.body,
-        color: colors.textPrimary,
-        borderWidth: 1,
-        borderColor: colors.border,
-        minHeight: 52,
-    },
-});
+const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+    StyleSheet.create({
+        loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+        loadingText: {
+            padding: 20,
+            color: colors.textSecondary,
+            fontFamily: FontFamily.body,
+        },
+        content: { padding: 20, gap: 24, paddingBottom: 100 },
+        section: { gap: 12 },
+        confettiOverlay: {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: colors.success,
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100,
+            gap: 12,
+        },
+        confettiText: { fontSize: 80 },
+        confettiTitle: {
+            fontFamily: FontFamily.heading,
+            fontSize: 36,
+            color: colors.textInverse,
+        },
+        confettiSub: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.h3,
+            color: colors.textInverse,
+            textAlign: 'center',
+            paddingHorizontal: 40,
+        },
+        logList: {
+            backgroundColor: colors.surfaceElevated,
+            borderRadius: 24,
+            overflow: 'hidden',
+            borderWidth: 1,
+            borderColor: colors.border,
+            shadowColor: colors.shadowColor,
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.08,
+            shadowRadius: 16,
+            elevation: 3,
+        },
+        logItem: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16 },
+        logIcon: {
+            width: 42,
+            height: 42,
+            borderRadius: 21,
+            backgroundColor: `${colors.primaryLight}AA`,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        logInfo: { flex: 1 },
+        logAmount: { fontFamily: FontFamily.headingMedium, fontSize: FontSize.body },
+        logNote: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+            marginTop: 2,
+        },
+        logDate: {
+            fontFamily: FontFamily.body,
+            fontSize: FontSize.caption,
+            color: colors.textSecondary,
+        },
+        logDivider: { height: 1, backgroundColor: colors.divider, marginLeft: 74 },
+        footer: {
+            padding: 20,
+            paddingBottom: 32,
+            borderTopWidth: 1,
+        },
+    });
