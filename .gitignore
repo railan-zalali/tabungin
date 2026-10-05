@@ -21,3 +21,6 @@ ios/
 
 # MacOS
 .DS_Store
+
+# Metadata lokal Supabase CLI (versi terakhir yang dipakai, dsb.)
+supabase/.temp/
