@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Appearance } from 'react-native';
 import { Colors as BaseColors } from '../constants/colors';
 import { useProfileStore } from './useProfileStore';
 import { Motion } from '../constants/theme';
@@ -13,10 +14,12 @@ interface ThemeState {
     mode: ThemeMode;
     textSize: TextSize;
     hapticEnabled: boolean;
+    followSystem: boolean;
 
     setMode: (mode: ThemeMode) => void;
     setTextSize: (size: TextSize) => void;
     setHapticEnabled: (enabled: boolean) => void;
+    setFollowSystem: (follow: boolean) => void;
 }
 
 export const useThemeStore = create<ThemeState>()(
@@ -25,10 +28,19 @@ export const useThemeStore = create<ThemeState>()(
             mode: 'light',
             textSize: 'normal',
             hapticEnabled: true,
+            followSystem: false,
 
-            setMode: (mode) => set({ mode }),
+            setMode: (mode) => set({ mode, followSystem: false }),
             setTextSize: (textSize) => set({ textSize }),
             setHapticEnabled: (hapticEnabled) => set({ hapticEnabled }),
+            setFollowSystem: (follow) => {
+                if (follow) {
+                    const sys = Appearance.getColorScheme() === 'dark' ? 'dark' : 'light';
+                    set({ followSystem: true, mode: sys });
+                } else {
+                    set({ followSystem: false });
+                }
+            },
         }),
         {
             name: 'theme-storage',
@@ -36,6 +48,17 @@ export const useThemeStore = create<ThemeState>()(
         }
     )
 );
+
+// Daftarkan listener sistem sekali di module level (bukan di hook agar tidak
+// muncul duplikat subscription tiap render).
+Appearance.addChangeListener(({ colorScheme }) => {
+    const { followSystem } = useThemeStore.getState();
+    if (followSystem) {
+        useThemeStore.getState().setMode(colorScheme === 'dark' ? 'dark' : 'light');
+        // Jangan menonaktifkan followSystem — override manual saja yang boleh
+        useThemeStore.setState({ followSystem: true });
+    }
+});
 
 function clamp(value: number, min: number, max: number) {
     return Math.min(max, Math.max(min, value));
