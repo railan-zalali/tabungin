@@ -14,6 +14,7 @@ export type RootStackParamList = {
     Main: NavigatorScreenParams<TabParamList>;
     Budget: undefined;
     Savings: NavigatorScreenParams<SavingStackParamList>;
+    InsightDetail: undefined;
 };
 
 export type WalletRouteParams = { wallet?: Wallet } | undefined;
@@ -64,6 +65,11 @@ export type SettingsStackParamList = {
 
 export type DashboardNavigationProp = CompositeNavigationProp<
     BottomTabNavigationProp<TabParamList, 'Dashboard'>,
+    NativeStackNavigationProp<RootStackParamList>
+>;
+
+export type ReportNavigationProp = CompositeNavigationProp<
+    BottomTabNavigationProp<TabParamList, 'Report'>,
     NativeStackNavigationProp<RootStackParamList>
 >;
 

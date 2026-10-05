@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import type { CategorySummary, MonthlySummary } from '../../types/transaction';
+import type { ReportNavigationProp } from '../../types/navigation';
 import { formatCurrency } from '../../utils/currency';
 import { resolveCategoryByKey } from '../../utils/categoryResolver';
 import { useScreenLayout } from '../../hooks/useScreenLayout';
@@ -86,6 +88,7 @@ export function ReportScreen() {
     const { colors } = useTheme();
     const { contentBottomSpacing } = useScreenLayout();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
+    const navigation = useNavigation<ReportNavigationProp>();
     const { getCategorySummary, getMonthlyData } = useTransactionStore();
     const { categories, loadCategories } = useCategoryStore();
     const [period, setPeriod] = useState<PeriodFilter>('month');
@@ -194,6 +197,8 @@ export function ReportScreen() {
                     <SectionHeader
                         title="Detail insight"
                         subtitle="Dibaca dari pola transaksi 6 bulan terakhir, bukan hanya periode yang dipilih di atas."
+                        actionLabel="Buka layar detail"
+                        onAction={() => navigation.navigate('InsightDetail')}
                     />
 
                     {insightLoading ? (

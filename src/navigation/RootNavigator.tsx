@@ -27,6 +27,7 @@ import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
 import { TabNavigator } from './TabNavigator';
 import { SavingStackNavigator } from './SavingStackNavigator';
 import { BudgetScreen } from '../screens/budget/BudgetScreen';
+import { InsightDetailScreen } from '../screens/insight/InsightDetailScreen';
 import { withScreenErrorBoundary } from '../components/common/AppErrorBoundary';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -41,6 +42,7 @@ const Screen = {
     Main: TabNavigator,
     Budget: withScreenErrorBoundary(BudgetScreen),
     Savings: SavingStackNavigator,
+    InsightDetail: withScreenErrorBoundary(InsightDetailScreen),
 };
 
 export function RootNavigator() {
@@ -176,6 +178,7 @@ export function RootNavigator() {
                     <Stack.Screen name="Main" component={Screen.Main} />
                     <Stack.Screen name="Budget" component={Screen.Budget} />
                     <Stack.Screen name="Savings" component={Screen.Savings} />
+                    <Stack.Screen name="InsightDetail" component={Screen.InsightDetail} />
                 </>
             )}
         </Stack.Navigator>

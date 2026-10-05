@@ -241,7 +241,7 @@ export function DashboardScreen() {
                         <InsightCard
                             insight={topInsight}
                             actionLabel="Buka detail insight"
-                            onAction={() => navigation.navigate('Report')}
+                            onAction={() => navigation.navigate('InsightDetail')}
                         />
                     ) : (
                         <InsightPanel
