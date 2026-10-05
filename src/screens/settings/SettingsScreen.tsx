@@ -66,9 +66,9 @@ export function SettingsScreen() {
     const { colors } = useTheme();
     const { contentBottomSpacing } = useScreenLayout();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
-    const { user, logout } = useAuthStore();
+    const { user, logout, biometricEnabled, setBiometricEnabled } = useAuthStore();
     const { unreadCount } = useNotificationStore();
-    const { mode, setMode, textSize, setTextSize, hapticEnabled, setHapticEnabled } = useThemeStore();
+    const { mode, setMode, textSize, setTextSize, hapticEnabled, setHapticEnabled, followSystem, setFollowSystem } = useThemeStore();
 
     const handleLogout = () => {
         Alert.alert('Keluar', 'Yakin ingin keluar dari aplikasi?', [
@@ -157,13 +157,29 @@ export function SettingsScreen() {
                         icon="theme-light-dark"
                         tone="info"
                         title="Mode gelap"
-                        subtitle={mode === 'dark' ? 'Aktif sekarang' : 'Masih memakai mode terang'}
+                        subtitle={followSystem ? 'Mengikuti mode sistem perangkat' : (mode === 'dark' ? 'Aktif sekarang' : 'Masih memakai mode terang')}
                         rightElement={
                             <Switch
                                 value={mode === 'dark'}
                                 onValueChange={(value) => setMode(value ? 'dark' : 'light')}
+                                disabled={followSystem}
                                 trackColor={{ false: colors.surfaceMuted, true: colors.primaryLight }}
                                 thumbColor={mode === 'dark' ? colors.primary : colors.surfaceElevated}
+                            />
+                        }
+                    />
+                    <View style={styles.divider} />
+                    <SettingRow
+                        icon="brightness-auto"
+                        tone="info"
+                        title="Ikuti mode sistem"
+                        subtitle="Mode gelap/terang mengikuti pengaturan perangkat secara otomatis."
+                        rightElement={
+                            <Switch
+                                value={followSystem}
+                                onValueChange={setFollowSystem}
+                                trackColor={{ false: colors.surfaceMuted, true: colors.primaryLight }}
+                                thumbColor={followSystem ? colors.primary : colors.surfaceElevated}
                             />
                         }
                     />
@@ -246,6 +262,36 @@ export function SettingsScreen() {
                 </SettingSection>
 
                 <SettingSection title="Keamanan akun">
+                    <SettingRow
+                        icon="fingerprint"
+                        tone="success"
+                        title="Kunci Biometrik"
+                        subtitle="Gunakan sidik jari atau wajah untuk membuka aplikasi."
+                        rightElement={
+                            <Switch
+                                value={biometricEnabled}
+                                onValueChange={setBiometricEnabled}
+                                trackColor={{ false: colors.surfaceMuted, true: colors.primaryLight }}
+                                thumbColor={biometricEnabled ? colors.primary : colors.surfaceElevated}
+                            />
+                        }
+                    />
+                    <View style={styles.divider} />
+                    <SettingRow
+                        icon="fingerprint"
+                        tone="success"
+                        title="Kunci Biometrik"
+                        subtitle="Gunakan sidik jari atau wajah untuk membuka aplikasi."
+                        rightElement={
+                            <Switch
+                                value={biometricEnabled}
+                                onValueChange={setBiometricEnabled}
+                                trackColor={{ false: colors.surfaceMuted, true: colors.primaryLight }}
+                                thumbColor={biometricEnabled ? colors.primary : colors.surfaceElevated}
+                            />
+                        }
+                    />
+                    <View style={styles.divider} />
                     <SettingRow
                         icon="logout"
                         tone="danger"

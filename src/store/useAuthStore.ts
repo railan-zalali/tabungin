@@ -9,6 +9,7 @@ import {
 import { clearAllData } from '../database/schema';
 import { syncDatabase } from '../database/sync';
 import { v4 as uuidv4 } from 'uuid';
+import * as LocalAuthentication from 'expo-local-authentication';
 
 async function ensureProfileExists(userId: string, name: string, email: string): Promise<void> {
     try {
@@ -51,6 +52,7 @@ interface AuthState {
     isLoggedIn: boolean;
     isLoading: boolean;
     authError: string | null;
+    biometricEnabled: boolean;
 
     login: (email: string, password: string) => Promise<boolean>;
     register: (name: string, email: string, password: string) => Promise<boolean>;
@@ -61,6 +63,8 @@ interface AuthState {
     sendResetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
     loadSession: () => Promise<void>;
     clearError: () => void;
+    setBiometricEnabled: (enabled: boolean) => void;
+    authenticateWithBiometric: () => Promise<boolean>;
 }
 
 function mapSessionUser(sessionUser: any): AuthUser {
@@ -297,4 +301,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     },
 
     clearError: () => set({ authError: null }),
+
+    biometricEnabled: false,
+    setBiometricEnabled: (enabled) => set({ biometricEnabled: enabled }),
+
+    authenticateWithBiometric: async () => {
+        try {
+            const hasHardware = await LocalAuthentication.hasHardwareAsync();
+            if (!hasHardware) return false;
+
+            const enrolled = await LocalAuthentication.isEnrolledAsync();
+            if (!enrolled) return false;
+
+            const result = await LocalAuthentication.authenticateAsync({
+                promptMessage: 'Masuk ke Tabungin',
+                fallbackLabel: 'Gunakan kata sandi',
+                cancelLabel: 'Batal',
+            });
+            return result.success;
+        } catch {
+            return false;
+        }
+    },
 }));
