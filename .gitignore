@@ -4,6 +4,9 @@ dist/
 web-build/
 coverage/
 
+# NPM cache yang tidak sengaja ter-commit (541 file / 78 MB)
+.npm-cache/
+
 # Native
 android/
 ios/
