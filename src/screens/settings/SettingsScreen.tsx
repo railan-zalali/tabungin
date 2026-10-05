@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,6 +7,11 @@ import { BorderRadius } from '../../constants/theme';
 import { FontFamily, FontSize, Typography } from '../../constants/typography';
 import { deleteUserAccount } from '../../database/authQueries';
 import { useScreenLayout } from '../../hooks/useScreenLayout';
+import {
+    getPushPermission,
+    optInPushNotifications,
+    openSystemNotificationSettings,
+} from '../../hooks/usePushNotifications';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useNotificationStore } from '../../store/useNotificationStore';
 import { useTheme, useThemeStore } from '../../store/useThemeStore';
@@ -69,6 +74,47 @@ export function SettingsScreen() {
     const { user, logout, biometricEnabled, setBiometricEnabled } = useAuthStore();
     const { unreadCount } = useNotificationStore();
     const { mode, setMode, textSize, setTextSize, hapticEnabled, setHapticEnabled, followSystem, setFollowSystem } = useThemeStore();
+
+    // Izin push dibaca dari sistem (bukan state lokal) sehingga toggle selalu
+    // mencerminkan keadaan sebenarnya — JS tidak bisa mencabut izin.
+    const [pushGranted, setPushGranted] = useState(false);
+
+    useEffect(() => {
+        let mounted = true;
+        getPushPermission().then((granted) => {
+            if (mounted) setPushGranted(granted);
+        });
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
+    const handlePushToggle = async (value: boolean) => {
+        if (value) {
+            const ok = await optInPushNotifications();
+            setPushGranted(ok);
+            if (!ok) {
+                Alert.alert(
+                    'Izin notifikasi diperlukan',
+                    'Tabungin tidak memperoleh izin notifikasi. Tanpa izin, pengingat dan undangan dompet tidak akan sampai ke perangkat ini.',
+                    [
+                        { text: 'Buka Pengaturan', onPress: openSystemNotificationSettings },
+                        { text: 'Nanti' },
+                    ],
+                );
+            }
+            return;
+        }
+
+        Alert.alert(
+            'Nonaktifkan lewat pengaturan sistem',
+            'Izin notifikasi dikelola oleh sistem operasi dan tidak bisa dicabut dari dalam aplikasi.',
+            [
+                { text: 'Buka Pengaturan', onPress: openSystemNotificationSettings },
+                { text: 'Batal' },
+            ],
+        );
+    };
 
     const handleLogout = () => {
         Alert.alert('Keluar', 'Yakin ingin keluar dari aplikasi?', [
@@ -141,6 +187,25 @@ export function SettingsScreen() {
                         title="Notifikasi"
                         subtitle={unreadCount > 0 ? `${unreadCount} notifikasi belum dibaca` : 'Semua notifikasi sudah dibaca'}
                         onPress={() => navigation.navigate('Notifications')}
+                    />
+                    <View style={styles.divider} />
+                    <SettingRow
+                        icon="bell-ring-outline"
+                        tone="primary"
+                        title="Notifikasi push"
+                        subtitle={
+                            pushGranted
+                                ? 'Aktif — pengingat & undangan terkirim walau aplikasi tertutup'
+                                : 'Aktifkan agar pengingat & undangan sampai walau aplikasi tertutup'
+                        }
+                        rightElement={
+                            <Switch
+                                value={pushGranted}
+                                onValueChange={handlePushToggle}
+                                trackColor={{ false: colors.surfaceMuted, true: colors.primaryLight }}
+                                thumbColor={pushGranted ? colors.primary : colors.surfaceElevated}
+                            />
+                        }
                     />
                     <View style={styles.divider} />
                     <SettingRow

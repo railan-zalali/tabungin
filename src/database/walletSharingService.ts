@@ -5,7 +5,7 @@ import { fetchWalletMembers, removeWalletMember } from "./walletQueries";
 import { v4 as uuidv4 } from "uuid";
 import { isValidWalletId } from "../utils/walletInvite";
 import { useAuthStore } from "../store/useAuthStore";
-import { sendWalletInviteNotification } from "../utils/notificationService";
+import { notifyWalletInvite } from "../utils/pushNotify";
 import { runSerializedSyncTask } from "./syncQueue";
 
 type RemoteWalletMember = WalletMember & {
@@ -526,9 +526,16 @@ export async function inviteWalletMember(
   // Auto-share active goals to new member
   await autoShareWalletGoals(walletId, normalizedEmail, currentUserEmail);
 
-  // Send notification to the new member
-  // Note: This would typically be handled by a backend service or Supabase Realtime
-  // For now, we'll skip this as it requires the new user to be online
+  // Beritahu pemilik undangan lewat push notification (P2-05 / PN-3).
+  // Fire-and-forget: kegagalan notifikasi TIDAK boleh menggagalkan invite,
+  // dan kegagalannya dicatat agar tidak hilang diam-diam.
+  // Catatan: bila email belum pernah membuka aplikasi, tidak ada token dan
+  // fungsi mengembalikan sent: 0 — itu wajar, bukan error.
+  void notifyWalletInvite(walletId, normalizedEmail).then((result) => {
+    if (result.error) {
+      console.warn(`[push] Undangan tidak terkirim: ${result.error}`);
+    }
+  });
 
   return mapLocalWalletMember(member);
 }
