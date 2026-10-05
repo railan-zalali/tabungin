@@ -19,12 +19,6 @@ jest.mock('expo-secure-store', () => ({
     deleteItemAsync: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock('expo-crypto', () => ({
-    digestStringAsync: jest.fn().mockResolvedValue('mocked-hash'),
-    CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
-    randomUUID: jest.fn().mockReturnValue('mocked-uuid'),
-}));
-
 jest.mock('expo-haptics', () => ({
     impactAsync: jest.fn(),
     ImpactFeedbackStyle: { Light: 'Light', Medium: 'Medium', Heavy: 'Heavy' },
@@ -76,12 +70,6 @@ jest.mock('@react-native-community/datetimepicker', () => {
     MockDateTimePicker.displayName = 'DateTimePicker';
     return { __esModule: true, default: MockDateTimePicker };
 });
-
-jest.mock('expo-linking', () => ({
-    createURL: jest.fn((path) => `tabungin://${path}`),
-    parse: jest.fn(),
-    openURL: jest.fn(),
-}));
 
 jest.mock('expo-device', () => ({
     isDevice: true,
@@ -289,12 +277,6 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
     setItem: jest.fn().mockResolvedValue(undefined),
     removeItem: jest.fn().mockResolvedValue(undefined),
     clear: jest.fn().mockResolvedValue(undefined),
-}));
-
-// Mock @react-native-community/netinfo
-jest.mock('@react-native-community/netinfo', () => ({
-    fetch: jest.fn().mockResolvedValue({ isConnected: true, isInternetReachable: true }),
-    addEventListener: jest.fn().mockReturnValue(() => {}),
 }));
 
 // Mock react-native-qrcode-svg

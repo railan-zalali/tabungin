@@ -9,7 +9,6 @@
       ]
     },
     "types": [
-      "nativewind/types",
       "jest",
       "node"
     ]
