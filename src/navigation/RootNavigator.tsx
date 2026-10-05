@@ -12,9 +12,12 @@ import {
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuthStore } from '../store/useAuthStore';
+import { useProfileStore } from '../store/useProfileStore';
 import { useTheme } from '../store/useThemeStore';
 import { useRecurringAutoGenerator } from '../hooks/useRecurringAutoGenerator';
 import { usePushNotifications } from '../hooks/usePushNotifications';
+import { fetchDebts } from '../database/debtQueries';
+import { rescheduleAllDebtReminders } from '../utils/notificationService';
 import type { RootStackParamList } from '../types/navigation';
 
 import { OnboardingScreen } from '../screens/auth/OnboardingScreen';
@@ -50,6 +53,29 @@ export function RootNavigator() {
 
     // Mendaftarkan push token jika user login
     usePushNotifications();
+
+    // DB-1: jadwalkan ulang pengingat jatuh tempo saat aplikasi dibuka.
+    // Pengingat lokal bisa hilang (reinstall / update / ganti perangkat) dan
+    // utang hasil sync dari perangkat lain tidak pernah dijadwalkan di sini.
+    // Fungsi tersebut sendiri keluar tanpa prompt bila izin belum diberikan.
+    useEffect(() => {
+        if (!isLoggedIn) return;
+        let cancelled = false;
+
+        (async () => {
+            try {
+                const profileId = useProfileStore.getState().activeProfileId;
+                const debts = await fetchDebts(profileId || undefined, 'all');
+                if (!cancelled) await rescheduleAllDebtReminders(debts);
+            } catch (error) {
+                console.warn('[Notifikasi] Gagal menjadwalkan ulang reminder utang:', error);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isLoggedIn]);
 
     const [isUnlocked, setIsUnlocked] = useState(false);
     const [isAuthenticating, setIsAuthenticating] = useState(false);

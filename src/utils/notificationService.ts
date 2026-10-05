@@ -171,6 +171,44 @@ export async function rescheduleAllReminders(goals: SavingGoal[]): Promise<void>
     }
 }
 
+/**
+ * Reschedule ulang seluruh reminder jatuh tempo utang/piutang (DB-1).
+ *
+ * Dipanggil satu kali saat aplikasi dibuka, bukan saat layar utang dibuka:
+ * - pengingat lokal bisa hilang setelah reinstall / update / ganti perangkat;
+ * - utang yang disinkronkan dari perangkat lain tidak pernah dijadwalkan di
+ *   perangkat ini.
+ *
+ * Tidak memicu prompt izin: penjadwalan otomatis saat app start tidak boleh
+ * memaksa dialog izin ke user yang belum memilih (prinsip izin on-demand
+ * P2-05). Bila izin belum diberikan, fungsi keluar tanpa menyentuh jadwal.
+ */
+export async function rescheduleAllDebtReminders(
+    debts: Pick<Debt, 'id' | 'type' | 'counterparty' | 'due_date' | 'status' | 'remaining_amount'>[],
+): Promise<void> {
+    try {
+        // Cek status izin TANPA requestPermissionsAsync — kalau izin belum
+        // diberikan, scheduleDebtReminder akan memicu prompt otomatis.
+        const existing = await getPermissionsAsync();
+        if (!hasGrantedPermission(existing)) return;
+
+        const scheduled = await getAllScheduledNotificationsAsync();
+        for (const notification of scheduled) {
+            if (notification.content.data?.debtId) {
+                await cancelScheduledNotificationAsync(notification.identifier);
+            }
+        }
+
+        // scheduleDebtReminder sendiri mengabaikan status non-'active' dan
+        // utang tanpa due_date, jadi tidak perlu difilter dua kali.
+        for (const debt of debts) {
+            await scheduleDebtReminder(debt);
+        }
+    } catch (error) {
+        console.warn('[Notifikasi] Gagal me-reset reminder utang:', error);
+    }
+}
+
 export async function sendGoalCompletedNotification(goal: SavingGoal): Promise<void> {
     const granted = await requestNotificationPermission();
 

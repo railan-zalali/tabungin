@@ -15,6 +15,7 @@ import {
     sendWalletInviteNotification,
     scheduleDebtReminder,
     cancelDebtReminder,
+    rescheduleAllDebtReminders,
 } from '../../src/utils/notificationService';
 import { supabase } from '../../src/lib/supabase';
 import { useAuthStore } from '../../src/store/useAuthStore';
@@ -466,5 +467,64 @@ describe('cancelDebtReminder', () => {
         getAll.mockRejectedValue(new Error('nothing scheduled'));
 
         await expect(cancelDebtReminder('d1')).resolves.toBeUndefined();
+    });
+});
+
+describe('rescheduleAllDebtReminders', () => {
+    const DAY = 24 * 60 * 60 * 1000;
+
+    const debt = (over: Record<string, unknown> = {}) => ({
+        id: 'd1',
+        type: 'debt',
+        counterparty: 'Rina',
+        due_date: Date.now() + 5 * DAY,
+        status: 'active',
+        remaining_amount: 400000,
+        ...over,
+    });
+
+    it('clears stale debt reminders and reschedules the active ones', async () => {
+        getPerms.mockResolvedValue(grant);
+        getAll.mockResolvedValue([
+            { identifier: 'old', content: { data: { debtId: 'd1' } } },
+            { identifier: 'goal', content: { data: { goalId: 'g1' } } },
+        ]);
+
+        await rescheduleAllDebtReminders([
+            debt() as never,
+            debt({ id: 'd2', status: 'paid' }) as never,
+            debt({ id: 'd3', due_date: null }) as never,
+        ]);
+
+        expect(cancel).toHaveBeenCalledWith('old');
+        // Reminder milik fitur lain tidak boleh tersapu.
+        expect(cancel).not.toHaveBeenCalledWith('goal');
+        // Hanya utang aktif ber-tenggat yang dijadwalkan ulang.
+        expect(schedule).toHaveBeenCalledTimes(1);
+    });
+
+    it('never prompts for permission when it has not been granted', async () => {
+        getPerms.mockResolvedValue(deny);
+
+        await rescheduleAllDebtReminders([debt() as never]);
+
+        // App start tidak boleh memunculkan dialog izin tak terduga.
+        expect(requestPerms).not.toHaveBeenCalled();
+        expect(schedule).not.toHaveBeenCalled();
+        expect(getAll).not.toHaveBeenCalled();
+    });
+
+    it('reports failure without throwing', async () => {
+        const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+        getPerms.mockResolvedValue(grant);
+        getAll.mockRejectedValue(new Error('boom'));
+
+        await expect(rescheduleAllDebtReminders([])).resolves.toBeUndefined();
+
+        expect(warn).toHaveBeenCalledWith(
+            '[Notifikasi] Gagal me-reset reminder utang:',
+            expect.any(Error),
+        );
+        warn.mockRestore();
     });
 });
