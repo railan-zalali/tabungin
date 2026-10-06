@@ -3,7 +3,6 @@
 // komposisi hero + list, sesuai pola AddTransactionScreen.
 import React from 'react';
 import {
-    ActivityIndicator,
     Modal,
     ScrollView,
     StyleSheet,
@@ -15,6 +14,8 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { useTheme } from '../../store/useThemeStore';
+import { Button } from '../common/Button';
+import { ContentPanel } from '../common/ContentPanel';
 import type { RecurringFrequency } from '../../database/recurringQueries';
 import type { ResolvedCategory } from '../../utils/categoryResolver';
 
@@ -58,12 +59,7 @@ export function RecurringTransactionFormModal({
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
             <View style={styles.modalOverlay}>
-                <View
-                    style={[
-                        styles.modalContent,
-                        { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-                    ]}
-                >
+                <ContentPanel style={styles.modalContent}>
                     <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
                         Tambah Transaksi Berulang
                     </Text>
@@ -267,33 +263,24 @@ export function RecurringTransactionFormModal({
                         />
                     </View>
 
-                    {/* Actions */}
+                    {/* Actions — memakai design system Button, sama seperti modal lain */}
                     <View style={styles.modalActions}>
-                        <TouchableOpacity
-                            style={[styles.cancelButton, { borderColor: colors.border }]}
+                        <Button
+                            label="Batal"
                             onPress={onClose}
-                            accessibilityRole="button"
-                            accessibilityLabel="Batal"
-                        >
-                            <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>
-                                Batal
-                            </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.confirmButton, { backgroundColor: colors.primary }]}
+                            variant="outline"
+                            style={styles.actionButton}
+                        />
+                        <Button
+                            label="Simpan"
                             onPress={onSubmit}
+                            loading={submitting}
                             disabled={submitting}
-                            accessibilityRole="button"
-                            accessibilityLabel="Simpan transaksi berulang"
-                        >
-                            {submitting ? (
-                                <ActivityIndicator color={colors.textInverse} size="small" />
-                            ) : (
-                                <Text style={styles.confirmButtonText}>Simpan</Text>
-                            )}
-                        </TouchableOpacity>
+                            variant="primary"
+                            style={styles.actionButton}
+                        />
                     </View>
-                </View>
+                </ContentPanel>
             </View>
         </Modal>
     );
@@ -306,29 +293,21 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             backgroundColor: colors.overlay,
             justifyContent: 'center',
         },
+        // Surface, radius, border, padding, dan shadow sekarang milik
+        // ContentPanel — yang tersisa hanya pembatas ukuran modal.
         modalContent: {
-            borderRadius: 24,
-            padding: 24,
             marginHorizontal: 16,
             maxHeight: '80%',
-            borderWidth: 1,
-            shadowColor: colors.shadowColor,
-            shadowOpacity: 0.12,
-            shadowRadius: 18,
-            shadowOffset: { width: 0, height: 10 },
-            elevation: 3,
         },
         modalTitle: {
             fontFamily: FontFamily.heading,
             fontSize: FontSize.h3,
-            marginBottom: 20,
             color: colors.textPrimary,
         },
         typeToggle: {
             flexDirection: 'row',
             borderRadius: 12,
             padding: 4,
-            marginBottom: 20,
         },
         typeOption: {
             flex: 1,
@@ -342,12 +321,11 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             fontSize: FontSize.body,
         },
         inputGroup: {
-            marginBottom: 16,
+            gap: 8,
         },
         label: {
             fontFamily: FontFamily.bodyBold,
             fontSize: FontSize.caption,
-            marginBottom: 8,
         },
         input: {
             borderWidth: 1,
@@ -408,29 +386,9 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         modalActions: {
             flexDirection: 'row',
             gap: 12,
-            marginTop: 8,
+            marginTop: 4,
         },
-        cancelButton: {
+        actionButton: {
             flex: 1,
-            paddingVertical: 12,
-            borderRadius: 12,
-            borderWidth: 1,
-            alignItems: 'center',
-            backgroundColor: colors.surfaceElevated,
-        },
-        cancelButtonText: {
-            fontFamily: FontFamily.bodyBold,
-            fontSize: FontSize.body,
-        },
-        confirmButton: {
-            flex: 1,
-            paddingVertical: 12,
-            borderRadius: 12,
-            alignItems: 'center',
-        },
-        confirmButtonText: {
-            fontFamily: FontFamily.bodyBold,
-            fontSize: FontSize.body,
-            color: colors.textInverse,
         },
     });
