@@ -255,13 +255,13 @@ Urutan: **amankan fondasi → tutup fitur Fase 3 yang tertunda → rapikan sisa 
 
 ## 6. Koreksi Dokumen `DEVELOPMENT_ROADMAP.md`
 
-- [ ] §9.1: `23/23 screens` → **`25/26 screens`** (tambah catatan `QRScannerScreen` pengecualian wajar).
-- [ ] §9.1: baseline test coverage `0%` → **`61,6%` (scope terbatas)**.
-- [ ] §3.5 & §4.2: centang status P2-01 (dengan catatan regresi P0-1) dan aksi #8 yang belum terpenuhi.
-- [ ] §5.1 (P2-05): ganti status jadi **❌ belum fungsional** — jangan tertulis "High" seolah hampir siap.
-- [ ] §6.4: tambahkan referensi ke skrip EXPLAIN (setelah BD-1 di-commit).
-- [ ] §7.1–7.3: perbarui status tiap baris (P2-07 ✅, PDF ✅, Biometric ✅, Dark mode ✅, dst.).
-- [ ] Tambahkan **§12 Item Terlewat** yang memuat temuan A–M di §4 dokumen ini.
+- [x] §9.1: `23/23 screens` → **`25/26 screens`** (tambah catatan `QRScannerScreen` pengecualian wajar).
+- [x] §9.1: baseline test coverage `0%` → **`31%` terhadap seluruh `src/**`**. *Catatan: angka draft 61,6% sengaja tidak dipakai — Sprint 0 membuktikan itu scope terbatas; memakai 61,6% hanya perpetuate angka yang menyesatkan.*
+- [x] §3.5 & §4.2: status P2-01 (dengan catatan regresi P0-1) dan aksi #8 yang belum terpenuhi.
+- [x] §5.1 (P2-05): status **❌ belum fungsional**, plus catatan hasil Sprint 1 (kode siap, belum deploy & belum uji device).
+- [x] §6.4: referensi ke skrip EXPLAIN (`npm run db:explain`) — tersedia setelah BD-1 di-commit.
+- [x] §7.1–7.3: kolom **Status (Okt 2026)** per baris, berbasis bukti kode.
+- [x] **§12 Item Terlewat** — memuat temuan A–M dari §4 dokumen ini. Enam di antaranya sudah tertutup Sprint 0–1 (A, D, G, H, I, K, L); yang masih terbuka: B (JWT AsyncStorage), C (ESLint/Prettier), E (`ARCHITECTURE.md` basi), F (dead code `exportReportPDF`), J (`budgets.wallet_id` mubazir), M (anon key di `eas.json`).
 
 ---
 
@@ -306,6 +306,42 @@ Sprint 0 **sudah dieksekusi penuh**. Verifikasi akhir: `npm run verify` → **ex
 **Temuan mekanis yang berguna ke depan:** di Jest, menambah *coverage threshold group* selain `global` (mis. `'src/utils/**'`) **mengeluarkan file-file itu dari pool `global`** (`CoverageReporter.js` → `coveredFilesSortedIntoThresholdGroup`) — angka global jadi tidak jujur. Karena itu hanya `global` yang dipakai, dan peringatannya dikomentari langsung di `jest.config.js`.
 
 **Sisa Sprint 0 yang tidak dieksekusi:** tidak ada. Sisa roadmap lanjut ke Sprint 1 (Push Notification end-to-end).
+
+---
+
+## 9. Log Eksekusi Sprint 1 (5–6 Oktober 2026)
+
+Verifikasi akhir: `npm run verify` → **exit 0** (tsc 0 error + **36 suite / 474 test** lolos) dan `npm run test:coverage` → **exit 0** (coverage **31,01%**, threshold 29%).
+
+| Task | Hasil | Commit |
+|---|---|---|
+| PN-1 Tabel `user_devices` | Migrasi idempotent: tabel + `UNIQUE(push_token)` (target upsert klien), index, RLS 4 policy `user_id = auth.uid()`, grant, dan RPC SECURITY DEFINER `devices_for_emails` (khusus `service_role`) | `3bdb432` |
+| PN-2 Edge Function | `supabase/functions/send-push-notification/index.ts` (Deno): resolve `emails`/`userIds`/`tokens` → Expo Push API per batch 100, tangani tiket error, hapus token `DeviceNotRegistered` | `3bdb432` |
+| PN-3 Trigger undangan | 🟡 **Separuh** — undangan dipicu dari klien (`notifyWalletInvite`) menggantikan komentar placeholder. Trigger server `pg_cron` untuk goal/budget **ditunda** (butuh URL/secret saat deploy) | `3bdb432` |
+| PN-4 Izin on-demand | Hook tak lagi memaksa prompt saat login; toggle "Notifikasi push" di Settings membaca status izin sistem; kegagalan token dicatat, tidak ditelan | `3bdb432` |
+| IN-1 Insight Detail | `InsightDetailScreen` + `insightExplain.ts`; `InsightDetail` masuk RootStack; Dashboard & Report menunjuk ke sana | `6dafdd1` |
+| DB-1 Reminder utang | `rescheduleAllDebtReminders()` dipanggil dari `RootNavigator` setelah login | `ef78399` |
+| BD-1 Skrip EXPLAIN | `scripts/explain-queries.mjs` + `npm run db:explain` (dan `--candidates`) | `a03db36` |
+| Kebersihan | `supabase/.temp/` di-untrack | `e32fdf8` |
+| Koreksi dokumen | §3.5, §4.2, §5.1, §6.4, §7.1–7.3, §9.1 roadmap + §12 Item Terlewat | commit dokumen |
+
+**Keputusan desain yang perlu diketahui:**
+
+1. **Undangan dipicu dari klien, bukan trigger DB.** `wallet_members` masuk lewat sync, jadi satu-satunya titik yang selalu online adalah klien pengundang. Depan ini menghindari `pg_net` + konfigurasi secret per lingkungan; kalau nanti butuh trigger, Edge Function-nya sudah generik (`emails`/`userIds`/`tokens`) dan tinggal disambung.
+2. **RPC `devices_for_emails` hanya untuk `service_role`.** Email ada di `auth.users` (tidak bisa dijangkau PostgREST RLS), jadi butuh SECURITY DEFINER — tanpa pembatasan, user biasa bisa memetakan email siapa pun ke token push-nya.
+3. **`tsconfig` mengecualikan `supabase/functions`.** Berkas Edge Function adalah kode Deno, bukan bagian project TypeScript ini; tanpa pengecualian itu `tsc` gagal dengan `Cannot find name 'Deno'` dan `Cannot find module 'npm:@supabase/supabase-js@2'`.
+
+**Dua kesalahan yang tertangkap verifikasi (dicatat untuk transparansi):**
+1. **Prompt izin saat app start.** `rescheduleAllDebtReminders` awalnya memanggil `scheduleDebtReminder` tanpa penjaga; fungsi itu memanggil `requestPermissionsAsync` bila izin belum diberikan — artinya app start akan memaksa dialog ke user yang belum pernah memilih. Tertangkap saat membaca ulang implementasinya, diperbaiki dengan penjaga `getPermissionsAsync()` (tanpa prompt) + test yang menegaskan `requestPermissionsAsync` tidak terpanggil.
+2. **`updated_at` salah tipe.** Versi lama mengirim string ISO ke kolom `BIGINT`; diganti `Date.now()` dan dikonfirmasi lewat definisi kolom di migrasi.
+
+**Yang masih tertunda dan alasannya:**
+
+- **PN-3 trigger server (pg_cron goal/budget).** Butuh URL Edge Function + token scheduler per lingkungan; reminder goal/budget saat ini tetap tertutup notifikasi lokal yang sudah berjalan. Tidak dikerjakan lebih dulu agar tidak menambah konfigurasi yang tak teruji.
+- **PN-5 uji device.** Wajib setelah `supabase db push` + `functions deploy`: 3 skenario (undangan, reminder goal, budget warning) dengan app tertutup. Tidak bisa diverifikasi dari lingkungan ini.
+- **Deploy migrasi & Edge Function.** Keduanya hanya bisa dijalankan terhadap proyek Supabase nyata; SQL ditulis idempotent karena **Docker tidak tersedia** di lingkungan ini sehingga `supabase db reset` lokal tak bisa dipakai untuk memvalidasinya.
+
+**Langkah berikutnya (Sprint 2 — sisa Fase 2):** AR-1 (`RecurringTransactionScreen` → `ContentPanel`/`PrimaryActionBar`), AR-2 (`AddSavingGoalScreen` → `useSavingStore.loadGoalById`), AR-3 (`SavingDetailScreen` → `variant="glass"`), AR-4 (`syncQueue.ts` ke dalam folder `sync/`), serta self-healing sync.
 
 ---
 

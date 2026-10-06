@@ -20,6 +20,7 @@
 9. [Metrik Keberhasilan](#9-metrik-keberhasilan)
 10. [Rencana CI/CD](#10-rencana-cicd)
 11. [Risiko & Mitigasi](#11-risiko--mitigasi)
+12. [Item Terlewat (tidak pernah masuk roadmap)](#12-item-terlewat-tidak-pernah-masuk-roadmap)
 
 ---
 
@@ -190,6 +191,16 @@ Matriks prioritas berdasarkan **Impact** (nilai untuk pengguna/bisnis) vs **Effo
 **Risiko:** Sedang (mocking expo modules bisa tricky)  
 **Target coverage:** 30% pada akhir Fase 1 (critical path only)
 
+> **Status (Okt 2026):** ✅ Selesai, **dengan catatan regresi**. Setup lengkap
+> (`jest.config.js`, `jest.setup.ts`, `__tests__/`, mock `expo-sqlite` &
+> `@supabase/supabase-js`) dan CI menjalankannya, tetapi berkas test sempat
+> **terhapus dari working tree** (tidak pernah di-commit) — dipulihkan penuh
+> pada Sprint 0 (5 Okt 2026): **36 suite / 474 test lolos**, coverage jujur
+> **31%** terhadap seluruh `src/**` (angka 61,6% sebelumnya hanya menghitung
+> scope terbatas), dengan `coverageThreshold` di `jest.config.js` yang
+> menegakkannya di CI. Pekerjaan #8 `sync.ts` (unit test per modul) masih
+> sebagian — lihat §4.2.
+
 ### 3.6 P2-04: CI/CD Pipeline
 
 **Aksi:**
@@ -326,6 +337,15 @@ src/database/sync/
 **Estimasi:** 1 minggu  
 **Risiko:** Sedang (sync adalah critical path — pastikan tidak ada regression)
 
+> **Status (Okt 2026):** 🟡 **9 dari 11 modul**. Monolith 684 baris sudah hilang;
+> ada `index.ts`, `syncOrchestrator.ts`, `syncTypes.ts`, `syncTables.ts`,
+> `pushChanges.ts`, `pullChanges.ts`, `realtimeHandler.ts`, `syncUtils.ts`,
+> `syncProfile.ts`. **Sisa:** (a) `syncQueue.ts` masih di luar folder
+> `src/database/sync/syncQueue.ts`; (b) `syncSelfHealing.ts` tidak ada sama
+> sekali — tidak ada logika self-healing wallet/missing-record di mana pun.
+> **Aksi #8 (unit test per modul) belum terpenuhi penuh** — jalankan
+> `npm test` untuk melihat cakupan yang ada.
+
 ### 4.3 P3-01: Hardcoded Colors Cleanup
 
 **Aksi:**
@@ -386,6 +406,26 @@ src/database/sync/
 **Estimasi:** 1–2 minggu  
 **Dependensi:** Supabase Edge Functions setup  
 **Database:** Tambah tabel `user_devices` (v14 migration)
+
+> **Status (Okt 2026):** ❌ **Belum fungsional** — jangan dibaca sebagai "hampir
+> siap". Pada 5 Okt 2026: `supabase/functions/` tidak ada (0 Edge Function),
+> tabel `user_devices` tidak ada di SQL mana pun sehingga upsert token di
+> `usePushNotifications` gagal diam-diam, dan permission diminta otomatis saat
+> login.
+>
+> **Dikerjakan pada Sprint 1 (5 Okt 2026), status kini 🟡 kode siap, belum
+> dideploy & belum diuji di device:**
+> - aksi #2/#3 ✅ — `supabase/functions/send-push-notification/index.ts`
+>   (resolve email/user/token → Expo Push API, buang token mati),
+>   migrasi `supabase/migrations/20261005000001_user_devices_push.sql`
+>   (tabel + RLS `auth.uid()` + RPC `devices_for_emails`).
+> - aksi #4 ✅ versi klien — `inviteWalletMember` benar-benar memanggil
+>   `notifyWalletInvite` (sebelumnya hanya komentar placeholder).
+>   **Trigger server (pg_cron goal/budget) belum** — butuh keputusan deploy.
+> - aksi #5 ✅ — permission pindah ke on-demand (toggle "Notifikasi push" di
+>   Settings), tidak lagi memaksa prompt saat login.
+> - **Sisa:** `npm run supabase db push` + `functions deploy`, lalu uji di
+>   device fisik (3 skenario: invite, reminder goal, budget warning).
 
 ### 5.2 P2-06: AI Insight & Spending Prediction
 
@@ -614,6 +654,24 @@ Fitur-fitur berikut dapat diimplementasi sesuai prioritas bisnis:
    `fetchTransactionsTotals()` sehingga angka di layar tetap utuh walau daftarnya
    dipaginasi. Default tetap memuat semua baris, jadi perilaku lama tidak berubah.
 
+**Skrip reproduksi (ditambahkan 5 Okt 2026):** analisis di atas pernah
+dijalankan tetapi skripnya tidak ikut ter-commit, sehingga kesimpulannya tidak
+bisa dibuktikan ulang. Jalankan ulang dengan:
+
+```bash
+npm run db:explain                      # 20.000 transaksi, 3.000 target
+npm run db:explain -- --candidates      # + indeks kandidat di atas, untuk membandingkan
+```
+
+`scripts/explain-queries.mjs` membangun skema subset `schema.ts` di SQLite
+(`node:sqlite`, Node ≥ 22), menanam dataset deterministik, `ANALYZE`, lalu
+mencetak `EXPLAIN QUERY PLAN` + median waktu untuk 4 query yang benar-benar
+dipancarkan `transactionQueries.ts` / `savingQueries.ts`, lengkap dengan
+pemeriksaan drift bila berkas sumber berubah. Hasil terakhir (5 Okt 2026)
+**mengonfirmasi poin 1 dan 2**: S1–S3 memakai `idx_transactions_date`
+(21,3 ms / 1,5 ms / 6,0 ms), dan `fetchSavingGoals` tetap `SCAN saving_goals`
+bahkan setelah indeks kandidat dipasang.
+
 **Estimasi:** 2–3 hari
 
 ---
@@ -622,45 +680,45 @@ Fitur-fitur berikut dapat diimplementasi sesuai prioritas bisnis:
 
 ### 7.1 Fitur Prioritas Tinggi (Q4 2026 – Q1 2027)
 
-| # | Fitur | Fase | Estimasi | Impact |
-|---|-------|------|----------|--------|
-| 1 | Security cleanup (hapus password hashing lokal) | 1 | 2 hari | 🔴 Kritis |
-| 2 | Error Boundary | 1 | 1 hari | 🔴 Kritis |
-| 3 | Testing framework + critical path tests | 1-2 | 3 minggu | 🔴 Kritis |
-| 4 | CI/CD pipeline | 1 | 3 hari | 🟡 Tinggi |
-| 5 | Refactor 3 screen ke design system | 2 | 2 minggu | 🟡 Tinggi |
-| 6 | Refactor sync.ts modular | 2 | 1 minggu | 🟡 Tinggi |
-| 7 | Hardcoded colors cleanup | 2 | 2 hari | 🟢 Sedang |
-| 8 | Push notification server-side | 3 | 2 minggu | 🟡 Tinggi |
-| 9 | AI insight & prediction | 3 | 3 minggu | 🟡 Tinggi |
-| 10 | Debt tracking module | 3 | 2 minggu | 🟡 Tinggi |
-| 11 | Recurring transaction auto-generation | 3 | 1 minggu | 🟡 Tinggi |
+| # | Fitur | Fase | Estimasi | Impact | Status (Okt 2026) |
+|---|-------|------|----------|--------|--------------------|
+| 1 | Security cleanup (hapus password hashing lokal) | 1 | 2 hari | 🔴 Kritis | ✅ Selesai |
+| 2 | Error Boundary | 1 | 1 hari | 🔴 Kritis | ✅ Selesai |
+| 3 | Testing framework + critical path tests | 1-2 | 3 minggu | 🔴 Kritis | ✅ Selesai (36 suite / 474 test, coverage 31%) |
+| 4 | CI/CD pipeline | 1 | 3 hari | 🟡 Tinggi | 🟡 typecheck + test jalan; EAS build & deploy preview belum |
+| 5 | Refactor 3 screen ke design system | 2 | 2 minggu | 🟡 Tinggi | 🟡 ±85% (4 aksi sisa, lihat §4.1) |
+| 6 | Refactor sync.ts modular | 2 | 1 minggu | 🟡 Tinggi | 🟡 9/11 modul (`syncQueue` di luar folder, self-healing belum) |
+| 7 | Hardcoded colors cleanup | 2 | 2 hari | 🟢 Sedang | 🟡 layer UI bersih; `AddDebtScreen` + guard test sisa |
+| 8 | Push notification server-side | 3 | 2 minggu | 🟡 Tinggi | 🟡 Sprint 1: kode siap (fungsi + tabel + Settings), **belum deploy & uji device** |
+| 9 | AI insight & prediction | 3 | 3 minggu | 🟡 Tinggi | 🟡 Tahap 1 + Insight Detail ✅; Tahap 2 LLM/chatbot belum |
+| 10 | Debt tracking module | 3 | 2 minggu | 🟡 Tinggi | ✅ Selesai (termasuk reschedule reminder saat app start) |
+| 11 | Recurring transaction auto-generation | 3 | 1 minggu | 🟡 Tinggi | 🟡 jalan hanya saat app terbuka (belum background task) |
 
 ### 7.2 Fitur Prioritas Sedang (Q1–Q2 2027)
 
-| # | Fitur | Fase | Estimasi | Impact |
-|---|-------|------|----------|--------|
-| 12 | E2E test dengan Maestro | 4 | 1 minggu | 🟢 Sedang |
-| 13 | Performance profiling & optimization | 4 | 2 minggu | 🟢 Sedang |
-| 14 | Sentry error tracking | 4 | 3 hari | 🟢 Sedang |
-| 15 | Database optimization | 4 | 3 hari | 🟢 Sedang |
-| 16 | Biometric auth (Face ID/Fingerprint) | 3 | 2 hari | 🟡 Tinggi |
-| 17 | Receipt OCR | 3 | 2 minggu | 🟡 Tinggi |
-| 18 | Home screen widget | 3 | 1 minggu | 🟡 Tinggi |
-| 19 | Budget rollover | 3 | 3 hari | 🟢 Sedang |
-| 20 | Export to PDF | 3 | 3 hari | 🟢 Sedang |
+| # | Fitur | Fase | Estimasi | Impact | Status (Okt 2026) |
+|---|-------|------|----------|--------|--------------------|
+| 12 | E2E test dengan Maestro | 4 | 1 minggu | 🟢 Sedang | ❌ belum ada (0 file `.maestro/`, tidak ada job E2E) |
+| 13 | Performance profiling & optimization | 4 | 2 minggu | 🟢 Sedang | ✅ bundle 13 MB → 7,8 MB, pagination 500, cleanup confetti |
+| 14 | Sentry error tracking | 4 | 3 hari | 🟢 Sedang | ❌ belum ada (0 dependensi, 0 grep `Sentry`) |
+| 15 | Database optimization | 4 | 3 hari | 🟢 Sedang | ✅ pagination + EXPLAIN (`npm run db:explain`); VACUUM ditunda |
+| 16 | Biometric auth (Face ID/Fingerprint) | 3 | 2 hari | 🟡 Tinggi | ✅ selesai + relock otomatis saat app ke background |
+| 17 | Receipt OCR | 3 | 2 minggu | 🟡 Tinggi | ❌ belum ada (tanpa dependensi OCR) |
+| 18 | Home screen widget | 3 | 1 minggu | 🟡 Tinggi | ❌ belum ada |
+| 19 | Budget rollover | 3 | 3 hari | 🟢 Sedang | ❌ belum ada |
+| 20 | Export to PDF | 3 | 3 hari | 🟢 Sedang | ✅ `ReportScreen` (`expo-print` + share) |
 
 ### 7.3 Fitur Prioritas Rendah (Backlog)
 
-| # | Fitur | Estimasi | Impact |
-|---|-------|----------|--------|
-| 21 | Multi-currency support | 2 minggu | 🟢 Sedang |
-| 22 | Shared budget | 1 minggu | 🟢 Sedang |
-| 23 | Transaction tags | 3 hari | 🟢 Rendah |
-| 24 | Dark mode auto (follow system) | 0.5 hari | 🟢 Sedang |
-| 25 | Chatbot "Tanya Tabungin" | 2 minggu | 🟢 Rendah |
-| 26 | Calendar view untuk transaksi | 1 minggu | 🟢 Rendah |
-| 27 | Onboarding tutorial (interactive) | 3 hari | 🟢 Rendah |
+| # | Fitur | Estimasi | Impact | Status (Okt 2026) |
+|---|-------|----------|--------|--------------------|
+| 21 | Multi-currency support | 2 minggu | 🟢 Sedang | ❌ `currency.ts` IDR-only |
+| 22 | Shared budget | 1 minggu | 🟢 Sedang | ❌ kolom `budgets.wallet_id` ada tapi tak dipakai |
+| 23 | Transaction tags | 3 hari | 🟢 Rendah | ❌ kolom `tags` tidak ada |
+| 24 | Dark mode auto (follow system) | 0.5 hari | 🟢 Sedang | ✅ `Appearance` listener + toggle Settings |
+| 25 | Chatbot "Tanya Tabungin" | 2 minggu | 🟢 Rendah | ❌ (bagian dari P2-06 tahap 2) |
+| 26 | Calendar view untuk transaksi | 1 minggu | 🟢 Rendah | ❌ belum ada |
+| 27 | Onboarding tutorial (interactive) | 3 hari | 🟢 Rendah | 🟡 onboarding slide ada; tutorial interaktif langkah demi langkah belum |
 
 ---
 
@@ -751,12 +809,12 @@ Sebelum PR di-approve, pastikan:
 
 | Metric | Baseline | Target Fase 2 | Target Fase 4 |
 |--------|----------|---------------|---------------|
-| Test coverage | 0% | 50% | 80% |
+| Test coverage | 0% → **31%** (seluruh `src/**`, Okt 2026; angka 61,6% sebelumnya hanya scope terbatas) | 50% | 80% |
 | TypeScript errors | (audit) | 0 | 0 |
 | Crash rate | (unknown) | < 0.5% | < 0.1% |
 | Cold start time | (measure) | < 3s | < 2s |
 | Sync success rate | (unknown) | > 95% | > 99% |
-| Screen design system compliance | 20/23 screens | 23/23 screens | 23/23 screens |
+| Screen design system compliance | 20/23 screens | **25/26 screens** (satu pengecualian wajar: `QRScannerScreen`, kamera fullscreen) | 26/26 |
 | Bundle size | 13 MB (export android) → 7,8 MB | -10% | -15% |
 
 ### 9.2 Product Metrics
@@ -829,6 +887,29 @@ Sebelum PR di-approve, pastikan:
 | RLS policy bypass via RPC | Rendah | Tinggi | Audit semua RPC functions, pastikan SECURITY DEFINER tidak abuse |
 | Token leak dari AsyncStorage | Rendah | Tinggi | Gunakan expo-secure-store untuk token storage (bukan AsyncStorage) |
 | Injection via dynamic SQL | Rendah | Tinggi | Tetap gunakan parameterized queries, audit whitelist updatable fields |
+
+---
+
+## 12. Item Terlewat (tidak pernah masuk roadmap)
+
+Temuan dari audit 5 Oktober 2026 terhadap kode aktual — semuanya berada di
+luar cakupan §3–§6, jadi tidak pernah mendapat estimasi maupun status.
+
+| # | Temuan | Dampak | Status (5 Okt 2026) |
+|---|---|---|---|
+| A | **9 dependency 0 import** (`victory-native`, `@shopify/react-native-skia`, `react-native-mmkv`, `expo-crypto`, `netinfo`, `@react-navigation/stack`, `expo-linking`, `react-dom`, `nativewind`) + `@types/react` salah taruh di `dependencies` | Bundle, waktu install, permukaan audit | ✅ Dibuang (99 paket) — Sprint 0 |
+| B | **Supabase JWT disimpan di AsyncStorage** (`src/lib/supabase.ts`) | Melanggar mitigasi keamanan §11.3 sendiri | ❌ Belum — pindahkan ke SecureStore |
+| C | **Tidak ada ESLint/Prettier** — tidak pernah disebut roadmap | Kualitas kode bergantung 100% pada `tsc` | ❌ Belum — Sprint 3 |
+| D | **`.npm-cache/` (78 MB, 541 file) ter-commit ke git** | Repo bloat, clone lambat | ✅ Di-untrack + gitignore — Sprint 0 |
+| E | **`docs/ARCHITECTURE.md` basi** — masih menulis sync ada di `src/database/sync.ts` | Developer baru salah arah | ❌ Belum — Sprint 2 |
+| F | **Dead code** `exportUtils.exportReportPDF` (0 importer) | Bloat & kebingungan | ❌ Belum |
+| G | **Skrip EXPLAIN QUERY PLAN tidak di-commit** (`scripts/` kosong) — kesimpulan §6.4 tak bisa direproduksi | Regresi performa tak terdeteksi | ✅ `npm run db:explain` — Sprint 1 |
+| H | **Angka §9.1 usang** ("23/23 screens", baseline coverage "0%") | Metrik tak terbaca | ✅ Diperbarui di §9.1 — Sprint 1 |
+| I | **Scope `collectCoverageFrom` terlalu sempit** — `src/screens/**` dan `*Queries.ts` di luar pengukuran | Angka coverage menyesatkan | ✅ Diperluas ke seluruh `src/**`, threshold dipasang — Sprint 0 |
+| J | **`budgets.wallet_id` mubazir** (diisi tapi tak pernah difilter) | Inkonsistensi skema | ❌ Belum — pakai atau hapus |
+| K | **Debt reminder tidak di-reschedule saat app start** | Reminder hilang setelah kill app | ✅ `rescheduleAllDebtReminders` — Sprint 1 |
+| L | **Biometrik tanpa relock** setelah app ke background | Keamanan | ✅ `AppState` listener — Sprint 0 |
+| M | **EAS `preview` memuat URL + anon key Supabase hardcoded** di `eas.json` | Hygiene (anon key publik, sebaiknya via env/EAS secrets) | ❌ Belum — Sprint 3 |
 
 ---
 
