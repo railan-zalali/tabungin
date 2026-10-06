@@ -7,6 +7,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { GoalPreviewCard } from '../../src/components/saving/GoalPreviewCard';
 import { WalletSelector } from '../../src/components/saving/WalletSelector';
 import { GoalAmountSection } from '../../src/components/saving/GoalAmountSection';
+import { GoalBasicInfoSection } from '../../src/components/saving/GoalBasicInfoSection';
 import { GoalVisualSection } from '../../src/components/saving/GoalVisualSection';
 import { GoalStatsGrid } from '../../src/components/saving/GoalStatsGrid';
 import { SavingGoalHero } from '../../src/components/saving/SavingGoalHero';
@@ -458,5 +459,57 @@ describe('AddSavingModal', () => {
             />,
         );
         expect(queryByText('Simpan Tabungan')).toBeNull();
+    });
+});
+
+describe('GoalBasicInfoSection', () => {
+    const base = {
+        name: 'MacBook Air M3',
+        emoji: '💻',
+        accentColor: '#0EAD69',
+    };
+
+    it('menampilkan nama saat ini dan tombol ikon terpilih', () => {
+        const { getByDisplayValue, getByLabelText } = render(
+            <GoalBasicInfoSection
+                {...base}
+                onNameChange={jest.fn()}
+                onEmojiChange={jest.fn()}
+            />,
+        );
+
+        expect(getByDisplayValue('MacBook Air M3')).toBeTruthy();
+        expect(getByLabelText('Pilih ikon 💻').props.accessibilityState).toEqual({ selected: true });
+    });
+
+    it('melaporkan perubahan nama dan pilihan ikon', () => {
+        const onNameChange = jest.fn();
+        const onEmojiChange = jest.fn();
+        const { getByLabelText } = render(
+            <GoalBasicInfoSection
+                {...base}
+                onNameChange={onNameChange}
+                onEmojiChange={onEmojiChange}
+            />,
+        );
+
+        fireEvent.changeText(getByLabelText('Nama target'), 'MacBook Pro');
+        fireEvent.press(getByLabelText('Pilih ikon 🌴'));
+
+        expect(onNameChange).toHaveBeenCalledWith('MacBook Pro');
+        expect(onEmojiChange).toHaveBeenCalledWith('🌴');
+    });
+
+    it('menampilkan pesan error nama bila ada', () => {
+        const { getByText } = render(
+            <GoalBasicInfoSection
+                {...base}
+                onNameChange={jest.fn()}
+                onEmojiChange={jest.fn()}
+                nameError="Nama target wajib diisi"
+            />,
+        );
+
+        expect(getByText('Nama target wajib diisi')).toBeTruthy();
     });
 });

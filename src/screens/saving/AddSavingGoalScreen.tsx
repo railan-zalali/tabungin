@@ -10,18 +10,14 @@ import {
     ScrollView,
     StyleSheet,
     Text,
-    TextInput,
-    TouchableOpacity,
     View,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { FontFamily, FontSize } from '../../constants/typography';
 import { useSavingStore } from '../../store/useSavingStore';
-import { fetchSavingGoalById } from '../../database/savingQueries';
 import { Button } from '../../components/common/Button';
 import { ScreenShell } from '../../components/common/ScreenShell';
 import { AppScreenHeader } from '../../components/common/AppScreenHeader';
@@ -42,16 +38,15 @@ import { getGoalComputedMeta } from '../../utils/goalSharing';
 import { GoalPreviewCard } from '../../components/saving/GoalPreviewCard';
 import { WalletSelector } from '../../components/saving/WalletSelector';
 import { GoalAmountSection } from '../../components/saving/GoalAmountSection';
+import { GoalBasicInfoSection } from '../../components/saving/GoalBasicInfoSection';
 import { GoalVisualSection } from '../../components/saving/GoalVisualSection';
-
-const EMOJIS = ['💻', '🌴', '🎮', '🏠', '🚗', '📱', '✈️', '👜', '🎓', '💍', '🎯', '⭐'];
 
 export function AddSavingGoalScreen() {
     const navigation = useNavigation<SavingNavigationProp<'AddSavingGoal'>>();
     const route = useRoute<RouteProp<SavingStackParamList, 'AddSavingGoal'>>();
     const { colors } = useTheme();
     const styles = React.useMemo(() => getStyles(colors), [colors]);
-    const { addGoal, editGoal, isLoading } = useSavingStore();
+    const { addGoal, editGoal, loadGoalById, isLoading } = useSavingStore();
     const { wallets, loadWallets } = useWalletStore();
     const activeProfileId = useProfileStore((state) => state.activeProfileId);
 
@@ -117,7 +112,10 @@ export function AddSavingGoalScreen() {
 
             setIsPrefilling(true);
             try {
-                const goal = await fetchSavingGoalById(editId);
+                // Data target diambil lewat store (bukan query langsung) supaya
+                // screen tidak menyentuh layer DB — roadmap §4.1 P2-02.
+                await loadGoalById(editId);
+                const goal = useSavingStore.getState().currentGoal;
                 if (!goal) {
                     Alert.alert('Target tidak ditemukan');
                     navigation.goBack();
@@ -153,7 +151,7 @@ export function AddSavingGoalScreen() {
         return () => {
             isMounted = false;
         };
-    }, [editId, navigation]);
+    }, [editId, loadGoalById, navigation]);
 
     useEffect(() => {
         if (selectedWalletId || wallets.length === 0 || (isEditMode && isPrefilling)) {
@@ -306,52 +304,18 @@ export function AddSavingGoalScreen() {
                             />
                         </Animated.View>
 
-                        <Animated.View
-                            entering={FadeInDown.delay(180).springify()}
-                            style={[styles.sectionCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
-                        >
-                            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-                                Identitas Target
-                            </Text>
-                            <Text style={styles.fieldLabel}>Nama Target</Text>
-                            <View style={[styles.glassInput, errors.name ? styles.inputError : null]}>
-                                <MaterialCommunityIcons name="tag-outline" size={18} color={colors.textSecondary} />
-                                <TextInput
-                                    style={[styles.textInput, { color: colors.textPrimary }]}
-                                    value={name}
-                                    onChangeText={(value) => {
-                                        setName(value);
-                                        clearFieldError('name');
-                                    }}
-                                    placeholder="cth: MacBook Air M3"
-                                    placeholderTextColor={colors.textSecondary}
-                                    accessibilityLabel="Nama target"
-                                />
-                            </View>
-                            {errors.name ? <Text style={styles.errorText}>{errors.name}</Text> : null}
-
-                            <Text style={styles.fieldLabel}>Pilih Ikon</Text>
-                            <ScrollView
-                                horizontal
-                                showsHorizontalScrollIndicator={false}
-                                contentContainerStyle={styles.emojiRow}
-                            >
-                                {EMOJIS.map((item) => (
-                                    <TouchableOpacity
-                                        key={item}
-                                        style={[
-                                            styles.emojiBtn,
-                                            emoji === item && { borderColor: color, backgroundColor: `${color}18` },
-                                        ]}
-                                        onPress={() => setEmoji(item)}
-                                        accessibilityRole="button"
-                                        accessibilityState={{ selected: emoji === item }}
-                                        accessibilityLabel={`Pilih ikon ${item}`}
-                                    >
-                                        <Text style={styles.emojiText}>{item}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
+                        <Animated.View entering={FadeInDown.delay(180).springify()}>
+                            <GoalBasicInfoSection
+                                name={name}
+                                onNameChange={(value) => {
+                                    setName(value);
+                                    clearFieldError('name');
+                                }}
+                                emoji={emoji}
+                                onEmojiChange={setEmoji}
+                                accentColor={color}
+                                nameError={errors.name}
+                            />
                         </Animated.View>
 
                         <Animated.View entering={FadeInDown.delay(240).springify()}>
@@ -443,47 +407,6 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
             fontSize: FontSize.caption,
             lineHeight: 20,
         },
-        fieldLabel: {
-            fontFamily: FontFamily.bodyBold,
-            fontSize: FontSize.caption,
-            color: colors.textSecondary,
-            textTransform: 'uppercase',
-            letterSpacing: 0.4,
-        },
-        glassInput: {
-            minHeight: 54,
-            borderRadius: 16,
-            borderWidth: 1,
-            borderColor: colors.border,
-            backgroundColor: colors.surfaceElevated,
-            paddingHorizontal: 16,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 10,
-        },
-        textInput: {
-            flex: 1,
-            fontFamily: FontFamily.body,
-            fontSize: FontSize.body,
-        },
-        inputError: { borderColor: colors.danger },
-        errorText: {
-            fontFamily: FontFamily.body,
-            fontSize: FontSize.caption,
-            color: colors.danger,
-        },
-        emojiRow: { flexDirection: 'row', gap: 12 },
-        emojiBtn: {
-            width: 56,
-            height: 56,
-            borderRadius: 18,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: colors.surfaceElevated,
-            borderWidth: 1,
-            borderColor: colors.border,
-        },
-        emojiText: { fontSize: 28 },
         footer: {
             padding: 20,
             paddingBottom: 32,
