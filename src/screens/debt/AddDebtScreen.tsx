@@ -385,6 +385,6 @@ const getStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
         saveButtonText: {
             fontFamily: FontFamily.bodyBold,
             fontSize: FontSize.body,
-            color: '#FFFFFF',
+            color: colors.textInverse,
         },
     });

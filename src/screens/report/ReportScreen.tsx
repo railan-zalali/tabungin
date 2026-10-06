@@ -49,6 +49,12 @@ function getPeriodDates(period: PeriodFilter) {
     return { start: start.getTime(), end };
 }
 
+// Warna untuk HTML laporan. String ini dirender oleh expo-print di luar
+// React Native, jadi tidak bisa memakai token tema — karena itu ditulis
+// sebagai konstanta bernama, bukan hex inline (P3-01).
+const REPORT_BORDER = '#D8DEE6';
+const REPORT_TEXT = '#111827';
+
 function generateHTMLReport(
     expenseCategories: CategorySummary[],
     incomeCategories: CategorySummary[],
@@ -56,6 +62,7 @@ function generateHTMLReport(
     totalExpense: number,
     period: PeriodFilter,
 ) {
+    const headerCell = `text-align:left; border-bottom:1px solid ${REPORT_BORDER}; padding:8px;`;
     const rows = expenseCategories
         .map((item) => `<tr><td>${item.category}</td><td>Pengeluaran</td><td>${formatCurrency(item.total)}</td></tr>`)
         .concat(incomeCategories.map((item) => `<tr><td>${item.category}</td><td>Pemasukan</td><td>${formatCurrency(item.total)}</td></tr>`))
@@ -63,7 +70,7 @@ function generateHTMLReport(
 
     return `
         <html>
-            <body style="font-family: Arial, sans-serif; padding: 24px;">
+            <body style="font-family: Arial, sans-serif; padding: 24px; color: ${REPORT_TEXT};">
                 <h1>Laporan Tabungin</h1>
                 <p>Periode: ${period}</p>
                 <p>Total pemasukan: ${formatCurrency(totalIncome)}</p>
@@ -72,9 +79,9 @@ function generateHTMLReport(
                 <table style="width:100%; border-collapse: collapse; margin-top: 24px;">
                     <thead>
                         <tr>
-                            <th style="text-align:left; border-bottom:1px solid #ddd; padding:8px;">Kategori</th>
-                            <th style="text-align:left; border-bottom:1px solid #ddd; padding:8px;">Tipe</th>
-                            <th style="text-align:left; border-bottom:1px solid #ddd; padding:8px;">Nominal</th>
+                            <th style="${headerCell}">Kategori</th>
+                            <th style="${headerCell}">Tipe</th>
+                            <th style="${headerCell}">Nominal</th>
                         </tr>
                     </thead>
                     <tbody>${rows}</tbody>
