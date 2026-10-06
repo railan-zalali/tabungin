@@ -102,7 +102,6 @@ export function SavingDetailScreen() {
                     title="Detail Target"
                     showBack
                     onBackPress={() => navigation.goBack()}
-                    variant="transparent"
                 />
                 <View style={styles.loadingContainer}>
                     <Text style={styles.loadingText}>Memuat...</Text>
@@ -142,7 +141,6 @@ export function SavingDetailScreen() {
                     label: 'Edit',
                     onPress: () => navigation.navigate('AddSavingGoal', { editId: goalId }),
                 }}
-                variant="transparent"
             />
 
             {showConfetti ? (
