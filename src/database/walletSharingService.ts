@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 import { isValidWalletId } from "../utils/walletInvite";
 import { useAuthStore } from "../store/useAuthStore";
 import { notifyWalletInvite } from "../utils/pushNotify";
-import { runSerializedSyncTask } from "./syncQueue";
+import { runSerializedSyncTask } from "./sync/syncQueue";
 
 type RemoteWalletMember = WalletMember & {
   updated_at: number;

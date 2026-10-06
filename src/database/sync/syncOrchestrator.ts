@@ -2,7 +2,7 @@
 // satu sync yang berjalan pada satu waktu.
 // Diekstrak dari database/sync.ts.
 import { isSupabaseConfigured, supabase, warnIfSupabaseUnavailable } from '../../lib/supabase';
-import { runSerializedSyncTask } from '../syncQueue';
+import { runSerializedSyncTask } from './syncQueue';
 import { pushChanges } from './pushChanges';
 import { pullChanges } from './pullChanges';
 

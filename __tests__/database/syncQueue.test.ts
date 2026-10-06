@@ -1,4 +1,4 @@
-import { isSyncTaskRunning, runSerializedSyncTask } from '../../src/database/syncQueue';
+import { isSyncTaskRunning, runSerializedSyncTask } from '../../src/database/sync/syncQueue';
 
 describe('syncQueue', () => {
     beforeEach(() => {
