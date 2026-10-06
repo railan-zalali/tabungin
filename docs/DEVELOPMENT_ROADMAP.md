@@ -105,6 +105,13 @@ Matriks prioritas berdasarkan **Impact** (nilai untuk pengguna/bisnis) vs **Effo
 
 **Tujuan:** Menghapus technical debt kritis, menambah safety net, dan memastikan foundation yang solid sebelum pengembangan fitur baru.
 
+> **Status fase (6 Oktober 2026): 🟡 sebagian besar selesai.** P1-01, P1-02,
+> P1-04, dan P2-01 ✅ (detail di §3.5). P1-03 ✅ — 10 dependency 0 import sudah
+> dibuang, termasuk `nativewind` yang tadinya terkonfigurasi tapi tak pernah
+> dipakai. P2-04 🟡 — CI menjalankan typecheck + test (coverage gate aktif),
+> tetapi stage EAS build dan deploy preview belum, dan belum ada
+> ESLint/Prettier. Detail tiap butir ada di blok status pada sub-bagiannya.
+
 ### 3.1 P1-01: Hapus Password Hashing Lokal yang Tidak Aman
 
 **Masalah:** `authQueries.ts` masih memiliki SHA-256 + static salt password hashing yang usang.
@@ -235,6 +242,16 @@ Matriks prioritas berdasarkan **Impact** (nilai untuk pengguna/bisnis) vs **Effo
 ## 4. Fase 2 — Perbaikan Arsitektur (Bulan 2–3)
 
 **Tujuan:** Menyamakan semua screen ke design system, memecah sync engine yang monolitik, dan membersihkan kode yang tidak konsisten.
+
+> **Status fase (6 Oktober 2026): 🟡 selesai dengan 2 caveat.** P2-02 ✅ — ketiga
+> layar yang di_target sudah memakai `ScreenShell` + `AppScreenHeader` + typed
+> navigation, blok inline diekstrak ke `components/saving/*`, dan form transaksi
+> berulang kini memakai `ContentPanel` + `Button` design system. P3-02 ✅.
+> P2-03 🟡 — 10 dari 11 modul sync sudah terpisah dan `syncQueue.ts` sudah
+> pindah ke `src/database/sync/`; yang belum ada adalah `syncSelfHealing.ts`.
+> P3-01 ✅ — nol hex/rgba di layer UI, dilindungi guard test
+> `__tests__/guards/hardcodedColors.test.ts`. Detail tiap butir ada di blok
+> status pada sub-bagiannya.
 
 ### 4.1 P2-02: Refactor 3 Screen ke Design System
 
