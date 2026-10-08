@@ -50,6 +50,31 @@ jest.mock('expo-notifications', () => ({
     removeNotificationSubscription: jest.fn(),
 }));
 
+// Subpath yang dipakai usePushNotifications. Modul-modul ini sengaja diimpor
+// satu-per-satu (bukan lewat barrel) karena barrel `expo-notifications`
+// menjalankan auto-registrasi token di scope modul dan melempar error di
+// Expo Go Android. Mock di atas tidak menutup subpath.
+jest.mock('expo-notifications/build/NotificationPermissions', () => ({
+    getPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
+    requestPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
+}));
+
+jest.mock('expo-notifications/build/NotificationsHandler', () => ({
+    setNotificationHandler: jest.fn(),
+}));
+
+jest.mock('expo-notifications/build/setNotificationChannelAsync', () => ({
+    setNotificationChannelAsync: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('expo-notifications/build/getExpoPushTokenAsync', () => ({
+    getExpoPushTokenAsync: jest.fn().mockResolvedValue({ data: 'ExponentPushToken[test]' }),
+}));
+
+jest.mock('expo-notifications/build/NotificationChannelManager.types', () => ({
+    AndroidImportance: { MIN: 1, LOW: 2, DEFAULT: 3, HIGH: 4, MAX: 5 },
+}));
+
 jest.mock('expo-image-picker', () => ({
     launchImageLibraryAsync: jest.fn(),
     launchCameraAsync: jest.fn(),

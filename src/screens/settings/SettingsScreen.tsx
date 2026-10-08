@@ -11,6 +11,7 @@ import {
     getPushPermission,
     optInPushNotifications,
     openSystemNotificationSettings,
+    canRegisterRemotePush,
 } from '../../hooks/usePushNotifications';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useNotificationStore } from '../../store/useNotificationStore';
@@ -91,6 +92,18 @@ export function SettingsScreen() {
 
     const handlePushToggle = async (value: boolean) => {
         if (value) {
+            // Push remote butuh development build; Expo Go sudah tidak
+            // mendukungnya (SDK 53+). Tanpa cek ini user diarahkan ke
+            // Pengaturan sistem untuk masalah yang bukan soal izin.
+            if (!canRegisterRemotePush()) {
+                Alert.alert(
+                    'Perlu development build',
+                    'Notifikasi push tidak bisa diaktifkan di Expo Go. Jalankan aplikasi lewat development build (EAS preview / expo run) untuk mengaktifkan fitur ini. Notifikasi terjadwal tetap berjalan di Expo Go.',
+                    [{ text: 'Oke' }]
+                );
+                return;
+            }
+
             const ok = await optInPushNotifications();
             setPushGranted(ok);
             if (!ok) {
